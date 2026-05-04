@@ -1,0 +1,9 @@
+beautifulsoup4
+chromadb
+Flask
+openai
+pdfplumber
+PyPDF2
+python-dotenv
+requests
+flask_cors

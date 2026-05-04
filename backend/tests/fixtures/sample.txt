@@ -1,0 +1,2 @@
+Plain text fixture for ingestion tests.
+Second line with unicode: cafe, naive, jalapeno.
