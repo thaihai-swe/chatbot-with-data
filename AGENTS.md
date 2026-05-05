@@ -10,8 +10,7 @@ These rules override everything else in this file when in conflict:
 4. **Stop when confused.** If the task has two plausible interpretations, ask. Do not pick silently and proceed.
 5. **Touch only what you must.** Every changed line must trace directly to the user's request. No drive-by refactors, reformatting, or "while I was in there" cleanups.
 6. **Use the matching skill before freeform work.** In this repo, `skills/` is the workflow contract. Do not improvise around it when an existing skill applies.
-
----
+7. **Follow SOLID principles.**
 
 ---
 
@@ -63,25 +62,10 @@ These rules override everything else in this file when in conflict:
 
 **Goal: define success as something you can verify, then loop until verified.**
 
-Rewrite vague asks into verifiable goals before starting:
-
-- "Add validation" becomes "Write tests for invalid inputs (empty, malformed, oversized), then make them pass."
-- "Fix the bug" becomes "Write a failing test that reproduces the reported symptom, then make it pass."
-- "Refactor X" becomes "Ensure the existing test suite passes before and after, and no public API changes."
-- "Make it faster" becomes "Benchmark the current hot path, identify the bottleneck with profiling, change it, show the benchmark is faster."
-
-For multi-step tasks, state a brief plan in this shape:
-
-```text
-1. [Step] -> verify: [check]
-2. [Step] -> verify: [check]
-3. [Step] -> verify: [check]
-```
-
 For every task:
 
 1. State the success criteria before writing code.
-2. Write the verification (test, script, benchmark, screenshot diff) where practical.
+2. Write the verification (script, benchmark, screenshot diff) where practical.
 3. Run the verification. Read the output. Do not claim success without checking.
 4. If the verification fails, fix the cause, not the test.
 

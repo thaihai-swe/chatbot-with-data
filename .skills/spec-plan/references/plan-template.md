@@ -135,13 +135,7 @@ Completion criteria:
 
 - CC-002:
 
-## Validation Strategy
 
-- TEST-001 Unit tests:
-- TEST-002 Integration tests:
-- TEST-003 End-to-end tests:
-- TEST-004 Manual verification:
-- TEST-005 Observability checks:
 
 ## Traceability Matrix
 

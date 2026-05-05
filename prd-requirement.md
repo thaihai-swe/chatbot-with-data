@@ -58,7 +58,7 @@ Create a document-aware AI assistant and experimentation platform that can:
 * Autonomous agent platform
 * Multi-tenant SaaS product
 * Large-scale production deployment
-* Fine-tuning foundation models in v1
+* Fine-tuning foundation models
 
 ---
 
@@ -271,7 +271,7 @@ The system must:
 * Generate embeddings for all chunks
 * Store vectors in a vector database
 * Support a configurable embedding model
-* Start with one embedding provider in v1
+* Start with one embedding provider
 * Store metadata required for filtering and citation
 * Support re-indexing when documents, chunking settings, or embedding settings change
 * Support indexing child chunks and parent chunks when parent-child retrieval is enabled
@@ -705,7 +705,7 @@ Automatic collection detection must output:
 
 Automatic collection detection must be visible in debug view and logged for evaluation.
 
-For v1, explicit collection selection should be prioritized. Automatic collection detection should be optional and configurable.
+
 
 ---
 
@@ -1030,7 +1030,6 @@ If the user does not specify a collection, the system should either:
 * search across all collections by default, or
 * infer the most relevant collection using query intent and document metadata.
 
-For v1, explicit collection selection should be prioritized over automatic collection inference.
 
 Automatic collection detection may be added as an advanced capability after the core retrieval system is working.
 
@@ -1608,11 +1607,11 @@ Frontend:
 
 * HTML
 * CSS
-* React
+* ReactJS
 
 Backend:
 
-* Python API
+* Python FastAPI
 * virtual environment
 
 Storage:

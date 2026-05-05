@@ -1,9 +1,12 @@
 beautifulsoup4
 chromadb
-Flask
+fastapi
+httpx
 openai
 pdfplumber
 PyPDF2
+pytest
 python-dotenv
+python-multipart
 requests
-flask_cors
+uvicorn
