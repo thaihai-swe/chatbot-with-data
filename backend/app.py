@@ -5,8 +5,10 @@ from backend.config import build_config
 from backend.persistence.chroma import init_chroma_client
 from backend.persistence.schema import init_schema
 from backend.routes.collections import collections_blueprint
+from backend.routes.chat import chat_blueprint
 from backend.routes.documents import documents_blueprint
 from backend.routes.ingestion import ingestion_blueprint
+from backend.routes.runs import runs_blueprint
 
 def create_app(overrides=None):
     app = Flask(__name__)
@@ -15,6 +17,8 @@ def create_app(overrides=None):
     CORS(app) #[cite: 1]
 
     app.config.update(build_config(overrides))
+    if app.config.get("TESTING") and (not overrides or "GENERATION_PROVIDER" not in overrides):
+        app.config["GENERATION_PROVIDER"] = "local-extractive-v1"
     frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 
     data_dir = Path(app.config["DATA_DIR"])
@@ -32,8 +36,10 @@ def create_app(overrides=None):
     app.extensions["chroma_client"] = init_chroma_client(chroma_dir)
 
     app.register_blueprint(collections_blueprint)
+    app.register_blueprint(chat_blueprint)
     app.register_blueprint(documents_blueprint)
     app.register_blueprint(ingestion_blueprint)
+    app.register_blueprint(runs_blueprint)
 
     @app.get("/health")
     def health():

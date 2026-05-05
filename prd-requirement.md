@@ -6,7 +6,7 @@
 
 ## 1. Summary
 
-Build a learning-focused Chatbot Retrieval Augmented Generation (RAG) application that ingests user-provided knowledge sources, retrieves relevant evidence with multiple search strategies, generates answers with citations, and evaluates answer quality and retrieval quality over time.
+Build a learning-focused AI Chatbot Retrieval Augmented Generation (RAG) application that ingests user-provided knowledge sources, retrieves relevant evidence with multiple search strategies, generates answers with citations, and evaluates answer quality and retrieval quality over time. Use OpenAI library to connect to LLM.
 
 Users can chat with the system, ask questions based on ingested documents, and see how different retrieval strategies affect answer quality. The system will also include safety features to refuse unsupported questions, prevent prompt injection, and make retrieval behavior transparent.
 
@@ -1604,12 +1604,11 @@ Core components:
 
 ## 9. v1 Technical Direction
 
-Simple Frontend:
+Frontend:
 
 * HTML
 * CSS
-* JavaScript
-* Call API endpoints.
+* React
 
 Backend:
 

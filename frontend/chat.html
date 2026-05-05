@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grounded Chat</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="page-header">
+        <div>
+          <p class="muted">RAG Knowledge Base Lab</p>
+          <h1>Grounded Chat</h1>
+          <p class="muted">
+            Ask questions against a collection, inspect citations, and review refusals when evidence is weak.
+          </p>
+        </div>
+        <nav class="page-nav">
+          <a href="./document-library.html">Document Library</a>
+          <a href="./collections.html">Collections</a>
+          <a href="./chat.html">Grounded Chat</a>
+        </nav>
+      </header>
+
+      <div id="chat-status" class="status-banner" aria-live="polite"></div>
+
+      <div class="chat-layout">
+        <aside class="panel chat-sidebar">
+          <div class="chat-sidebar-header">
+            <h2>Sessions</h2>
+            <button id="new-session" type="button">New Chat</button>
+          </div>
+          <div id="session-list" class="session-list" aria-label="Chat sessions"></div>
+        </aside>
+
+        <main class="chat-main">
+          <section class="panel">
+            <h2>Ask A Question</h2>
+            <form id="chat-form">
+              <div class="filters">
+                <label>
+                  Collection
+                  <select id="chat-collection">
+                    <option value="">All collections</option>
+                  </select>
+                </label>
+                <label>
+                  Retrieval Mode
+                  <select id="retrieval-mode">
+                    <option value="semantic">Semantic</option>
+                    <option value="keyword">Keyword</option>
+                    <option value="hybrid">Hybrid</option>
+                  </select>
+                </label>
+                <label class="toggle-field">
+                  <span>Streaming</span>
+                  <input id="stream-toggle" type="checkbox" />
+                </label>
+                <label class="toggle-field">
+                  <span>Debug Panel</span>
+                  <input id="debug-toggle" type="checkbox" />
+                </label>
+              </div>
+
+              <label>
+                Question
+                <textarea id="question-input" rows="4" placeholder="Ask a grounded question about your uploaded documents." required></textarea>
+              </label>
+
+              <div class="actions">
+                <button id="send-question" type="submit">Send Question</button>
+                <button id="cancel-turn" type="button" class="warning" disabled>Cancel</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel">
+            <h2>Conversation</h2>
+            <div id="chat-history" class="chat-history" aria-live="polite"></div>
+          </section>
+
+          <section class="panel">
+            <h2>Latest Response</h2>
+            <div id="answer-status" class="pill">Idle</div>
+            <div id="safety-banner-container" class="safety-banner-stack"></div>
+            <div class="response-toolbar">
+              <span id="run-label" class="muted">No completed run selected.</span>
+              <button id="open-debug-view" type="button" class="secondary" disabled>Open Debug View</button>
+            </div>
+            <div id="answer-panel" class="answer-panel"></div>
+            <div id="citations-panel" class="citations-panel"></div>
+          </section>
+
+          <section id="debug-panel" class="panel" hidden>
+            <div class="debug-header">
+              <div>
+                <h2>Debug View</h2>
+                <p id="debug-run-subtitle" class="muted">Select a completed run to inspect the pipeline state.</p>
+              </div>
+              <button id="refresh-debug-view" type="button" class="secondary" disabled>Refresh</button>
+            </div>
+            <div id="debug-view-content" class="debug-view-content">
+              <p class="muted">No debug run selected yet.</p>
+            </div>
+            <details class="debug-raw">
+              <summary>Raw payload</summary>
+              <pre id="debug-output" class="debug-output"></pre>
+            </details>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div id="citation-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="citation-modal-title">
+      <div class="modal-card modal-wide">
+        <div class="modal-header">
+          <h2 id="citation-modal-title">Citation Detail</h2>
+          <button id="citation-close" type="button" class="secondary modal-close" aria-label="Close citation dialog">
+            Close
+          </button>
+        </div>
+        <dl class="metric-grid">
+          <div class="metric-card">
+            <span class="muted">Document</span>
+            <strong id="citation-document-title">-</strong>
+          </div>
+          <div class="metric-card">
+            <span class="muted">Chunk ID</span>
+            <strong id="citation-chunk-id">-</strong>
+          </div>
+          <div class="metric-card">
+            <span class="muted">Page / Section</span>
+            <strong id="citation-page-section">-</strong>
+          </div>
+          <div class="metric-card">
+            <span class="muted">Retrieval Mode</span>
+            <strong id="citation-retrieval-mode">-</strong>
+          </div>
+          <div class="metric-card">
+            <span class="muted">Retrieval Score</span>
+            <strong id="citation-score">-</strong>
+          </div>
+          <div class="metric-card">
+            <span class="muted">Source URL</span>
+            <strong id="citation-source-url">-</strong>
+          </div>
+        </dl>
+        <h3>Snippet</h3>
+        <div id="citation-snippet" class="snippet-box"></div>
+        <div class="modal-actions">
+          <a id="citation-library-link" class="button-link" href="./document-library.html">View In Library</a>
+        </div>
+      </div>
+    </div>
+
+    <div id="chat-error-modal" class="modal-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="chat-error-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2 id="chat-error-title">Request Error</h2>
+          <button id="chat-error-close" type="button" class="secondary modal-close" aria-label="Close error dialog">
+            Close
+          </button>
+        </div>
+        <p id="chat-error-message" class="muted"></p>
+      </div>
+    </div>
+
+    <script src="./chat.js"></script>
+  </body>
+</html>

@@ -5,6 +5,7 @@ const API_BASE =
 
 const state = {
   duplicateDocumentId: null,
+  highlightedDocumentId: new URL(window.location.href).searchParams.get("document_id"),
 };
 
 function setStatus(message, tone = "") {
@@ -121,7 +122,17 @@ async function loadDocuments() {
   }
 
   const payload = await apiFetch(`/documents${query.toString() ? `?${query.toString()}` : ""}`);
-  renderDocuments(payload.items || []);
+  const items = payload.items || [];
+  if (state.highlightedDocumentId) {
+    renderDocuments(items.filter((item) => item.document_id === state.highlightedDocumentId));
+    if (!items.some((item) => item.document_id === state.highlightedDocumentId)) {
+      setStatus(`Document ${state.highlightedDocumentId} was not found.`, "error");
+    } else {
+      setStatus(`Showing cited document ${state.highlightedDocumentId}.`, "success");
+    }
+    return;
+  }
+  renderDocuments(items);
 }
 
 function openDuplicateModal(payload) {

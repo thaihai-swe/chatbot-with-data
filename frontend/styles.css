@@ -251,6 +251,10 @@ th {
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
 }
 
+.modal-wide {
+  width: min(780px, 100%);
+}
+
 .modal-header {
   display: flex;
   align-items: center;
@@ -269,12 +273,281 @@ th {
   margin-top: 16px;
 }
 
+.chat-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 20px;
+}
+
+.chat-main {
+  min-width: 0;
+}
+
+.chat-sidebar {
+  height: fit-content;
+  position: sticky;
+  top: 20px;
+}
+
+.chat-sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.chat-sidebar-header h2 {
+  margin-bottom: 0;
+}
+
+.session-list {
+  display: grid;
+  gap: 10px;
+}
+
+.session-item {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  background: #fffdf7;
+  color: #1f2933;
+  border: 1px solid #ddd6c8;
+}
+
+.session-item.active {
+  outline: 2px solid #0b5fff;
+}
+
+.toggle-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toggle-field input {
+  width: auto;
+}
+
+.chat-history {
+  display: grid;
+  gap: 12px;
+  max-height: 480px;
+  overflow: auto;
+}
+
+.message-card {
+  border: 1px solid #e7dfd1;
+  border-radius: 12px;
+  padding: 14px;
+  background: #f8f5ee;
+}
+
+.message-card.assistant {
+  background: #ffffff;
+}
+
+.message-card.refusal {
+  border-color: #f59e0b;
+  background: #fff8eb;
+}
+
+.message-card p {
+  margin-bottom: 0;
+}
+
+.message-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.answer-panel {
+  min-height: 100px;
+  margin-top: 16px;
+}
+
+.response-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.answer-copy p {
+  margin-top: 0;
+}
+
+.inline-citations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.citation-marker,
+.citation-link {
+  border: none;
+  background: none;
+  color: #0b5fff;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  text-decoration: underline;
+}
+
+.citation-list {
+  margin: 16px 0 0;
+  padding-left: 20px;
+}
+
+.citation-list li {
+  margin-bottom: 8px;
+}
+
+.citations-panel {
+  margin-top: 16px;
+}
+
+.refusal-box {
+  border: 1px solid #f5d0a5;
+  border-radius: 12px;
+  padding: 16px;
+  background: #fff7ed;
+}
+
+.warning-pill {
+  background: #fff1d6;
+  color: #a15c07;
+}
+
+.safety-pill {
+  background: #efe6ff;
+  color: #6941c6;
+}
+
+.safety-banner-stack {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.safety-banner {
+  border: 1px solid #e7dfd1;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #fffdf8;
+}
+
+.safety-banner.warning {
+  border-color: #f2c38b;
+  background: #fff7ed;
+}
+
+.safety-banner.info {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.safety-banner p {
+  margin: 8px 0 0;
+}
+
+.snippet-box {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #e7dfd1;
+  border-radius: 12px;
+  background: #fffdf8;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.debug-output {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.debug-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
+.debug-view-content {
+  display: grid;
+  gap: 18px;
+}
+
+.debug-section {
+  margin-top: 8px;
+}
+
+.debug-card-list {
+  display: grid;
+  gap: 10px;
+}
+
+.debug-card {
+  border: 1px solid #e7dfd1;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fffdf8;
+}
+
+.debug-card.warning {
+  border-color: #f2c38b;
+  background: #fff7ed;
+}
+
+.debug-card p {
+  margin-bottom: 0;
+}
+
+.debug-raw {
+  margin-top: 18px;
+}
+
+.message-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.debug-history-button {
+  width: auto;
+}
+
 @media (max-width: 840px) {
   .split-view {
     grid-template-columns: 1fr;
   }
 
+  .chat-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-sidebar {
+    position: static;
+  }
+
   .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .response-toolbar,
+  .debug-header,
+  .message-meta-row {
     flex-direction: column;
     align-items: flex-start;
   }
