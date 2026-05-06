@@ -3,6 +3,7 @@ import { NavLink, Route, Routes } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import CollectionsScreen from "./screens/Collections";
 import DocumentLibraryScreen from "./screens/DocumentLibrary";
+import ChatScreen from "./screens/Chat";
 
 function App() {
   return (
@@ -25,7 +26,7 @@ function App() {
               to="/"
               end
             >
-              Document Library
+              Library
             </NavLink>
             <NavLink
               className={({ isActive }) =>
@@ -35,12 +36,22 @@ function App() {
             >
               Collections
             </NavLink>
+            <NavLink
+              className={({ isActive }) =>
+                isActive ? "nav-link nav-link-active" : "nav-link"
+              }
+              to="/chat"
+            >
+              Chat
+            </NavLink>
           </nav>
         </header>
         <main className="page-shell">
           <Routes>
             <Route path="/" element={<DocumentLibraryScreen />} />
             <Route path="/collections" element={<CollectionsScreen />} />
+            <Route path="/chat" element={<ChatScreen />} />
+            <Route path="/chat/:sessionId" element={<ChatScreen />} />
           </Routes>
         </main>
       </div>

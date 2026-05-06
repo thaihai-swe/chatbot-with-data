@@ -45,7 +45,7 @@ Do not use this skill for:
 - writing production code
 - replacing a needed `design.md` with planning guesses
 
-If planning exposes weak requirements, route back to `spec-requirement` or `spec-review-requirements` instead of guessing.
+If planning exposes weak requirements, route back to `spec-requirement` or `spec-review-requirement` instead of guessing.
 
 ## Stop Conditions
 

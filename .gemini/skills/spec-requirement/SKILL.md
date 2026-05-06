@@ -30,7 +30,7 @@ Use this skill when the user needs to:
 
 - define a new feature or change request
 - refine an existing `spec.md`
-- resolve product ambiguity before `/spec-review-requirements`
+- resolve product ambiguity before `/spec-review-requirement`
 - capture users, problem, goals, scenarios, requirements, and acceptance criteria
 
 Do not use this skill for:

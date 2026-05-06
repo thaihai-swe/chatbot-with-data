@@ -43,6 +43,7 @@ class OpenAIEmbeddingClient:
     def __init__(
         self,
         api_key: Optional[str] = None,
+        api_base: Optional[str] = None,
         model: str = "text-embedding-3-small",
         max_retries: int = 3,
         timeout: int = 30,
@@ -52,6 +53,7 @@ class OpenAIEmbeddingClient:
 
         Args:
             api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
+            api_base: Optional custom API base URL
             model: Embedding model to use
             max_retries: Max retries for transient errors
             timeout: Request timeout in seconds
@@ -64,6 +66,9 @@ class OpenAIEmbeddingClient:
             )
 
         openai.api_key = self.api_key
+        if api_base:
+            openai.api_base = api_base
+        
         self.model = model
         self.max_retries = max_retries
         self.timeout = timeout

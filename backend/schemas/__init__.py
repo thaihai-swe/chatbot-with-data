@@ -10,6 +10,13 @@ from schemas.documents import (
     DuplicateDecisionRequest,
 )
 from schemas.ingestion import IngestionAttemptResponse, UrlIngestionRequest
+from schemas.chat import (
+    ChatSessionCreate,
+    ChatSessionResponse,
+    ChatTurnCreate,
+    ChatTurnResponse,
+    CitationResponse,
+)
 
 __all__ = [
     "CollectionCreate",
@@ -21,4 +28,9 @@ __all__ = [
     "DuplicateDecisionRequest",
     "IngestionAttemptResponse",
     "UrlIngestionRequest",
+    "ChatSessionCreate",
+    "ChatSessionResponse",
+    "ChatTurnCreate",
+    "ChatTurnResponse",
+    "CitationResponse",
 ]

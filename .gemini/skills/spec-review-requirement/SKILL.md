@@ -1,5 +1,5 @@
 ---
-name: spec-review-requirements
+name: spec-review-requirement
 description: Review artifacts/features/<slug>/spec.md for readiness before design or planning and write artifacts/features/<slug>/requirements-review.md. Use when checking clarity, completeness, scope control, and testability without rewriting the specification in place.
 compatibility: Designed for Claude, Codex, and other Agent Skills-compatible tools working in spec-driven repositories that use memories/repo/ and artifacts/features/<slug>/.
 metadata:

@@ -226,10 +226,58 @@ SCHEMA_STATEMENTS = [
     """
     CREATE INDEX IF NOT EXISTS idx_index_entries_is_active ON index_entries(is_active)
     """,
+    """
+    CREATE TABLE IF NOT EXISTS chat_sessions (
+        id TEXT PRIMARY KEY,
+        collection_id TEXT,
+        metadata_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(collection_id) REFERENCES collections(id) ON DELETE SET NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS chat_turns (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        query_text TEXT NOT NULL,
+        answer_text TEXT,
+        retrieved_chunks_json TEXT NOT NULL DEFAULT '[]',
+        context_used_json TEXT NOT NULL DEFAULT '{}',
+        status TEXT NOT NULL DEFAULT 'pending',
+        error_message TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_chat_turns_session_id ON chat_turns(session_id)
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS citations (
+        id TEXT PRIMARY KEY,
+        turn_id TEXT NOT NULL,
+        chunk_id TEXT NOT NULL,
+        document_id TEXT NOT NULL,
+        quote_text TEXT,
+        metadata_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(turn_id) REFERENCES chat_turns(id) ON DELETE CASCADE,
+        FOREIGN KEY(chunk_id) REFERENCES chunks(id) ON DELETE CASCADE,
+        FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_citations_turn_id ON citations(turn_id)
+    """,
 ]
 
 
 DROP_STATEMENTS = [
+    "DROP TABLE IF EXISTS citations",
+    "DROP TABLE IF EXISTS chat_turns",
+    "DROP TABLE IF EXISTS chat_sessions",
     "DROP TABLE IF EXISTS index_entries",
     "DROP TABLE IF EXISTS index_generations",
     "DROP TABLE IF EXISTS embeddings",
@@ -263,3 +311,15 @@ def reset_database() -> None:
     with get_connection() as connection:
         for statement in DROP_STATEMENTS:
             connection.execute(statement)
+
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "reset":
+        print("Resetting database...")
+        reset_database()
+        print("Database reset.")
+    
+    print("Applying migrations...")
+    apply_migrations()
+    print("Migrations applied successfully.")

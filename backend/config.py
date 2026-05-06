@@ -4,6 +4,7 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -35,6 +36,21 @@ class Settings:
     )
     request_id_header: str = "X-Request-ID"
     url_timeout_seconds: int = int(os.getenv("URL_TIMEOUT_SECONDS", "10"))
+    
+    # LLM Settings
+    openai_api_key: Optional[str] = os.getenv("OPENAI_API_KEY")
+    openai_api_base: Optional[str] = os.getenv("OPENAI_API_BASE")
+    chat_model: str = os.getenv("CHAT_MODEL", "gpt-4o")
+    embedding_model: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+    
+    # Chroma Settings
+    chroma_db_path: str = os.getenv("CHROMA_DB_PATH", ".chroma_db")
+    chroma_collection_name: str = os.getenv("CHROMA_COLLECTION_NAME", "document-chunks")
+    
+    # RAG Settings
+    context_window_size: int = int(os.getenv("CONTEXT_WINDOW_SIZE", "128000"))
+    max_history_turns: int = int(os.getenv("MAX_HISTORY_TURNS", "10"))
+    retrieval_k: int = int(os.getenv("RETRIEVAL_K", "10"))
 
     def ensure_directories(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)
