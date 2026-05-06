@@ -187,12 +187,7 @@ Acceptance notes: Reviewers must be able to compare streaming and non-streaming 
 - RISK-002 Risk: Streaming could expose incomplete reasoning as if it were final evidence.
   Mitigation: Require final citation correctness and explicit in-progress statuses.
 
-## Open Questions
 
-- Q-001 Question: Should the baseline chat experience expose semantic, keyword, and hybrid retrieval as a user-selectable mode from day one or keep that choice in debug or configuration only?
-  Type: Non-blocking
-  Owner: Product decision
-  Next step: Confirm during requirements review; the spec only requires the modes to exist and be reviewable.
 
 ## Acceptance Criteria
 

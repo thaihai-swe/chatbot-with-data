@@ -6,7 +6,9 @@ openai
 pdfplumber
 PyPDF2
 pytest
+pytest-mock
 python-dotenv
 python-multipart
 requests
+tenacity
 uvicorn

@@ -35,3 +35,19 @@ class DuplicateAction(str, Enum):
     INGEST_ANYWAY = "ingest_anyway"
     MERGE_METADATA = "merge_metadata"
     WARN_AND_CONTINUE = "warn_and_continue"
+
+
+class ChunkingStrategy(str, Enum):
+    FIXED_SIZE = "fixed_size"
+    HEADING_AWARE = "heading_aware"
+    PAGE_AWARE = "page_aware"
+    SEMANTIC = "semantic"
+    SEMANTIC_FALLBACK = "semantic_fallback"
+    PARENT_CHILD = "parent_child"
+
+
+class IndexGenerationStatus(str, Enum):
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SUPERSEDED = "superseded"

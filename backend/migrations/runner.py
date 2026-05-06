@@ -121,10 +121,119 @@ SCHEMA_STATEMENTS = [
         FOREIGN KEY(matched_document_id) REFERENCES documents(id) ON DELETE SET NULL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS chunks (
+        id TEXT PRIMARY KEY,
+        document_id TEXT NOT NULL,
+        collection_id TEXT NOT NULL,
+        chunk_order INTEGER NOT NULL,
+        strategy TEXT NOT NULL,
+        source_type TEXT NOT NULL,
+        title TEXT,
+        section_title TEXT,
+        page_number INTEGER,
+        source_url TEXT,
+        text TEXT NOT NULL,
+        text_length INTEGER NOT NULL,
+        parent_chunk_id TEXT,
+        fallback_applied INTEGER NOT NULL DEFAULT 0,
+        semantic_score REAL,
+        metadata_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE,
+        FOREIGN KEY(collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+        FOREIGN KEY(parent_chunk_id) REFERENCES chunks(id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON chunks(document_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_chunks_collection_id ON chunks(collection_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_chunks_parent_id ON chunks(parent_chunk_id)
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS embeddings (
+        id TEXT PRIMARY KEY,
+        chunk_id TEXT NOT NULL,
+        embedding_model TEXT NOT NULL,
+        embedding_model_version TEXT,
+        embedding_vector BLOB NOT NULL,
+        input_text_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(chunk_id) REFERENCES chunks(id) ON DELETE CASCADE,
+        UNIQUE(chunk_id, embedding_model)
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_embeddings_chunk_id ON embeddings(chunk_id)
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS index_generations (
+        id TEXT PRIMARY KEY,
+        document_id TEXT NOT NULL,
+        generation_number INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        strategy TEXT NOT NULL,
+        settings_hash TEXT,
+        embedding_model TEXT,
+        chunk_count INTEGER,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        completed_at TEXT,
+        FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE,
+        UNIQUE(document_id, generation_number)
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_index_generations_document_id ON index_generations(document_id)
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS index_entries (
+        id TEXT PRIMARY KEY,
+        chunk_id TEXT NOT NULL,
+        embedding_id TEXT NOT NULL,
+        document_id TEXT NOT NULL,
+        collection_id TEXT NOT NULL,
+        generation_id TEXT NOT NULL,
+        vector_db_id TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        chunk_order INTEGER NOT NULL,
+        parent_chunk_id TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(chunk_id) REFERENCES chunks(id) ON DELETE CASCADE,
+        FOREIGN KEY(embedding_id) REFERENCES embeddings(id) ON DELETE CASCADE,
+        FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE,
+        FOREIGN KEY(collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+        FOREIGN KEY(generation_id) REFERENCES index_generations(id) ON DELETE CASCADE,
+        FOREIGN KEY(parent_chunk_id) REFERENCES chunks(id) ON DELETE SET NULL
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_index_entries_chunk_id ON index_entries(chunk_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_index_entries_document_id ON index_entries(document_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_index_entries_collection_id ON index_entries(collection_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_index_entries_generation_id ON index_entries(generation_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_index_entries_is_active ON index_entries(is_active)
+    """,
 ]
 
 
 DROP_STATEMENTS = [
+    "DROP TABLE IF EXISTS index_entries",
+    "DROP TABLE IF EXISTS index_generations",
+    "DROP TABLE IF EXISTS embeddings",
+    "DROP TABLE IF EXISTS chunks",
     "DROP TABLE IF EXISTS duplicate_decisions",
     "DROP TABLE IF EXISTS lifecycle_events",
     "DROP TABLE IF EXISTS ingestion_attempt_collections",
@@ -143,6 +252,10 @@ def apply_migrations() -> None:
         connection.execute(
             "INSERT OR IGNORE INTO schema_migrations(version) VALUES (?)",
             ("0001_initial",),
+        )
+        connection.execute(
+            "INSERT OR IGNORE INTO schema_migrations(version) VALUES (?)",
+            ("0002_chunking_and_indexing",),
         )
 
 
