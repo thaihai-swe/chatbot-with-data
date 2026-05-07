@@ -7,6 +7,7 @@ from typing import Optional, List, Tuple, Dict, Any
 from indexing.chroma_writer import ChromaVectorWriter
 from embeddings.openai_client import OpenAIEmbeddingClient
 from config import get_settings
+from repositories.chunk_repository import ChunkRepository
 
 logger = logging.getLogger(__name__)
 
@@ -78,12 +79,21 @@ class RetrievalService:
 
         # 3. Format results
         formatted_results = []
+        chunk_repo = ChunkRepository()
         for chunk_id, similarity, metadata in raw_results:
             result = {
                 "chunk_id": chunk_id,
                 "similarity_score": similarity,
                 **metadata
             }
+            
+            if chunk_id:
+                chunk_data = chunk_repo.get_chunk(chunk_id)
+                if chunk_data:
+                    for key, value in chunk_data.items():
+                        if key not in result and value is not None:
+                            result[key] = value
+                            
             formatted_results.append(result)
             
         logger.info(f"Found {len(formatted_results)} relevant chunks")
@@ -95,7 +105,8 @@ def get_retrieval_service() -> RetrievalService:
     settings = get_settings()
     embedding_client = OpenAIEmbeddingClient(
         api_key=settings.openai_api_key,
-        api_base=settings.openai_api_base
+        api_base=settings.openai_api_base,
+        model=settings.embedding_model,
     )
     chroma_writer = ChromaVectorWriter(
         persist_directory=settings.chroma_db_path,

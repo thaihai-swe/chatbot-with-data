@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import uuid
+import logging
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import get_settings
+from config import get_settings, configure_logging
 from error_handlers import register_error_handlers
 from migrations import apply_migrations
 from routers import (
@@ -19,7 +20,12 @@ from routers import (
 from fastapi.middleware.cors import CORSMiddleware
 
 def create_app() -> FastAPI:
+    # Configure logging FIRST, before any other operations
+    configure_logging()
+    logger = logging.getLogger(__name__)
+
     settings = get_settings()
+    logger.info(f"Starting application in {settings.environment} mode with log level: {settings.log_level}")
     apply_migrations()
     app = FastAPI(title=settings.app_name)
     app.add_middleware(

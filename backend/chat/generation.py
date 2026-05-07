@@ -6,6 +6,7 @@ import json
 from typing import Optional, List, Dict, Any, Iterator
 
 import openai
+from openai import OpenAI
 from config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -33,9 +34,7 @@ class GenerationService:
         self.api_key = api_key
         self.model = model
         self.timeout = timeout
-        openai.api_key = api_key
-        if api_base:
-            openai.api_base = api_base
+        self.client = OpenAI(api_key=api_key, base_url=api_base)
 
     def generate_answer(
         self,
@@ -54,12 +53,12 @@ class GenerationService:
             If stream=True: An iterator of response tokens
         """
         messages = [
-            {"role": "system", "content": context_package["system_prompt"]},
+            {"role": "system", "content": context_package[""]},
         ]
-        
+
         # Add history
         messages.extend(context_package["history"])
-        
+
         # Add current query
         messages.append({"role": "user", "content": context_package["current_query"]})
 
@@ -76,28 +75,28 @@ class GenerationService:
 
     def _generate_non_stream(self, messages: List[Dict[str, str]]) -> str:
         """Internal method for non-streaming generation."""
-        response = openai.ChatCompletion.create(
+        response = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
-            request_timeout=self.timeout,
+            timeout=self.timeout,
         )
         answer = response.choices[0].message.content
-        logger.debug(f"Generation complete. Length: {len(answer)}")
+        logger.info(f"Generation complete. Length: {len(answer)}")
         return answer
 
     def _generate_stream(self, messages: List[Dict[str, str]]) -> Iterator[str]:
         """Internal method for streaming generation."""
-        response = openai.ChatCompletion.create(
+        response = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
             stream=True,
-            request_timeout=self.timeout,
+            timeout=self.timeout,
         )
         for chunk in response:
-            if "choices" in chunk and len(chunk["choices"]) > 0:
-                delta = chunk["choices"][0].get("delta", {})
-                if "content" in delta:
-                    yield delta["content"]
+            if chunk.choices and len(chunk.choices) > 0:
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    yield delta.content
 
 
 def get_generation_service() -> GenerationService:

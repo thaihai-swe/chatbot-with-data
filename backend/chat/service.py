@@ -6,6 +6,8 @@ import json
 import uuid
 from typing import Optional, List, Dict, Any
 
+from fastapi import Depends
+
 from chat.retrieval import RetrievalService, get_retrieval_service
 from chat.context import ContextService, get_context_service
 from chat.generation import GenerationService, get_generation_service
@@ -55,17 +57,17 @@ class ChatService:
 
         # 3. Evaluate evidence
         is_sufficient, refusal_reason = self.grounding_service.evaluate_evidence(retrieved_chunks)
-        
+
         # 4. Create turn record (pending)
         turn_id = str(uuid.uuid4())
         history = ChatRepository.list_turns_by_session(session_id)
-        
+
         context_package = self.context_service.assemble_context(
             query_text=query_text,
             retrieved_chunks=retrieved_chunks,
             chat_history=history,
         )
-        
+
         turn = ChatRepository.create_turn(
             id=turn_id,
             session_id=session_id,
@@ -88,13 +90,13 @@ class ChatService:
             else:
                 # 5. Generate answer
                 answer_text = self.generation_service.generate_answer(context_package)
-                
+
                 # 6. Extract and validate citations
                 citation_labels = self.citation_service.extract_citations(answer_text)
                 valid_citations = self.citation_service.map_citations_to_chunks(
                     citation_labels, retrieved_chunks
                 )
-                
+
                 # 7. Persist citations and update turn
                 for cit_data in valid_citations:
                     ChatRepository.create_citation(
@@ -104,7 +106,7 @@ class ChatService:
                         document_id=cit_data['document_id'],
                         metadata_json=json.dumps(cit_data),
                     )
-                
+
                 ChatRepository.update_turn_status(
                     turn_id=turn_id,
                     status="completed",
@@ -114,7 +116,7 @@ class ChatService:
             # 8. Reload turn and return
             turn = ChatRepository.get_turn(turn_id)
             citations = ChatRepository.list_citations_by_turn(turn_id)
-            
+
             return ChatTurnResponse(
                 id=turn.id,
                 session_id=turn.session_id,

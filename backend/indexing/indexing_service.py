@@ -46,13 +46,13 @@ class IndexingService:
         """
         self.embedding_client = embedding_client
         self.chroma_writer = chroma_writer
-        self.embedding_cache = embedding_cache or EmbeddingCache(embedding_client)
+        self.embedding_cache = embedding_cache or EmbeddingCache()
 
     def index_document(
         self,
         document_id: str,
         collection_id: str,
-        embedding_model: str = "text-embedding-3-small",
+        embedding_model: Optional[str] = None,
         strategy: str = "fixed_size",
     ) -> tuple[str, IndexGenerationStatus, list[EmbeddingError]]:
         """
@@ -76,6 +76,9 @@ class IndexingService:
         Raises:
             ValueError: If document or collection doesn't exist
         """
+        # Determine effective embedding model (service-configured default if not provided)
+        embedding_model = embedding_model or getattr(self.embedding_cache, "embedding_model", None) or getattr(self.embedding_client, "model", "text-embedding-3-small")
+
         # Create generation record
         generation_id = str(uuid.uuid4())
         errors: list[EmbeddingError] = []
@@ -205,16 +208,24 @@ class IndexingService:
         Raises:
             Exception: Any error during embedding or storage (caught by caller)
         """
+        # Ensure chunk text is present and non-empty
+        text = chunk.get("text") or ""
+        if not isinstance(text, str) or not text.strip():
+            logger.warning(
+                f"Skipping empty chunk {chunk.get('id')} for document {document_id}"
+            )
+            return
+
         # Create embedding function for cache
-        def create_embedding(text: str) -> list[float]:
+        def create_embedding(t: str) -> list[float]:
             # Embed with the OpenAI client
-            embeddings = self.embedding_client.embed([text])
-            return embeddings[0]
+            embedding = self.embedding_client.embed(t)
+            return embedding
 
         # Get or create embedding
         embedding_vector, was_cached = self.embedding_cache.get_or_create(
             chunk_id=chunk["id"],
-            text=chunk["text"],
+            text=text,
             create_fn=create_embedding,
         )
 
@@ -238,7 +249,7 @@ class IndexingService:
         # Store vector in Chroma
         self.chroma_writer.add_vector(
             vector_id=entry_id,
-            vector=embedding_vector,
+            embedding=embedding_vector,
             metadata={
                 "chunk_id": chunk["id"],
                 "document_id": document_id,
@@ -269,3 +280,23 @@ class IndexingService:
         """Get the next generation number for a document."""
         count = IndexGenerationRepository.count_generations_by_document(document_id)
         return count + 1
+
+
+def get_indexing_service() -> IndexingService:
+    """Factory function for IndexingService."""
+    from config import get_settings
+
+    settings = get_settings()
+    embedding_client = OpenAIEmbeddingClient(
+        api_key=settings.openai_api_key,
+        api_base=settings.openai_api_base,
+        model=settings.embedding_model,
+    )
+    chroma_writer = ChromaVectorWriter(
+        persist_directory=settings.chroma_db_path,
+        collection_name=settings.chroma_collection_name,
+    )
+    return IndexingService(
+        embedding_client=embedding_client,
+        chroma_writer=chroma_writer,
+    )

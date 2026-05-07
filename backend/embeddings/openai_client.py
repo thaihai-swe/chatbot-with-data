@@ -5,6 +5,7 @@ from typing import Optional
 from functools import wraps
 
 import openai
+from openai import OpenAI
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -44,7 +45,7 @@ class OpenAIEmbeddingClient:
         self,
         api_key: Optional[str] = None,
         api_base: Optional[str] = None,
-        model: str = "text-embedding-3-small",
+        model: Optional[str] = None,
         max_retries: int = 3,
         timeout: int = 30,
     ):
@@ -54,7 +55,7 @@ class OpenAIEmbeddingClient:
         Args:
             api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
             api_base: Optional custom API base URL
-            model: Embedding model to use
+            model: Embedding model to use (defaults to EMBEDDING_MODEL env var or text-embedding-3-small)
             max_retries: Max retries for transient errors
             timeout: Request timeout in seconds
         """
@@ -65,11 +66,9 @@ class OpenAIEmbeddingClient:
                 "Set it or pass api_key to OpenAIEmbeddingClient."
             )
 
-        openai.api_key = self.api_key
-        if api_base:
-            openai.api_base = api_base
+        self.client = OpenAI(api_key=self.api_key, base_url=api_base)
         
-        self.model = model
+        self.model = model or os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
         self.max_retries = max_retries
         self.timeout = timeout
 
@@ -102,17 +101,17 @@ class OpenAIEmbeddingClient:
             raise ValueError("Text cannot be empty after stripping whitespace")
 
         try:
-            response = openai.Embedding.create(
+            response = self.client.embeddings.create(
                 input=text,
                 model=self.model,
-                request_timeout=self.timeout,
+                timeout=self.timeout,
             )
 
             # Extract embedding
-            embedding = response["data"][0]["embedding"]
+            embedding = response.data[0].embedding
 
             # Track usage
-            tokens_used = response.get("usage", {}).get("total_tokens", 0)
+            tokens_used = response.usage.total_tokens
             self.total_tokens += tokens_used
             self.api_calls += 1
 
@@ -167,18 +166,18 @@ class OpenAIEmbeddingClient:
             batch = texts[i : i + batch_size]
 
             try:
-                response = openai.Embedding.create(
+                response = self.client.embeddings.create(
                     input=batch,
                     model=self.model,
-                    request_timeout=self.timeout,
+                    timeout=self.timeout,
                 )
 
                 # Extract embeddings in original order
-                batch_embeddings = [item["embedding"] for item in response["data"]]
+                batch_embeddings = [item.embedding for item in response.data]
                 embeddings.extend(batch_embeddings)
 
                 # Track usage
-                tokens_used = response.get("usage", {}).get("total_tokens", 0)
+                tokens_used = response.usage.total_tokens
                 self.total_tokens += tokens_used
                 self.api_calls += 1
 

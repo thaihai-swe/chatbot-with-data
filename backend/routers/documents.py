@@ -48,14 +48,31 @@ def move_document(document_id: str, payload: DocumentMoveRequest) -> dict:
 
 @router.post("/{document_id}/reindex", response_model=dict)
 def reindex_document(document_id: str) -> dict[str, str]:
+    from ingestion.service import IngestionService
     record = repository.get_document(document_id)
     if not record:
         raise HTTPException(status_code=404, detail="Document not found")
+    
     repository.record_reindex_request(document_id)
+    
+    # Trigger actual indexing
+    ingestion_service = IngestionService()
+    
+    # We need to pass an attempt-like dict or just fetch what's needed
+    attempt_mock = {
+        "extracted_text": record["extracted_text"],
+        "source_type": record["source_type"],
+        "collection_ids": [c["id"] for c in record["collections"]],
+        "title": record["title"],
+        "submitted_filename": record["filename"],
+    }
+    
+    ingestion_service._chunk_and_index_document(document_id, attempt_mock)
+    
     return {
         "document_id": document_id,
-        "status": "recorded",
-        "message": "Re-index initiation recorded as a forward-compatible placeholder.",
+        "status": "completed",
+        "message": "Document re-indexed successfully.",
     }
 
 

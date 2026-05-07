@@ -9,6 +9,9 @@ from extractors import ExtractorDispatcher
 from models import DuplicateAction, DuplicateStatus, IngestionStatus, SourceType
 from repositories import Repository
 from storage import LocalStorage
+from chunking.service import get_chunking_service
+from indexing.indexing_service import get_indexing_service
+from config import get_settings
 
 
 class IngestionService:
@@ -17,6 +20,8 @@ class IngestionService:
         self.storage = LocalStorage()
         self.dispatcher = ExtractorDispatcher()
         self.detector = DuplicateDetector()
+        self.chunking_service = get_chunking_service()
+        self.indexing_service = get_indexing_service()
 
     async def submit_file_upload(
         self, *, file: UploadFile, collection_ids: list[str]
@@ -62,7 +67,7 @@ class IngestionService:
                 candidate,
                 ignore_document_id=attempt["document_id"],
             )
-            self.repository.update_ingestion_attempt(
+            attempt = self.repository.update_ingestion_attempt(
                 attempt_id,
                 title=extraction["title"],
                 extracted_text=extraction["extracted_text"],
@@ -87,6 +92,10 @@ class IngestionService:
                 attempt_id,
                 action=DuplicateAction.INGEST_ANYWAY.value,
             )
+
+            # Start chunking and indexing
+            self._chunk_and_index_document(document_id, attempt)
+
             self.repository.update_ingestion_attempt(
                 attempt_id,
                 document_id=document_id,
@@ -127,6 +136,11 @@ class IngestionService:
             status=final_status,
             completed=True,
         )
+
+        # Start chunking and indexing if completed
+        if final_status == IngestionStatus.COMPLETED.value and document_id:
+            self._chunk_and_index_document(document_id, attempt)
+
         decision = self.repository.create_duplicate_decision(
             ingestion_attempt_id=attempt_id,
             document_id=document_id,
@@ -223,6 +237,54 @@ class IngestionService:
             document_id=created["id"],
         )
         return created["id"]
+
+    def _chunk_and_index_document(self, document_id: str, attempt: dict) -> None:
+        """Trigger chunking and indexing for a document."""
+        # Get extracted text
+        # Note: we use attempt instead of re-fetching document for performance if available
+        text = attempt.get("extracted_text")
+        if not text:
+            doc = self.repository.get_document(document_id)
+            text = doc["extracted_text"]
+
+        if not text:
+            return
+
+        # Determine strategy (can be refined)
+        strategy = "fixed_size"
+        if attempt["source_type"] == SourceType.PDF.value:
+            strategy = "page_aware"
+        elif attempt["source_type"] == SourceType.MARKDOWN.value:
+            strategy = "heading_aware"
+
+        # Step 1: Chunking
+        # We process for each collection the document belongs to
+        # Note: In a real app, we might want to chunk once and index multiple times if collections share chunks
+        collection_ids = attempt["collection_ids"]
+
+        # If no collections specified, use a default collection
+        if not collection_ids:
+            collection_ids = ["default"]
+
+        for collection_id in collection_ids:
+            self.chunking_service.chunk_document(
+                document_id=document_id,
+                collection_id=collection_id,
+                text=text,
+                strategy=strategy,
+                source_type=attempt["source_type"],
+                title=attempt.get("title") or attempt.get("submitted_filename"),
+            )
+
+            # Step 2: Indexing
+            settings = get_settings()
+            self.indexing_service.index_document(
+                document_id=document_id,
+                collection_id=collection_id,
+                embedding_model=settings.embedding_model,
+                strategy=strategy,
+            )
+
 
 
 class PathClassifier:

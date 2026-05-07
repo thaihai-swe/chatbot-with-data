@@ -1,6 +1,8 @@
 
 ## 0. Non-negotiables
 For Python is always use with virtualenv.
+source .venv/bin/activate
+
 
 These rules override everything else in this file when in conflict:
 

@@ -283,14 +283,15 @@ class EmbeddingRepository:
 class EmbeddingCache:
     """High-level caching interface for embeddings."""
 
-    def __init__(self, embedding_model: str = "text-embedding-3-small"):
+    def __init__(self, embedding_model: Optional[str] = None):
         """
         Initialize embedding cache.
 
         Args:
-            embedding_model: Default embedding model to use
+            embedding_model: Default embedding model to use (defaults to EMBEDDING_MODEL env var or text-embedding-3-small)
         """
-        self.embedding_model = embedding_model
+        import os
+        self.embedding_model = embedding_model or os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
         self.repository = EmbeddingRepository()
 
     def get_or_create(

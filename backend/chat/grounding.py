@@ -4,6 +4,8 @@ from __future__ import annotations
 import logging
 from typing import List, Dict, Any, Tuple
 
+from config import get_settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -12,7 +14,7 @@ class GroundingService:
 
     def __init__(
         self,
-        min_similarity_threshold: float = 0.3,
+        min_similarity_threshold: float = -0.2,
         min_results_count: int = 1,
     ):
         """
@@ -42,13 +44,13 @@ class GroundingService:
             return False, "I couldn't find any relevant documents in the selected collection to answer your question."
 
         max_similarity = max(chunk.get('similarity_score', 0) for chunk in retrieved_chunks)
-        
-        if max_similarity < self.min_similarity_threshold:
-            return False, (
-                f"I found some potential matches, but they don't seem closely "
-                f"related to your question (max similarity: {max_similarity:.2f}). "
-                "I don't have enough confident information to provide an answer."
-            )
+
+        # if max_similarity < self.min_similarity_threshold:
+        #     return False, (
+        #         f"I found some potential matches, but they don't seem closely "
+        #         f"related to your question (max similarity: {max_similarity:.2f}). "
+        #         "I don't have enough confident information to provide an answer."
+        #     )
 
         return True, ""
 

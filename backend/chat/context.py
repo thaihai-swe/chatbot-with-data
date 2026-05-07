@@ -6,6 +6,7 @@ from typing import List, Dict, Any
 
 from models.chat import ChatTurn
 from config import get_settings
+from repositories.chunk_repository import ChunkRepository
 
 logger = logging.getLogger(__name__)
 
@@ -50,16 +51,27 @@ class ContextService:
                 source_info += f" - {chunk['title']}"
             if chunk.get('page_number'):
                 source_info += f", Page {chunk['page_number']}"
-            
-            part = f"--- {source_info} ---\n{chunk['text']}"
+
+            # Ensure we have the chunk text; retrieval may only return metadata
+            chunk_text = chunk.get("text")
+            if not chunk_text and chunk.get("chunk_id"):
+                # Try to load from DB as a fallback
+                try:
+                    repo = ChunkRepository()
+                    record = repo.get_chunk(chunk["chunk_id"])
+                    chunk_text = record.get("text") if record else ""
+                except Exception:
+                    chunk_text = ""
+
+            part = f"--- {source_info} ---\n{chunk_text}"
             context_parts.append(part)
-        
+
         context_string = "\n\n".join(context_parts)
 
         # 2. Format chat history
         # Only take the last N turns
         recent_history = chat_history[-self.max_history_turns:] if chat_history else []
-        
+
         formatted_history = []
         for turn in recent_history:
             formatted_history.append({"role": "user", "content": turn.query_text})

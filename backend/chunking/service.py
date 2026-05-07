@@ -100,3 +100,8 @@ class ChunkingService:
     def count_document_chunks(self, document_id: str) -> int:
         """Count chunks for a document."""
         return self.chunk_repo.count_chunks_by_document(document_id)
+
+
+def get_chunking_service() -> ChunkingService:
+    """Factory function for ChunkingService."""
+    return ChunkingService()

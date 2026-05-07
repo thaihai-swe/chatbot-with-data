@@ -86,6 +86,7 @@ class ChunkRepository:
     def list_chunks_by_document(
         self,
         document_id: str,
+        collection_id: str | None = None,
         strategy: str | None = None,
         limit: int = 1000,
         offset: int = 0,
@@ -93,6 +94,10 @@ class ChunkRepository:
         with get_connection() as connection:
             query = "SELECT * FROM chunks WHERE document_id = ?"
             params = [document_id]
+
+            if collection_id:
+                query += " AND collection_id = ?"
+                params.append(collection_id)
 
             if strategy:
                 query += " AND strategy = ?"

@@ -100,7 +100,7 @@ class ChromaVectorWriter:
                 embeddings=[embedding],
                 metadatas=[sanitized_metadata],
             )
-            logger.debug(f"Added vector {vector_id} to Chroma collection")
+            logger.info(f"Added vector {vector_id} to Chroma collection")
             return vector_id
 
         except Exception as e:
@@ -182,7 +182,7 @@ class ChromaVectorWriter:
                 include=["embeddings", "metadatas", "distances"],
             )
 
-            logger.debug(f"Query returned {len(results['ids'][0])} results")
+            logger.info(f"Query returned {len(results['ids'][0])} results")
             return results
 
         except Exception as e:
@@ -271,7 +271,7 @@ class ChromaVectorWriter:
         """
         try:
             self.collection.delete(ids=[vector_id])
-            logger.debug(f"Deleted vector {vector_id}")
+            logger.info(f"Deleted vector {vector_id}")
             return True
 
         except Exception as e:
