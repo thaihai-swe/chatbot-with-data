@@ -41,10 +41,11 @@ export async function cancelChatTurn(turnId) {
  * @param {string} queryText 
  * @param {Object} callbacks - { onStatus, onToken, onCitations, onError, onDone }
  */
-export function streamChatTurn(sessionId, queryText, { 
+export function streamChatTurn(sessionId, queryText, advancedConfig, { 
   onStatus, 
   onToken, 
-  onCitations, 
+  onCitations,
+  onTrace,
   onError, 
   onDone 
 }) {
@@ -53,7 +54,7 @@ export function streamChatTurn(sessionId, queryText, {
   fetch(`${API_BASE_URL}/chat/sessions/${sessionId}/turns/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query_text: queryText }),
+    body: JSON.stringify({ query_text: queryText, advanced_config: advancedConfig }),
     signal: controller.signal,
   }).then(async (response) => {
     if (!response.ok) {
@@ -87,6 +88,7 @@ export function streamChatTurn(sessionId, queryText, {
             case "status": onStatus?.(data); break;
             case "token": onToken?.(data.content); break;
             case "citations": onCitations?.(data.citations); break;
+            case "trace": onTrace?.(data); break;
             case "error": onError?.(data); break;
             case "done": onDone?.(data); break;
           }

@@ -19,6 +19,21 @@ export default function ChatScreen() {
   const [activeTurnId, setActiveTurnId] = useState(null);
   const messagesEndRef = useRef(null);
 
+  const [showSettings, setShowSettings] = useState(false);
+  const [advancedConfig, setAdvancedConfig] = useState({
+    enable_intelligence: false,
+    enable_expansion: false,
+    expansion_count: 3,
+    enable_decomposition: false,
+    enable_hyde: false,
+    enable_synonym_expansion: false,
+    enable_dynamic_routing: false,
+    enable_reranking: false,
+    enable_parent_child: false,
+    auto_collection_detection: false
+  });
+  const [debugTrace, setDebugTrace] = useState(null);
+
   // Load sessions
   useEffect(() => {
     listChatSessions().then(setChatSessions).catch(console.error);
@@ -36,7 +51,8 @@ export default function ChatScreen() {
               formatted.push({ 
                 role: "assistant", 
                 content: turn.answer_text,
-                citations: turn.citations 
+                citations: turn.citations,
+                trace: turn.retrieval_trace
               });
             }
           });
@@ -72,7 +88,6 @@ export default function ChatScreen() {
       const session = await createChatSession();
       setChatSessions([session, ...sessions]);
       navigate(`/chat/${session.id}`);
-      // The rest will trigger via useEffect or we can continue here
       _submitMessage(session.id, inputValue);
     } else {
       _submitMessage(sessionId, inputValue);
@@ -89,7 +104,7 @@ export default function ChatScreen() {
     // Add placeholder for assistant
     setMessages(prev => [...prev, { role: "assistant", content: "", isStreaming: true }]);
 
-    const cleanup = streamChatTurn(sid, text, {
+    const cleanup = streamChatTurn(sid, text, advancedConfig, {
       onStatus: (data) => {
         setStatusMessage(data.message);
         if (data.turn_id) setActiveTurnId(data.turn_id);
@@ -105,6 +120,12 @@ export default function ChatScreen() {
         setMessages(prev => {
           const last = prev[prev.length - 1];
           return [...prev.slice(0, -1), { ...last, citations }];
+        });
+      },
+      onTrace: (trace) => {
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          return [...prev.slice(0, -1), { ...last, trace }];
         });
       },
       onError: (err) => {
@@ -130,12 +151,53 @@ export default function ChatScreen() {
     }
   };
 
+  const toggleConfig = (key) => {
+    setAdvancedConfig(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   return (
     <div className="chat-container">
       <aside className="chat-sidebar">
         <button onClick={handleCreateSession} className="button" style={{ width: "100%", marginBottom: "20px" }}>
           + New Chat
         </button>
+        <button onClick={() => setShowSettings(!showSettings)} className="button button-outline" style={{ width: "100%", marginBottom: "20px" }}>
+          {showSettings ? "Hide Advanced Settings" : "Advanced Settings"}
+        </button>
+        
+        {showSettings && (
+          <div style={{ marginBottom: "20px", fontSize: "0.8rem", background: "var(--color-bg)", padding: "10px", borderRadius: "8px" }}>
+            <h4 style={{ margin: "0 0 10px 0" }}>Retrieval Config</h4>
+            <label style={{ display: "block", marginBottom: "6px" }}>
+              <input type="checkbox" checked={advancedConfig.enable_intelligence} onChange={() => toggleConfig("enable_intelligence")} /> Intelligence (Classify)
+            </label>
+            <label style={{ display: "block", marginBottom: "6px" }}>
+              <input type="checkbox" checked={advancedConfig.enable_dynamic_routing} onChange={() => toggleConfig("enable_dynamic_routing")} /> Dynamic Routing
+            </label>
+            <label style={{ display: "block", marginBottom: "6px" }}>
+              <input type="checkbox" checked={advancedConfig.enable_expansion} onChange={() => toggleConfig("enable_expansion")} /> Query Expansion
+            </label>
+            <label style={{ display: "block", marginBottom: "6px" }}>
+              <input type="checkbox" checked={advancedConfig.enable_decomposition} onChange={() => toggleConfig("enable_decomposition")} /> Decomposition
+            </label>
+            <label style={{ display: "block", marginBottom: "6px" }}>
+              <input type="checkbox" checked={advancedConfig.enable_hyde} onChange={() => toggleConfig("enable_hyde")} /> HyDE
+            </label>
+            <label style={{ display: "block", marginBottom: "6px" }}>
+              <input type="checkbox" checked={advancedConfig.enable_synonym_expansion} onChange={() => toggleConfig("enable_synonym_expansion")} /> Synonyms
+            </label>
+            <label style={{ display: "block", marginBottom: "6px" }}>
+              <input type="checkbox" checked={advancedConfig.enable_reranking} onChange={() => toggleConfig("enable_reranking")} /> Reranking
+            </label>
+            <label style={{ display: "block", marginBottom: "6px" }}>
+              <input type="checkbox" checked={advancedConfig.enable_parent_child} onChange={() => toggleConfig("enable_parent_child")} /> Parent-Child
+            </label>
+            <label style={{ display: "block", marginBottom: "6px" }}>
+              <input type="checkbox" checked={advancedConfig.auto_collection_detection} onChange={() => toggleConfig("auto_collection_detection")} /> Auto Collection
+            </label>
+          </div>
+        )}
+
         <div className="session-list">
           {sessions.map(s => (
             <div key={s.id} 
@@ -158,6 +220,13 @@ export default function ChatScreen() {
           {messages.map((msg, idx) => (
             <div key={idx} className={`message-bubble ${msg.role === "user" ? "message-user" : "message-assistant"}`}>
               {msg.content}
+              {msg.trace && (
+                <div style={{ marginTop: "10px" }}>
+                  <button onClick={() => setDebugTrace(msg.trace)} className="button button-outline" style={{ fontSize: "0.7rem", padding: "2px 8px" }}>
+                    🔍 View Trace
+                  </button>
+                </div>
+              )}
               {msg.citations && msg.citations.length > 0 && (
                 <div className="citations-list">
                   <strong>Sources:</strong>
@@ -201,6 +270,24 @@ export default function ChatScreen() {
           )}
         </form>
       </div>
+
+      {debugTrace && (
+        <div style={{
+          position: "absolute", top: 0, right: 0, bottom: 0, width: "400px", 
+          background: "white", borderLeft: "1px solid var(--color-border)",
+          boxShadow: "-2px 0 10px rgba(0,0,0,0.1)", zIndex: 100, overflowY: "auto"
+        }}>
+          <div style={{ padding: "20px", display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--color-border)" }}>
+            <h3 style={{ margin: 0 }}>Retrieval Trace</h3>
+            <button onClick={() => setDebugTrace(null)} className="button button-outline" style={{ padding: "4px 8px" }}>Close</button>
+          </div>
+          <div style={{ padding: "20px" }}>
+            <pre className="mono" style={{ fontSize: "0.75rem", whiteSpace: "pre-wrap", background: "var(--color-bg)", padding: "10px", borderRadius: "8px" }}>
+              {JSON.stringify(debugTrace, null, 2)}
+            </pre>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

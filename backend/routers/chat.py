@@ -126,7 +126,11 @@ def submit_turn(
 ) -> ChatTurnResponse:
     """Submit a new chat turn (query)."""
     try:
-        return chat_service.process_turn(session_id, payload.query_text)
+        return chat_service.process_turn(
+            session_id, 
+            payload.query_text,
+            advanced_config=payload.advanced_config
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -141,7 +145,7 @@ async def submit_turn_stream(
 ) -> StreamingResponse:
     """Submit a new chat turn (query) and stream the response."""
     return StreamingResponse(
-        orchestrator.stream_turn(session_id, payload.query_text),
+        orchestrator.stream_turn(session_id, payload.query_text, advanced_config=payload.advanced_config),
         media_type="text/event-stream",
     )
 

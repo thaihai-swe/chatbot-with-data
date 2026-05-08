@@ -184,10 +184,10 @@ from chat.retrieval import get_retrieval_service
 from chat.context import get_context_service
 from chat.generation import get_generation_service
 from chat.citations import get_citation_service
-from chat.grounding import get_grounding_service
+from chat.retrieval import get_retrieval_service, get_advanced_retrieval_service
 
 def get_streaming_orchestrator(
-    retrieval_service: RetrievalService = Depends(get_retrieval_service),
+    advanced_retrieval_service: AdvancedRetrievalService = Depends(get_advanced_retrieval_service),
     context_service: ContextService = Depends(get_context_service),
     generation_service: GenerationService = Depends(get_generation_service),
     citation_service: CitationService = Depends(get_citation_service),
@@ -195,7 +195,7 @@ def get_streaming_orchestrator(
 ) -> StreamingOrchestrator:
     """Factory function for StreamingOrchestrator."""
     return StreamingOrchestrator(
-        retrieval_service,
+        advanced_retrieval_service,
         context_service,
         generation_service,
         citation_service,

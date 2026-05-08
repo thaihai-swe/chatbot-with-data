@@ -5,9 +5,8 @@ import logging
 import json
 from typing import Optional, List, Dict, Any, Iterator
 
-import openai
-from openai import OpenAI
-from config import get_settings
+from fastapi import Depends
+from llm.client import LLMClient, get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -15,26 +14,14 @@ logger = logging.getLogger(__name__)
 class GenerationService:
     """Service for calling the LLM to generate answers."""
 
-    def __init__(
-        self,
-        api_key: str,
-        api_base: Optional[str] = None,
-        model: str = "gpt-4o",
-        timeout: int = 60,
-    ):
+    def __init__(self, llm_client: LLMClient):
         """
         Initialize the generation service.
 
         Args:
-            api_key: OpenAI API key
-            api_base: Optional custom API base URL (e.g. for local LLM)
-            model: Chat model to use
-            timeout: API timeout in seconds
+            llm_client: Unified client for interacting with LLM.
         """
-        self.api_key = api_key
-        self.model = model
-        self.timeout = timeout
-        self.client = OpenAI(api_key=api_key, base_url=api_base)
+        self.llm_client = llm_client
 
     def generate_answer(
         self,
@@ -62,48 +49,15 @@ class GenerationService:
         # Add current query
         messages.append({"role": "user", "content": context_package["current_query"]})
 
-        logger.info(f"Generating answer using model={self.model} (stream={stream})")
+        logger.info(f"Generating answer using LLMClient (stream={stream})")
 
         try:
-            if stream:
-                return self._generate_stream(messages)
-            else:
-                return self._generate_non_stream(messages)
+            return self.llm_client.generate_completion(messages, stream=stream)
         except Exception as e:
             logger.error(f"Error generating answer: {str(e)}")
             raise
 
-    def _generate_non_stream(self, messages: List[Dict[str, str]]) -> str:
-        """Internal method for non-streaming generation."""
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            timeout=self.timeout,
-        )
-        answer = response.choices[0].message.content
-        logger.info(f"Generation complete. Length: {len(answer)}")
-        return answer
 
-    def _generate_stream(self, messages: List[Dict[str, str]]) -> Iterator[str]:
-        """Internal method for streaming generation."""
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            stream=True,
-            timeout=self.timeout,
-        )
-        for chunk in response:
-            if chunk.choices and len(chunk.choices) > 0:
-                delta = chunk.choices[0].delta
-                if delta.content:
-                    yield delta.content
-
-
-def get_generation_service() -> GenerationService:
+def get_generation_service(llm_client: LLMClient = Depends(get_llm_client)) -> GenerationService:
     """Factory function for GenerationService."""
-    settings = get_settings()
-    return GenerationService(
-        api_key=settings.openai_api_key,
-        api_base=settings.openai_api_base,
-        model=settings.chat_model,
-    )
+    return GenerationService(llm_client)

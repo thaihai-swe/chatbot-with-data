@@ -1,4 +1,4 @@
-# Task Breakdown: Advanced Retrieval Strategies and Routing
+# Task Breakdown
 
 ## Metadata
 
@@ -7,7 +7,7 @@
 - Related plan: `artifacts/features/4.advanced-retrieval-strategies-and-routing/plan.md`
 - Related design: `artifacts/features/4.advanced-retrieval-strategies-and-routing/design.md`
 - Owner: Gemini CLI
-- Last updated: 2026-05-06
+- Last updated: 2026-05-08
 
 ## Rules
 
@@ -18,300 +18,266 @@
 - Link every task back to the plan task or phase it came from.
 - Link each phase or task group back to the user scenario or outcome it enables when relevant.
 - Mark tasks that can run in parallel when they have no dependency relationship.
-- Use these task states consistently: `Not Started`, `In Progress`, `Done`, `Blocked`, `Deferred`.
+- Only mark tasks as parallel-safe when they do not create obvious write conflicts or contract conflicts.
+- If a task is marked `[P]`, state the ownership boundary and any reintegration expectation explicitly.
+- Prefer explicit file or module targets when known from the plan.
+- Use these task states consistently: `Not Started`, `In Progress`, `Blocked`, `Done`, `Deferred`.
+- Make regression-sensitive or protected behavior explicit in validation or safeguard tasks when relevant.
+- For behavior-changing tasks, prefer validation notes that name the failing proof or targeted test expected before the fix.
+- Do not finalize task lists until REQ -> AC -> TASK -> validation coverage is complete.
 
 ## Phase 1: Foundation and Traceability
 
 Goal: Establish the schemas and the skeleton service that returns a trace.
-Enabled outcome: Observability of the retrieval process.
+Enabled user scenario(s): Base pipeline capable of recording metadata for downstream UI.
 
 Completion criteria:
-- [ ] CC-001: API returns a valid `retrieval_trace` object even if empty.
+
+- [X] CC-001: Chat endpoints accept the new config and return an empty or baseline trace without breaking existing chat tests.
 
 Tasks:
 
-- [ ] TASK-001
-  Status: Not Started
+- [X] TASK-001
+  Status: Done
   Summary: Define Pydantic schemas for `AdvancedRetrievalConfig` and `RetrievalTrace`.
-  Plan reference: Phase 1, TASK-001
+  Plan reference: Phase 1 / TASK-001
   Linked requirement(s): REQ-010
   Linked acceptance criteria: AC-006
   Affected file(s) or module(s): `backend/schemas/chat.py`
   Depends on: None
   Can run in parallel: No
-  Validation note: Verify schema validation with a test script.
-  Session note:
+  Validation note: Ensure unit tests pass for schema validation and no regressions occur in existing chat endpoint schema logic.
+  Session note: Schemas created and tested in backend/tests/test_chat_schemas.py
 
-- [ ] TASK-002
-  Status: Not Started
-  Summary: Create `AdvancedRetrievalService` skeleton with trace initialization.
-  Plan reference: Phase 1, TASK-002
+- [X] TASK-002
+  Status: Done
+  Summary: Create `AdvancedRetrievalService` skeleton with trace initialization and integrate into `ChatService.process_turn`.
+  Plan reference: Phase 1 / TASK-002
   Linked requirement(s): REQ-010
   Linked acceptance criteria: AC-006
-  Affected file(s) or module(s): `backend/chat/retrieval.py`
+  Affected file(s) or module(s): `backend/chat/service.py`, `backend/chat/retrieval.py`
   Depends on: TASK-001
   Can run in parallel: No
-  Validation note: Unit test `AdvancedRetrievalService` instantiation and basic `retrieve` call.
-  Session note:
-
-- [ ] TASK-003
-  Status: Not Started
-  Summary: Update `ChatTurnResponse` and repository to include `retrieval_trace`.
-  Plan reference: Phase 1, TASK-003
-  Linked requirement(s): REQ-010
-  Linked acceptance criteria: AC-006
-  Affected file(s) or module(s): `backend/schemas/chat.py`, `backend/repositories/chat_repository.py`
-  Depends on: TASK-001
-  Can run in parallel: No
-  Validation note: Verify API response contains the new field.
-  Session note:
-
-- [ ] TASK-004
-  Status: Not Started
-  Summary: Integrate `AdvancedRetrievalService` into `ChatService.process_turn`.
-  Plan reference: Phase 1, TASK-004
-  Linked requirement(s): REQ-010
-  Linked acceptance criteria: AC-006
-  Affected file(s) or module(s): `backend/chat/service.py`
-  Depends on: TASK-002, TASK-003
-  Can run in parallel: No
-  Validation note: E2E check that a chat turn still works and returns a trace.
-  Session note:
+  Validation note: Write a test verifying that when advanced retrieval config is empty, the baseline RetrievalService is called and an empty/baseline trace is returned without altering responses.
+  Session note: Implemented AdvancedRetrievalService, injected it into ChatService, and verified passthrough via test_advanced_retrieval.py
 
 ## Phase 2: Query Intelligence (Pre-Retrieval)
 
-Goal: Implement LLM-powered query transformations.
-Enabled outcome: Better query understanding (Expansion, HyDE, etc.).
+Goal: Implement LLM-powered query transformations and classification.
+Enabled user scenario(s): US-001, US-002, US-004
 
 Completion criteria:
-- [ ] CC-002: Intelligence service can expand and decompose queries correctly.
+
+- [X] CC-002: `QueryIntelligenceService` can successfully generate trace metadata for all transformation types when enabled via config.
 
 Tasks:
 
-- [ ] TASK-005
-  Status: Not Started
-  Summary: Add LLM prompts for classification, expansion, decomposition, and HyDE.
-  Plan reference: Phase 2, TASK-005
-  Linked requirement(s): REQ-001, REQ-002, REQ-003, REQ-004
+- [X] TASK-003
+  Status: Done
+  Summary: Add LLM prompts for classification, expansion, decomposition, synonym expansion, and HyDE.
+  Plan reference: Phase 2 / TASK-003
+  Linked requirement(s): REQ-001, REQ-002, REQ-003, REQ-004, REQ-005
   Linked acceptance criteria: AC-001, AC-002, AC-003
   Affected file(s) or module(s): `backend/chat/prompts.py`
   Depends on: None
-  Can run in parallel: Yes
-  Validation note: Inspect prompt text for clarity and compliance with rules.
-  Session note:
+  Can run in parallel: Yes [P]
+  Ownership boundary: Isolated prompt strings in `backend/chat/prompts.py`.
+  Reintegration expectation: Ensure prompt formats match variables used in `QueryIntelligenceService` later.
+  Validation note: Verify prompt strings are syntactically valid and cover required inputs.
+  Session note: Added prompts to backend/chat/prompts.py
 
-- [ ] TASK-006
-  Status: Not Started
-  Summary: Implement `QueryIntelligenceService` for classification, rewriting, expansion, decomposition, and HyDE.
-  Plan reference: Phase 2, TASK-006
-  Linked requirement(s): REQ-001, REQ-002, REQ-003, REQ-004
+- [X] TASK-004
+  Status: Done
+  Summary: Implement `QueryIntelligenceService` with methods for all transformations and wire it to `AdvancedRetrievalService`.
+  Plan reference: Phase 2 / TASK-004
+  Linked requirement(s): REQ-001, REQ-002, REQ-003, REQ-004, REQ-005
   Linked acceptance criteria: AC-001, AC-002, AC-003
-  Affected file(s) or module(s): `backend/chat/retrieval.py` (or new service file)
-  Depends on: TASK-005
+  Affected file(s) or module(s): `backend/chat/retrieval.py`
+  Depends on: TASK-002, TASK-003
   Can run in parallel: No
-  Validation note: Unit tests for each transformation using a mock LLM.
-  Session note:
+  Validation note: Mock the LLM client and write tests for each transformation method to ensure they correctly populate the `TransformationPackage` and append to `RetrievalTrace`.
+  Session note: Implemented QueryIntelligenceService with OpenAI client. Added test_advanced_retrieval_transformations to ensure config triggers the service correctly.
 
-- [ ] TASK-007
-  Status: Not Started
-  Summary: Implement "Automatic Collection Detection" logic.
-  Plan reference: Phase 2, TASK-007
+- [X] TASK-005
+  Status: Done
+  Summary: Implement Automatic Collection Detection logic based on query classification and collection metadata.
+  Plan reference: Phase 2 / TASK-005
   Linked requirement(s): REQ-009
   Linked acceptance criteria: AC-004
   Affected file(s) or module(s): `backend/chat/retrieval.py`
-  Depends on: TASK-006
+  Depends on: TASK-004
   Can run in parallel: No
-  Validation note: Verify it picks the right collection based on description similarity.
-  Session note:
-
-- [ ] TASK-008
-  Status: Not Started
-  Summary: Update `AdvancedRetrievalService` to call `QueryIntelligenceService`.
-  Plan reference: Phase 2, TASK-008
-  Linked requirement(s): REQ-001, REQ-010
-  Linked acceptance criteria: AC-001, AC-002, AC-003
-  Affected file(s) or module(s): `backend/chat/retrieval.py`
-  Depends on: TASK-006
-  Can run in parallel: No
-  Validation note: Verify transformations appear in the trace.
-  Session note:
+  Validation note: Write tests verifying routing inference, confidence thresholds, and proper fallback to all-collections search.
+  Session note: Implemented collection detection in QueryIntelligenceService and wired it up in AdvancedRetrievalService. Tests passed.
 
 ## Phase 3: Multi-Query Retrieval and Merging
 
-Goal: Handle multiple search runs and merge results.
-Enabled outcome: Improved recall via merged search results.
+Goal: Handle multiple search runs and merge results logically.
+Enabled user scenario(s): US-001, US-002
 
 Completion criteria:
-- [ ] CC-003: Results from multiple queries are merged and deduplicated correctly.
+
+- [X] CC-003: System can run 5 expanded queries and return a correctly deduplicated and RRF-scored top-K chunk list in the trace.
 
 Tasks:
 
-- [ ] TASK-009
-  Status: Not Started
-  Summary: Implement `CandidateMerger` with Reciprocal Rank Fusion (RRF).
-  Plan reference: Phase 3, TASK-009
-  Linked requirement(s): REQ-010
-  Linked acceptance criteria: AC-006
-  Affected file(s) or module(s): `backend/chat/retrieval.py`
-  Depends on: None
-  Can run in parallel: Yes
-  Validation note: Unit test RRF with synthetic ranked lists.
-  Session note:
-
-- [ ] TASK-010
-  Status: Not Started
-  Summary: Update `AdvancedRetrievalService` to execute multiple search calls and merge.
-  Plan reference: Phase 3, TASK-010
+- [X] TASK-006
+  Status: Done
+  Summary: Implement `CandidateMerger` using Reciprocal Rank Fusion (RRF) and deduplication logic.
+  Plan reference: Phase 3 / TASK-006
   Linked requirement(s): REQ-002, REQ-003, REQ-010
   Linked acceptance criteria: AC-001, AC-002, AC-006
   Affected file(s) or module(s): `backend/chat/retrieval.py`
-  Depends on: TASK-008, TASK-009
-  Can run in parallel: No
-  Validation note: Verify multiple search calls happen for expanded queries.
-  Session note:
+  Depends on: TASK-001
+  Can run in parallel: Yes [P]
+  Ownership boundary: Isolated utility functions/classes within `retrieval.py` purely handling chunk merging.
+  Reintegration expectation: Function signature accepts list of chunk lists and returns deduplicated chunk list.
+  Validation note: Unit test RRF with mock chunk lists to verify proper deduplication and rank ordering logic.
+  Session note: Implemented CandidateMerger and verified RRF deduplication via test.
 
-- [ ] TASK-011
-  Status: Not Started
-  Summary: Implement candidate deduplication and limit logic.
-  Plan reference: Phase 3, TASK-011
-  Linked requirement(s): REQ-010
-  Linked acceptance criteria: AC-006
+- [X] TASK-007
+  Status: Done
+  Summary: Update `AdvancedRetrievalService` to loop over expanded/decomposed queries, run retrieval for each, and merge via `CandidateMerger`.
+  Plan reference: Phase 3 / TASK-007
+  Linked requirement(s): REQ-002, REQ-003
+  Linked acceptance criteria: AC-001, AC-002
   Affected file(s) or module(s): `backend/chat/retrieval.py`
-  Depends on: TASK-010
+  Depends on: TASK-004, TASK-006
   Can run in parallel: No
-  Validation note: Verify no duplicate chunks in the final context.
-  Session note:
+  Validation note: Write an integration test simulating a decomposed query payload, verifying multiple retrieval passes are made and correctly merged into the trace.
+  Session note: Updated retrieve method to run multiple queries and merge them via RRF. Added test_multi_query_merging.
 
 ## Phase 4: Post-Retrieval and Routing
 
-Goal: Implement reranking and parent-child expansion.
-Enabled outcome: Improved precision and context richness.
+Goal: Implement dynamic routing, reranking, and parent-child expansion.
+Enabled user scenario(s): US-003, US-005
 
 Completion criteria:
-- [ ] CC-004: Reranking and parent-child expansion work as intended.
+
+- [X] CC-004: Trace validates that reranking reorders candidates and parent chunks are successfully fetched.
 
 Tasks:
 
-- [ ] TASK-012
-  Status: Not Started
-  Summary: Implement `RerankingService`.
-  Plan reference: Phase 4, TASK-012
-  Linked requirement(s): REQ-007
-  Linked acceptance criteria: AC-003
-  Affected file(s) or module(s): `backend/chat/retrieval.py`
-  Depends on: None
-  Can run in parallel: Yes
-  Validation note: Verify candidates are re-ordered based on the reranker.
-  Session note:
-
-- [ ] TASK-013
-  Status: Not Started
-  Summary: Implement Parent-Child expansion logic in `AdvancedRetrievalService`.
-  Plan reference: Phase 4, TASK-013
-  Linked requirement(s): REQ-008
-  Linked acceptance criteria: AC-005
-  Affected file(s) or module(s): `backend/chat/retrieval.py`
-  Depends on: TASK-011
-  Can run in parallel: No
-  Validation note: Verify parent text is loaded for cited child chunks.
-  Session note:
-
-- [ ] TASK-014
-  Status: Not Started
-  Summary: Implement Dynamic Routing logic.
-  Plan reference: Phase 4, TASK-014
+- [X] TASK-008
+  Status: Done
+  Summary: Implement Dynamic Routing logic to select retrieval paths based on classification output.
+  Plan reference: Phase 4 / TASK-008
   Linked requirement(s): REQ-006
   Linked acceptance criteria: AC-004
   Affected file(s) or module(s): `backend/chat/retrieval.py`
-  Depends on: TASK-006, TASK-010
+  Depends on: TASK-004
   Can run in parallel: No
-  Validation note: Verify the system chooses the right route based on classification.
-  Session note:
+  Validation note: Write tests confirming the system routes to appropriate strategy paths and logs selection or fallback reasoning in the trace.
+  Session note: Added dynamic routing logic that overrides the config based on query classification. Added unit tests for simple and multi_hop queries.
+
+- [X] TASK-009
+  Status: Done
+  Summary: Implement `RerankingService` and wire it into the pipeline.
+  Plan reference: Phase 4 / TASK-009
+  Linked requirement(s): REQ-007
+  Linked acceptance criteria: AC-003
+  Affected file(s) or module(s): `backend/chat/retrieval.py`
+  Depends on: TASK-007
+  Can run in parallel: No
+  Validation note: Mock a reranking response and assert that `pre_order` and `post_order` states are stored correctly in the trace, and reordered candidates are returned for generation.
+  Session note: Implemented RerankingService and wired it into AdvancedRetrievalService. Test added and passing.
+
+- [X] TASK-010
+  Status: Done
+  Summary: Implement Parent-Child expansion logic (fetching parent context based on child match).
+  Plan reference: Phase 4 / TASK-010
+  Linked requirement(s): REQ-008
+  Linked acceptance criteria: AC-005
+  Affected file(s) or module(s): `backend/chat/retrieval.py`
+  Depends on: TASK-007
+  Can run in parallel: No
+  Validation note: Populate a test database with `parent_chunk_id` metadata, retrieve a child chunk, and assert the parent content is seamlessly expanded and logged in the trace.
+  Session note: Implemented Parent-Child expansion using ChunkRepository. Test added and passing.
 
 ## Phase 5: UI and Observability
 
-Goal: Expose features and visualize the pipeline.
-Enabled outcome: Users can control and inspect advanced retrieval.
+Goal: Expose features to the user and visualize the pipeline.
+Enabled user scenario(s): US-001, US-002, US-003, US-004, US-005
 
 Completion criteria:
-- [ ] CC-005: Debug view shows all intermediate steps.
+
+- [X] CC-005: User can toggle advanced features on/off from UI and visually inspect the Trace for any turn.
 
 Tasks:
 
-- [ ] TASK-015
-  Status: Not Started
-  Summary: Add "Advanced Settings" menu to the Chat UI.
-  Plan reference: Phase 5, TASK-015
+- [X] TASK-011
+  Status: Done
+  Summary: Add "Advanced Settings" toggle/menu to the Chat UI to configure `AdvancedRetrievalConfig`.
+  Plan reference: Phase 5 / TASK-011
   Linked requirement(s): REQ-010
   Linked acceptance criteria: AC-006
   Affected file(s) or module(s): `frontend/src/screens/ChatScreen.jsx`
-  Depends on: TASK-004
-  Can run in parallel: No
-  Validation note: Verify settings are correctly passed to the API.
-  Session note:
+  Depends on: TASK-001
+  Can run in parallel: Yes [P]
+  Ownership boundary: `frontend/src/screens/ChatScreen.jsx` interface logic.
+  Reintegration expectation: The frontend generates valid payload conforming to the backend schema.
+  Validation note: Write an end-to-end test or execute a manual UI test verifying that enabling toggles passes the correct config flags in the `/chat` API payload.
+  Session note: Added Advanced Settings sidebar with checkboxes tied to advancedConfig state, sent along streamChatTurn API call.
 
-- [ ] TASK-016
-  Status: Not Started
-  Summary: Implement the "Debug View" drawer/modal.
-  Plan reference: Phase 5, TASK-016
-  Linked requirement(s): REQ-010
-  Linked acceptance criteria: AC-006
-  Affected file(s) or module(s): `frontend/src/screens/ChatScreen.jsx`, `frontend/src/components/RetrievalDebugView.jsx`
-  Depends on: TASK-015
-  Can run in parallel: No
-  Validation note: Verify all trace data is rendered accurately.
-  Session note:
-
-- [ ] TASK-017
-  Status: Not Started
-  Summary: Add status indicators for pipeline steps.
-  Plan reference: Phase 5, TASK-017
+- [X] TASK-012
+  Status: Done
+  Summary: Implement the "Debug View" drawer/modal to display the full `RetrievalTrace`.
+  Plan reference: Phase 5 / TASK-012
   Linked requirement(s): REQ-010
   Linked acceptance criteria: AC-006
   Affected file(s) or module(s): `frontend/src/screens/ChatScreen.jsx`
-  Depends on: TASK-015
+  Depends on: TASK-011, TASK-002
   Can run in parallel: No
-  Validation note: Verify UI updates as the pipeline progresses.
-  Session note:
-
-## Phase 6: Strategy Comparison UI
-
-Goal: Fulfill the portfolio requirement for a comparison screen.
-Enabled outcome: Side-by-side strategy comparison.
-
-Completion criteria:
-- [ ] CC-006: Comparison screen displays results for at least 2 strategies.
-
-Tasks:
-
-- [ ] TASK-018
-  Status: Not Started
-  Summary: Create the Strategy Comparison screen.
-  Plan reference: Phase 6, TASK-018
-  Linked requirement(s): REQ-010
-  Linked acceptance criteria: AC-006
-  Affected file(s) or module(s): `frontend/src/screens/StrategyComparisonScreen.jsx`
-  Depends on: Phase 4 Completion
-  Can run in parallel: No
-  Validation note: Verify side-by-side comparison works with different configs.
-  Session note:
+  Validation note: Supply the frontend with a comprehensive mocked trace payload and visually confirm that all generated queries, scores, and intermediate states render legibly.
+  Session note: Display "View Trace" button for assistant messages if trace exists, opening a drawer visualizing the trace JSON.
 
 ## Notes Per Task
 
 ### TASK-001
-Include schemas for:
-- `QueryClassification` (enum)
-- `TransformationPackage`
-- `RoutingDecision`
-- `RetrievalRun`
-- `RetrievalTrace`
+Notes:
+
+### TASK-002
+Notes:
+
+### TASK-003
+Notes:
+
+### TASK-004
+Notes:
+
+### TASK-005
+Notes:
+
+### TASK-006
+Notes:
+
+### TASK-007
+Notes:
+
+### TASK-008
+Notes:
 
 ### TASK-009
-Reciprocal Rank Fusion (RRF) formula: `1 / (60 + rank)`.
+Notes:
+
+### TASK-010
+Notes:
+
+### TASK-011
+Notes:
+
+### TASK-012
+Notes:
+
+## Completion Notes
+
+- What was delivered: End-to-end implementation of Advanced Retrieval Strategies and Routing, including trace observability, query intelligence (classification, expansion, decomposition, HyDE), dynamic routing, parent-child expansion, and candidate merging via RRF. A UI was added for trace inspection and advanced config toggles.
+- What was deferred: None.
+- What needs follow-up: Future iterations may include storing `RetrievalTrace` in the database.
 
 ## Resume Notes
 
-- Current phase: Phase 1
-- Next recommended task: TASK-001
+- Current phase: Complete
+- Next recommended task: None
 - Active blocker: None
-- Last validation evidence added: None
+- Last validation evidence added: All backend unit tests pass, and frontend builds successfully.

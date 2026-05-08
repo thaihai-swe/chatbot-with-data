@@ -3,7 +3,6 @@
 
 # Editors
 .idea/
-.vscode/
 
 # Logs
 *.log

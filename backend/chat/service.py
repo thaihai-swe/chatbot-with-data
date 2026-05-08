@@ -8,13 +8,13 @@ from typing import Optional, List, Dict, Any
 
 from fastapi import Depends
 
-from chat.retrieval import RetrievalService, get_retrieval_service
+from chat.retrieval import RetrievalService, get_retrieval_service, AdvancedRetrievalService, get_advanced_retrieval_service
 from chat.context import ContextService, get_context_service
 from chat.generation import GenerationService, get_generation_service
 from chat.citations import CitationService, get_citation_service
 from chat.grounding import GroundingService, get_grounding_service
 from repositories.chat_repository import ChatRepository
-from schemas.chat import ChatTurnResponse, CitationResponse
+from schemas.chat import ChatTurnResponse, CitationResponse, AdvancedRetrievalConfig
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +24,13 @@ class ChatService:
 
     def __init__(
         self,
-        retrieval_service: RetrievalService,
+        advanced_retrieval_service: AdvancedRetrievalService,
         context_service: ContextService,
         generation_service: GenerationService,
         citation_service: CitationService,
         grounding_service: GroundingService,
     ):
-        self.retrieval_service = retrieval_service
+        self.advanced_retrieval_service = advanced_retrieval_service
         self.context_service = context_service
         self.generation_service = generation_service
         self.citation_service = citation_service
@@ -40,6 +40,7 @@ class ChatService:
         self,
         session_id: str,
         query_text: str,
+        advanced_config: Optional[AdvancedRetrievalConfig] = None,
     ) -> ChatTurnResponse:
         """
         Process a chat turn: retrieve, evaluate, generate, and persist.
@@ -50,8 +51,12 @@ class ChatService:
             raise ValueError(f"Session {session_id} not found")
 
         # 2. Retrieve chunks
-        retrieved_chunks = self.retrieval_service.retrieve_relevant_chunks(
+        if not advanced_config:
+            advanced_config = AdvancedRetrievalConfig()
+            
+        retrieved_chunks, trace = self.advanced_retrieval_service.retrieve(
             query_text=query_text,
+            config=advanced_config,
             collection_id=session.collection_id,
         )
 
@@ -140,6 +145,7 @@ class ChatService:
                     )
                     for c in citations
                 ],
+                retrieval_trace=trace,
             )
 
         except Exception as e:
@@ -153,7 +159,7 @@ class ChatService:
 
 
 def get_chat_service(
-    retrieval_service: RetrievalService = Depends(get_retrieval_service),
+    advanced_retrieval_service: AdvancedRetrievalService = Depends(get_advanced_retrieval_service),
     context_service: ContextService = Depends(get_context_service),
     generation_service: GenerationService = Depends(get_generation_service),
     citation_service: CitationService = Depends(get_citation_service),
@@ -161,7 +167,7 @@ def get_chat_service(
 ) -> ChatService:
     """Factory function for ChatService."""
     return ChatService(
-        retrieval_service,
+        advanced_retrieval_service,
         context_service,
         generation_service,
         citation_service,
