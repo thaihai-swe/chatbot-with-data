@@ -4,11 +4,11 @@ from __future__ import annotations
 import logging
 import json
 import uuid
-from typing import Optional, List, Dict, Any
+from typing import Optional
 
 from fastapi import Depends
 
-from chat.retrieval import RetrievalService, get_retrieval_service, AdvancedRetrievalService, get_advanced_retrieval_service
+from chat.retrieval import AdvancedRetrievalService, get_advanced_retrieval_service
 from chat.context import ContextService, get_context_service
 from chat.generation import GenerationService, get_generation_service
 from chat.citations import CitationService, get_citation_service
@@ -51,7 +51,7 @@ class ChatService:
             raise ValueError(f"Session {session_id} not found")
 
         # 2. Retrieve chunks
-        if not advanced_config:
+        if advanced_config is None:
             advanced_config = AdvancedRetrievalConfig()
             
         retrieved_chunks, trace = self.advanced_retrieval_service.retrieve(

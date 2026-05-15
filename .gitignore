@@ -9,7 +9,7 @@
 
 # Environment files
 
-
+.env
 
 # Python
 __pycache__/

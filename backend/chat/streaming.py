@@ -5,14 +5,15 @@ import logging
 import json
 import uuid
 import asyncio
-from typing import Optional, List, Dict, Any, AsyncIterator
+from typing import Optional, Dict, Any, AsyncIterator
 
-from chat.retrieval import RetrievalService
+from chat.retrieval import AdvancedRetrievalService
 from chat.context import ContextService
 from chat.generation import GenerationService
 from chat.citations import CitationService
-from chat.grounding import GroundingService
+from chat.grounding import GroundingService, get_grounding_service
 from repositories.chat_repository import ChatRepository
+from schemas.chat import AdvancedRetrievalConfig
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +25,13 @@ class StreamingOrchestrator:
 
     def __init__(
         self,
-        retrieval_service: RetrievalService,
+        advanced_retrieval_service: AdvancedRetrievalService,
         context_service: ContextService,
         generation_service: GenerationService,
         citation_service: CitationService,
         grounding_service: GroundingService,
     ):
-        self.retrieval_service = retrieval_service
+        self.advanced_retrieval_service = advanced_retrieval_service
         self.context_service = context_service
         self.generation_service = generation_service
         self.citation_service = citation_service
@@ -40,10 +41,11 @@ class StreamingOrchestrator:
         self,
         session_id: str,
         query_text: str,
+        advanced_config: Optional[AdvancedRetrievalConfig] = None,
     ) -> AsyncIterator[str]:
         """
         Stream a chat turn as SSE events.
-        
+
         Events:
         - status: Current stage (retrieving, generating, etc.)
         - token: Answer text tokens
@@ -52,19 +54,22 @@ class StreamingOrchestrator:
         - done: Signal completion
         """
         turn_id = str(uuid.uuid4())
-        
+
         try:
             # 1. Status: Understanding query & retrieving
             yield self._format_sse("status", {"stage": "retrieving", "message": "Searching knowledge base...", "turn_id": turn_id})
-            
+
             session = ChatRepository.get_session(session_id)
             if not session:
                 yield self._format_sse("error", {"message": f"Session {session_id} not found"})
                 return
 
+            config = advanced_config if advanced_config is not None else AdvancedRetrievalConfig()
+
             # Retrieval
-            retrieved_chunks = self.retrieval_service.retrieve_relevant_chunks(
+            retrieved_chunks, _ = self.advanced_retrieval_service.retrieve(
                 query_text=query_text,
+                config=config,
                 collection_id=session.collection_id,
             )
 
@@ -74,7 +79,7 @@ class StreamingOrchestrator:
 
             # 2. Evaluate grounding
             is_sufficient, refusal_reason = self.grounding_service.evaluate_evidence(retrieved_chunks)
-            
+
             # Create turn record
             history = ChatRepository.list_turns_by_session(session_id)
             context_package = self.context_service.assemble_context(
@@ -82,7 +87,7 @@ class StreamingOrchestrator:
                 retrieved_chunks=retrieved_chunks,
                 chat_history=history,
             )
-            
+
             ChatRepository.create_turn(
                 id=turn_id,
                 session_id=session_id,
@@ -102,7 +107,7 @@ class StreamingOrchestrator:
                         return
                     yield self._format_sse("token", {"content": token + " "})
                     await asyncio.sleep(0.01)
-                
+
                 ChatRepository.update_turn_status(
                     turn_id=turn_id,
                     status="completed",
@@ -113,7 +118,7 @@ class StreamingOrchestrator:
 
             # 4. Status: Generating
             yield self._format_sse("status", {"stage": "generating", "message": "Generating answer..."})
-            
+
             full_answer = ""
             # Generation stream
             for token in self.generation_service.generate_answer(context_package, stream=True):
@@ -123,11 +128,11 @@ class StreamingOrchestrator:
                     return
                 full_answer += token
                 yield self._format_sse("token", {"content": token})
-                await asyncio.sleep(0)
+                ##await asyncio.sleep(0)
 
             # 5. Status: Finalizing citations
             yield self._format_sse("status", {"stage": "finalizing", "message": "Finalizing citations..."})
-            
+
             if is_cancelled(turn_id):
                 ChatRepository.update_turn_status(turn_id, "cancelled")
                 yield self._format_sse("status", {"stage": "cancelled", "message": "Cancelled."})
@@ -137,7 +142,7 @@ class StreamingOrchestrator:
             valid_citations = self.citation_service.map_citations_to_chunks(
                 citation_labels, retrieved_chunks
             )
-            
+
             citation_objects = []
             for cit_data in valid_citations:
                 cit = ChatRepository.create_citation(
@@ -153,13 +158,13 @@ class StreamingOrchestrator:
                     "document_id": cit.document_id,
                     "metadata": cit_data,
                 })
-            
+
             ChatRepository.update_turn_status(
                 turn_id=turn_id,
                 status="completed",
                 answer_text=full_answer,
             )
-            
+
             yield self._format_sse("citations", {"citations": citation_objects})
             yield self._format_sse("done", {"turn_id": turn_id})
 
@@ -180,11 +185,10 @@ class StreamingOrchestrator:
 
 
 from fastapi import Depends
-from chat.retrieval import get_retrieval_service
 from chat.context import get_context_service
 from chat.generation import get_generation_service
 from chat.citations import get_citation_service
-from chat.retrieval import get_retrieval_service, get_advanced_retrieval_service
+from chat.retrieval import get_advanced_retrieval_service
 
 def get_streaming_orchestrator(
     advanced_retrieval_service: AdvancedRetrievalService = Depends(get_advanced_retrieval_service),

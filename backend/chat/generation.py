@@ -39,8 +39,9 @@ class GenerationService:
             If stream=False: The full response string
             If stream=True: An iterator of response tokens
         """
+        print(f"Context package for generation: {json.dumps(context_package, indent=2)}")
         messages = [
-            {"role": "system", "content": context_package[""]},
+            {"role": "system", "content": context_package["system_prompt"]},
         ]
 
         # Add history

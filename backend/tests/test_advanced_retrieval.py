@@ -48,6 +48,27 @@ def test_advanced_retrieval_passthrough():
     baseline_service.retrieve_relevant_chunks.assert_called_once_with(query_text=query, collection_id="col1", k=5)
     assert len(chunks) == 1
 
+def test_advanced_retrieval_compat_passthrough():
+    baseline_service = Mock(spec=RetrievalService)
+    baseline_service.retrieve_relevant_chunks.return_value = [{"chunk_id": "c1", "similarity_score": 0.9}]
+    intel_service = Mock(spec=QueryIntelligenceService)
+    reranking_service = Mock(spec=RerankingService)
+
+    advanced_service = AdvancedRetrievalService(baseline_service, intel_service, reranking_service)
+
+    chunks = advanced_service.retrieve_relevant_chunks(
+        query_text="What is the capital of France?",
+        collection_id="col1",
+        k=5,
+    )
+
+    baseline_service.retrieve_relevant_chunks.assert_called_once_with(
+        query_text="What is the capital of France?",
+        collection_id="col1",
+        k=5,
+    )
+    assert len(chunks) == 1
+
 def test_multi_query_merging():
     baseline_service = Mock(spec=RetrievalService)
     baseline_service.retrieve_relevant_chunks.side_effect = [

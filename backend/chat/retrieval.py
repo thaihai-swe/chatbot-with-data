@@ -431,6 +431,26 @@ class AdvancedRetrievalService:
 
         return final_chunks, trace
 
+    def retrieve_relevant_chunks(
+        self,
+        query_text: str,
+        collection_id: Optional[str] = None,
+        k: int = 10,
+        config: Optional[AdvancedRetrievalConfig] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Compatibility wrapper for callers that still expect the baseline
+        retrieval interface.
+        """
+        effective_config = config if config is not None else AdvancedRetrievalConfig()
+        chunks, _ = self.retrieve(
+            query_text=query_text,
+            config=effective_config,
+            collection_id=collection_id,
+            k=k,
+        )
+        return chunks
+
 
 def get_advanced_retrieval_service(
     retrieval_service: RetrievalService = Depends(get_retrieval_service),

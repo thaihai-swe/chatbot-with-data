@@ -26,13 +26,13 @@ def create_session(payload: ChatSessionCreate) -> ChatSessionResponse:
     """Create a new chat session."""
     session_id = str(uuid.uuid4())
     metadata_json = json.dumps(payload.metadata or {})
-    
+
     session = ChatRepository.create_session(
         id=session_id,
         collection_id=payload.collection_id,
         metadata_json=metadata_json,
     )
-    
+
     return ChatSessionResponse(
         id=session.id,
         collection_id=session.collection_id,
@@ -64,7 +64,7 @@ def get_session(session_id: str) -> ChatSessionResponse:
     session = ChatRepository.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     return ChatSessionResponse(
         id=session.id,
         collection_id=session.collection_id,
@@ -80,10 +80,10 @@ def get_session_history(session_id: str) -> List[ChatTurnResponse]:
     session = ChatRepository.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     turns = ChatRepository.list_turns_by_session(session_id)
     result = []
-    
+
     for turn in turns:
         citations = ChatRepository.list_citations_by_turn(turn.id)
         citation_responses = [
@@ -98,7 +98,7 @@ def get_session_history(session_id: str) -> List[ChatTurnResponse]:
             )
             for c in citations
         ]
-        
+
         result.append(
             ChatTurnResponse(
                 id=turn.id,
@@ -114,7 +114,7 @@ def get_session_history(session_id: str) -> List[ChatTurnResponse]:
                 citations=citation_responses,
             )
         )
-    
+
     return result
 
 
@@ -127,7 +127,7 @@ def submit_turn(
     """Submit a new chat turn (query)."""
     try:
         return chat_service.process_turn(
-            session_id, 
+            session_id,
             payload.query_text,
             advanced_config=payload.advanced_config
         )
@@ -145,7 +145,11 @@ async def submit_turn_stream(
 ) -> StreamingResponse:
     """Submit a new chat turn (query) and stream the response."""
     return StreamingResponse(
-        orchestrator.stream_turn(session_id, payload.query_text, advanced_config=payload.advanced_config),
+        orchestrator.stream_turn(
+            session_id,
+            payload.query_text,
+            advanced_config=payload.advanced_config,
+        ),
         media_type="text/event-stream",
     )
 
