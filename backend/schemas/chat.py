@@ -19,6 +19,7 @@ class ChatSessionResponse(BaseModel):
 
 class AdvancedRetrievalConfig(BaseModel):
     enable_intelligence: bool = Field(False, description="Enable query classification and pre-retrieval intelligence")
+    enable_rewriting: bool = Field(False, description="Enable query normalization (Rewriting)")
     enable_expansion: bool = Field(False, description="Enable LLM-based query expansion")
     expansion_count: int = Field(3, description="Number of expanded queries to generate")
     enable_decomposition: bool = Field(False, description="Enable decomposition of complex multi-hop queries")

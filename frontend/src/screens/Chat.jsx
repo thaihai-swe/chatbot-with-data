@@ -26,6 +26,7 @@ export default function ChatScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [advancedConfig, setAdvancedConfig] = useState({
     enable_intelligence: false,
+    enable_rewriting: false,
     enable_expansion: false,
     expansion_count: 3,
     enable_decomposition: false,
@@ -236,6 +237,9 @@ export default function ChatScreen() {
               <input type="checkbox" checked={advancedConfig.enable_intelligence} onChange={() => toggleConfig("enable_intelligence")} /> Intelligence (Classify)
             </label>
             <label style={{ display: "block", marginBottom: "6px" }}>
+              <input type="checkbox" checked={advancedConfig.enable_rewriting} onChange={() => toggleConfig("enable_rewriting")} /> Intent Rewriting
+            </label>
+            <label style={{ display: "block", marginBottom: "6px" }}>
               <input type="checkbox" checked={advancedConfig.enable_dynamic_routing} onChange={() => toggleConfig("enable_dynamic_routing")} /> Dynamic Routing
             </label>
             <label style={{ display: "block", marginBottom: "6px" }}>
@@ -375,6 +379,12 @@ export default function ChatScreen() {
             <button onClick={() => setDebugTrace(null)} className="button button-outline" style={{ padding: "4px 8px" }}>Close</button>
           </div>
           <div style={{ padding: "20px" }}>
+            {debugTrace.retrieval?.transformations?.rewritten_query && (
+              <div style={{ marginBottom: "15px", padding: "10px", background: "rgba(0,123,255,0.05)", borderRadius: "6px", border: "1px solid rgba(0,123,255,0.1)" }}>
+                <div style={{ fontSize: "0.7rem", fontWeight: "bold", textTransform: "uppercase", marginBottom: "4px", color: "#007bff" }}>Cleaned Intent</div>
+                <div style={{ fontSize: "0.85rem" }}>{debugTrace.retrieval.transformations.rewritten_query}</div>
+              </div>
+            )}
             <pre className="mono" style={{ fontSize: "0.75rem", whiteSpace: "pre-wrap", background: "var(--color-bg)", padding: "10px", borderRadius: "8px" }}>
               {JSON.stringify(debugTrace, null, 2)}
             </pre>

@@ -14,6 +14,7 @@ from schemas.chat import AdvancedRetrievalConfig, RerankingTrace, RetrievalTrace
 from chat.prompts import (
     QUERY_CLASSIFICATION_PROMPT,
     QUERY_EXPANSION_PROMPT,
+    QUERY_REWRITING_PROMPT,
     QUERY_DECOMPOSITION_PROMPT,
     HYDE_PROMPT,
     SYNONYM_EXPANSION_PROMPT,
@@ -53,6 +54,10 @@ class QueryIntelligenceService:
         except Exception as e:
             logger.error(f"Failed to parse query expansion JSON: {e}")
             return []
+
+    def rewrite_query(self, query_text: str) -> str:
+        prompt = QUERY_REWRITING_PROMPT.format(query_text=query_text)
+        return self._call_llm(prompt)
 
     def decompose_query(self, query_text: str) -> List[str]:
         prompt = QUERY_DECOMPOSITION_PROMPT.format(query_text=query_text)
@@ -350,10 +355,29 @@ class AdvancedRetrievalService:
                 trace.routing.selected_strategy = "manual"
                 trace.routing.reason = "Dynamic routing disabled or no classification available."
 
-        if config.enable_expansion:
+        if config.enable_rewriting:
             t0 = time.time()
-            trace.transformations.expanded_queries = self.query_intelligence_service.expand_query(query_text, config.expansion_count)
-            trace.execution_time_ms["expansion"] = int((time.time() - t0) * 1000)
+            rewritten = self.query_intelligence_service.rewrite_query(query_text)
+            trace.transformations.rewritten_query = rewritten
+            trace.execution_time_ms["rewriting"] = int((time.time() - t0) * 1000)
+
+        queries_to_run = [query_text]
+        if config.enable_rewriting and trace.transformations.rewritten_query:
+            if trace.transformations.rewritten_query != query_text:
+                queries_to_run.append(trace.transformations.rewritten_query)
+
+        # Build final query list with transformations
+        all_variations = []
+        
+        for q in queries_to_run:
+            if config.enable_expansion:
+                t0 = time.time()
+                vars = self.query_intelligence_service.expand_query(q, config.expansion_count)
+                all_variations.extend(vars)
+                trace.execution_time_ms["expansion"] = trace.execution_time_ms.get("expansion", 0) + int((time.time() - t0) * 1000)
+
+        if config.enable_expansion:
+            trace.transformations.expanded_queries = list(set(all_variations))
 
         if config.enable_decomposition:
             t0 = time.time()
@@ -370,19 +394,21 @@ class AdvancedRetrievalService:
             trace.transformations.synonym_expansions = self.query_intelligence_service.expand_synonyms(query_text)
             trace.execution_time_ms["synonym_expansion"] = int((time.time() - t0) * 1000)
 
-        queries_to_run = [query_text]
-
+        # Final collection of unique queries to execute
+        unique_queries = list(set(queries_to_run))
         if config.enable_expansion and trace.transformations.expanded_queries:
-            queries_to_run.extend(trace.transformations.expanded_queries)
+            unique_queries.extend(trace.transformations.expanded_queries)
 
         if config.enable_decomposition and trace.transformations.sub_questions:
-            queries_to_run.extend(trace.transformations.sub_questions)
+            unique_queries.extend(trace.transformations.sub_questions)
 
         if config.enable_hyde and trace.transformations.hyde_doc:
-            queries_to_run.append(trace.transformations.hyde_doc)
+            unique_queries.append(trace.transformations.hyde_doc)
+
+        unique_queries = list(dict.fromkeys(unique_queries)) # Deduplicate preserve order
 
         all_results = []
-        for q in queries_to_run:
+        for q in unique_queries:
             search_query = q
             if config.enable_synonym_expansion and trace.transformations.synonym_expansions:
                 for old, new in trace.transformations.synonym_expansions.items():

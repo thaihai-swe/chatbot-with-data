@@ -61,6 +61,15 @@ Query: "{query_text}"
 Variations (JSON list of strings):"""
 
 
+QUERY_REWRITING_PROMPT = """You are a query normalization system. Your goal is to rewrite a potentially informal, shorthand, or "noisy" user query into a single, formal, and standalone search question.
+The rewritten query should be optimized for a vector search engine and should clearly express the user's underlying intent.
+If the query is already formal and clear, return it as is.
+Do not answer the question; only rewrite it.
+
+Query: "{query_text}"
+Rewritten Query:"""
+
+
 QUERY_DECOMPOSITION_PROMPT = """You are a query decomposition system. The user has asked a complex, multi-part, or comparative question.
 Break this question down into simple, standalone sub-questions that can be retrieved independently.
 Output the sub-questions as a JSON list of strings.
