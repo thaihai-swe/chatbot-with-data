@@ -3,8 +3,6 @@ from __future__ import annotations
 from typing import Optional, List, Any, TYPE_CHECKING
 from pydantic import BaseModel, Field
 
-from schemas.evaluation import CaseMetrics
-
 if TYPE_CHECKING:
     pass
 
@@ -35,7 +33,6 @@ class AdvancedRetrievalConfig(BaseModel):
     reranker_model: Optional[str] = Field(None, description="Model to use for reranking")
     reranker_top_k: Optional[int] = Field(None, description="Final number of chunks to return after reranking")
     enable_parent_child: bool = Field(True, description="Enable parent-child chunk retrieval")
-    enable_live_evaluation: bool = Field(True, description="Enable real-time LLM-as-a-judge evaluation of this turn")
 
 
 class ChatTurnCreate(BaseModel):
@@ -129,7 +126,6 @@ class ChatTurnResponse(BaseModel):
     citations: List[CitationResponse] = []
     retrieval_trace: Optional[RetrievalTrace] = None
     safety_trace: Optional[SafetyTrace] = None
-    evaluation_metrics: Optional[CaseMetrics] = None
 
 
 ChatTurnResponse.model_rebuild()

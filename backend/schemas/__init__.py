@@ -17,12 +17,6 @@ from schemas.chat import (
     ChatTurnResponse,
     CitationResponse,
 )
-from schemas.evaluation import (
-    EvaluationCase,
-    EvaluationDataset,
-    EvaluationResult,
-    EvaluationRun,
-)
 
 __all__ = [
     "CollectionCreate",
@@ -39,8 +33,4 @@ __all__ = [
     "ChatTurnCreate",
     "ChatTurnResponse",
     "CitationResponse",
-    "EvaluationCase",
-    "EvaluationDataset",
-    "EvaluationResult",
-    "EvaluationRun",
 ]

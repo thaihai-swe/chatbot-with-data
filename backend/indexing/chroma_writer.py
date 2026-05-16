@@ -11,7 +11,7 @@ class ChromaVectorWriter:
 
     def __init__(
         self,
-        persist_directory: str = ".chroma_db",
+        persist_directory: str = "data/.chroma_db",
         collection_name: str = "document-chunks",
     ):
         """

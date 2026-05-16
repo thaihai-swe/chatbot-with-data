@@ -45,7 +45,7 @@ class Settings:
     embedding_model: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 
     # Chroma Settings
-    chroma_db_path: str = os.getenv("CHROMA_DB_PATH", ".chroma_db")
+    chroma_db_path: str = os.getenv("CHROMA_DB_PATH", "data/.chroma_db")
     chroma_collection_name: str = os.getenv("CHROMA_COLLECTION_NAME", "document-chunks")
 
     # RAG Settings

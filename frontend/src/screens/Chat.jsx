@@ -35,7 +35,6 @@ export default function ChatScreen() {
     enable_dynamic_routing: true,
     enable_reranking: true,
     enable_parent_child: true,
-    enable_live_evaluation: true,
     });
 
   const [debugTrace, setDebugTrace] = useState(null);
@@ -263,9 +262,6 @@ export default function ChatScreen() {
             <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
               <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_parent_child} onChange={() => toggleConfig("enable_parent_child")} /> Parent-Child
             </label>
-            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
-              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_live_evaluation} onChange={() => toggleConfig("enable_live_evaluation")} /> Live Evaluation (LLM-Judge)
-            </label>
 
             <h4 style={{ margin: "15px 0 10px 0", borderTop: "1px solid rgba(0,0,0,0.05)", paddingTop: "10px" }}>Scope Collections</h4>
             <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid rgba(0,0,0,0.1)", borderRadius: "4px", padding: "8px", background: "rgba(255,255,255,0.3)" }}>
@@ -320,16 +316,6 @@ export default function ChatScreen() {
           {messages.map((msg, idx) => (
             <div key={idx} className={`message-bubble ${msg.role === "user" ? "message-user" : "message-assistant"}`}>
               {msg.content}
-              {msg.evaluation && (
-                <div style={{ marginTop: "10px", display: "flex", gap: "10px" }}>
-                  <div style={{ fontSize: "0.7rem", padding: "2px 8px", borderRadius: "4px", background: "rgba(76, 175, 80, 0.1)", color: "#4CAF50", border: "1px solid rgba(76, 175, 80, 0.2)" }}>
-                    <strong>Groundedness:</strong> {msg.evaluation.groundedness?.score?.toFixed(1)}
-                  </div>
-                  <div style={{ fontSize: "0.7rem", padding: "2px 8px", borderRadius: "4px", background: "rgba(33, 150, 243, 0.1)", color: "#2196F3", border: "1px solid rgba(33, 150, 243, 0.2)" }}>
-                    <strong>Relevance:</strong> {msg.evaluation.relevance?.score?.toFixed(1)}
-                  </div>
-                </div>
-              )}
               {msg.trace && (
                 <div style={{ marginTop: "10px" }}>
                   <button onClick={() => setDebugTrace(msg.trace)} className="button button-outline" style={{ fontSize: "0.7rem", padding: "2px 8px" }}>

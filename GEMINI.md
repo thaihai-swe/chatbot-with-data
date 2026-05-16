@@ -157,7 +157,6 @@ When the user corrects your approach, append a one-line rule here before ending 
 - **Dynamic Routing:** Intelligent selection of retrieval strategies based on query intent.
 - **Parent-Child & Semantic Chunking:** Precise retrieval with context expansion.
 - **Safety:** Groundedness checks and advanced prompt-injection defense.
-- **Evaluation:** Repeatable benchmarks for retrieval and generation quality.
 
 ### Tech Stack
 - **Backend:** Python (FastAPI), OpenAI (GPT-4o), ChromaDB (Vector Store), SQLite (Metadata).
