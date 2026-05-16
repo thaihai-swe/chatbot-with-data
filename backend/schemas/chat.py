@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from typing import Optional, List, Any
+from typing import Optional, List, Any, TYPE_CHECKING
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from schemas.evaluation import CaseMetrics
 
 
 class ChatSessionCreate(BaseModel):
@@ -31,6 +34,7 @@ class AdvancedRetrievalConfig(BaseModel):
     reranker_top_k: Optional[int] = Field(None, description="Final number of chunks to return after reranking")
     enable_parent_child: bool = Field(False, description="Enable parent-child chunk retrieval")
     auto_collection_detection: bool = Field(False, description="Enable automatic detection of target collections")
+    enable_live_evaluation: bool = Field(False, description="Enable real-time LLM-as-a-judge evaluation of this turn")
 
 
 class ChatTurnCreate(BaseModel):
@@ -126,3 +130,4 @@ class ChatTurnResponse(BaseModel):
     citations: List[CitationResponse] = []
     retrieval_trace: Optional[RetrievalTrace] = None
     safety_trace: Optional[SafetyTrace] = None
+    evaluation_metrics: Optional[CaseMetrics] = None

@@ -103,3 +103,50 @@ Available Collections:
 
 Query: "{query_text}"
 Collection IDs (JSON list of strings):"""
+
+
+# --- LLM-as-a-Judge Evaluation Prompts ---
+
+JUDGE_GROUNDEDNESS_PROMPT = """You are an impartial judge evaluating the groundedness of an AI assistant's answer.
+Groundedness means that every factual claim in the answer is directly supported by the provided source chunks.
+
+INSTRUCTIONS:
+1. Analyze the assistant's answer sentence by sentence.
+2. Compare each sentence to the provided source context.
+3. If a sentence contains a factual claim not found in the source, it is not grounded.
+4. Minor conversational filler is allowed and does not need to be grounded.
+5. Provide a score between 0.0 and 1.0, where 1.0 means perfectly grounded and 0.0 means completely ungrounded or hallucinated.
+6. Provide a clear "reason" explaining your score, specifically calling out any unsupported claims.
+
+Output a JSON object:
+{{
+  "score": float,
+  "reason": "string"
+}}
+
+<sources>
+{context_string}
+</sources>
+
+Assistant Answer: "{answer_text}"
+Evaluation (JSON):"""
+
+JUDGE_RELEVANCE_PROMPT = """You are an impartial judge evaluating the relevance of an AI assistant's answer to a user's question.
+Relevance means the answer directly addresses the user's question without adding irrelevant information or failing to answer the core intent.
+
+INSTRUCTIONS:
+1. Compare the user's question to the assistant's answer.
+2. Evaluate if the answer satisfies the user's request.
+3. Evaluate if the answer is concise and focused, or if it includes unnecessary "slop" or unrelated facts.
+4. Provide a score between 0.0 and 1.0, where 1.0 means perfectly relevant and 0.0 means completely irrelevant or avoided the question.
+5. Provide a clear "reason" explaining your score.
+
+Output a JSON object:
+{{
+  "score": float,
+  "reason": "string"
+}}
+
+User Question: "{query_text}"
+Assistant Answer: "{answer_text}"
+Evaluation (JSON):"""

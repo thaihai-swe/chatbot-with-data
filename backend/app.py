@@ -16,6 +16,7 @@ from routers import (
     health_router,
     ingestion_router,
     chat_router,
+    evaluation_router,
 )
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -55,6 +56,7 @@ def create_app() -> FastAPI:
     app.include_router(ingestion_router)
     app.include_router(duplicate_decisions_router)
     app.include_router(chat_router)
+    app.include_router(evaluation_router)
     register_error_handlers(app)
     return app
 

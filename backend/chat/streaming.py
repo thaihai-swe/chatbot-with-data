@@ -13,8 +13,10 @@ from chat.generation import GenerationService
 from chat.citations import CitationService
 from chat.grounding import GroundingService, get_grounding_service
 from chat.safety import SafetyService, get_safety_service
+from chat.judge import JudgeService, get_judge_service
 from repositories.chat_repository import ChatRepository
 from schemas.chat import AdvancedRetrievalConfig, SafetyTrace
+from schemas.evaluation import CaseMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,7 @@ class StreamingOrchestrator:
         citation_service: CitationService,
         grounding_service: GroundingService,
         safety_service: SafetyService,
+        judge_service: JudgeService,
     ):
         self.advanced_retrieval_service = advanced_retrieval_service
         self.context_service = context_service
@@ -39,6 +42,7 @@ class StreamingOrchestrator:
         self.citation_service = citation_service
         self.grounding_service = grounding_service
         self.safety_service = safety_service
+        self.judge_service = judge_service
 
     async def stream_turn(
         self,
@@ -209,11 +213,29 @@ class StreamingOrchestrator:
                 answer_text=full_answer,
             )
 
-            # Include safety trace and retrieval trace in the final citations event or a separate event
+            # 8. Live Evaluation (optional)
+            evaluation_metrics = None
+            if config.enable_live_evaluation and is_sufficient:
+                yield self._format_sse("status", {"stage": "evaluating", "message": "Evaluating answer quality...", "turn_id": turn_id})
+                try:
+                    groundedness = self.judge_service.evaluate_groundedness(full_answer, safe_chunks)
+                    relevance = self.judge_service.evaluate_relevance(query_text, full_answer)
+                    evaluation_metrics = CaseMetrics(
+                        groundedness=groundedness,
+                        relevance=relevance,
+                        hit=True,
+                        recall_at_k=1.0,
+                        latency_ms=0
+                    )
+                except Exception as e:
+                    logger.error(f"Error in live evaluation (stream): {str(e)}")
+
+            # Include safety trace, retrieval trace, and evaluation metrics
             yield self._format_sse("citations", {
                 "citations": citation_objects,
                 "retrieval_trace": trace.dict() if hasattr(trace, 'dict') else trace,
-                "safety_trace": safety_trace.dict() if hasattr(safety_trace, 'dict') else safety_trace
+                "safety_trace": safety_trace.dict() if hasattr(safety_trace, 'dict') else safety_trace,
+                "evaluation_metrics": evaluation_metrics.dict() if evaluation_metrics else None
             })
             yield self._format_sse("done", {"turn_id": turn_id})
 
@@ -246,6 +268,7 @@ def get_streaming_orchestrator(
     citation_service: CitationService = Depends(get_citation_service),
     grounding_service: GroundingService = Depends(get_grounding_service),
     safety_service: SafetyService = Depends(get_safety_service),
+    judge_service: JudgeService = Depends(get_judge_service),
 ) -> StreamingOrchestrator:
     """Factory function for StreamingOrchestrator."""
     return StreamingOrchestrator(
@@ -255,4 +278,5 @@ def get_streaming_orchestrator(
         citation_service,
         grounding_service,
         safety_service,
+        judge_service,
     )

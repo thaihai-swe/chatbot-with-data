@@ -4,6 +4,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import CollectionsScreen from "./screens/Collections";
 import DocumentLibraryScreen from "./screens/DocumentLibrary";
 import ChatScreen from "./screens/Chat";
+import EvaluationDashboard from "./screens/EvaluationDashboard";
 
 function App() {
   return (
@@ -44,6 +45,14 @@ function App() {
             >
               Chat
             </NavLink>
+            <NavLink
+              className={({ isActive }) =>
+                isActive ? "nav-link nav-link-active" : "nav-link"
+              }
+              to="/evaluation"
+            >
+              Evaluation
+            </NavLink>
           </nav>
         </header>
         <main className="page-shell">
@@ -52,6 +61,7 @@ function App() {
             <Route path="/collections" element={<CollectionsScreen />} />
             <Route path="/chat" element={<ChatScreen />} />
             <Route path="/chat/:sessionId" element={<ChatScreen />} />
+            <Route path="/evaluation" element={<EvaluationDashboard />} />
           </Routes>
         </main>
       </div>

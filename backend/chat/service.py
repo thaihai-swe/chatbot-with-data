@@ -14,8 +14,10 @@ from chat.generation import GenerationService, get_generation_service
 from chat.citations import CitationService, get_citation_service
 from chat.grounding import GroundingService, get_grounding_service
 from chat.safety import SafetyService, get_safety_service
+from chat.judge import JudgeService, get_judge_service
 from repositories.chat_repository import ChatRepository
 from schemas.chat import ChatTurnResponse, CitationResponse, AdvancedRetrievalConfig, SafetyTrace
+from schemas.evaluation import CaseMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,7 @@ class ChatService:
         citation_service: CitationService,
         grounding_service: GroundingService,
         safety_service: SafetyService,
+        judge_service: JudgeService,
     ):
         self.advanced_retrieval_service = advanced_retrieval_service
         self.context_service = context_service
@@ -38,6 +41,7 @@ class ChatService:
         self.citation_service = citation_service
         self.grounding_service = grounding_service
         self.safety_service = safety_service
+        self.judge_service = judge_service
 
     def process_turn(
         self,
@@ -179,7 +183,23 @@ class ChatService:
                     answer_text=answer_text,
                 )
 
-            # 8. Reload turn and return
+            # 8. Live Evaluation (optional)
+            evaluation_metrics = None
+            if advanced_config and advanced_config.enable_live_evaluation and is_sufficient:
+                try:
+                    groundedness = self.judge_service.evaluate_groundedness(answer_text, safe_chunks)
+                    relevance = self.judge_service.evaluate_relevance(query_text, answer_text)
+                    evaluation_metrics = CaseMetrics(
+                        groundedness=groundedness,
+                        relevance=relevance,
+                        hit=True, # In live chat, we don't have ground truth for hit
+                        recall_at_k=1.0,
+                        latency_ms=0 # We could track this
+                    )
+                except Exception as e:
+                    logger.error(f"Error in live evaluation: {str(e)}")
+
+            # 9. Reload turn and return
             turn = ChatRepository.get_turn(turn_id)
             citations = ChatRepository.list_citations_by_turn(turn_id)
 
@@ -212,6 +232,7 @@ class ChatService:
                 ],
                 retrieval_trace=trace,
                 safety_trace=safety_trace,
+                evaluation_metrics=evaluation_metrics,
             )
 
         except Exception as e:
@@ -231,6 +252,7 @@ def get_chat_service(
     citation_service: CitationService = Depends(get_citation_service),
     grounding_service: GroundingService = Depends(get_grounding_service),
     safety_service: SafetyService = Depends(get_safety_service),
+    judge_service: JudgeService = Depends(get_judge_service),
 ) -> ChatService:
     """Factory function for ChatService."""
     return ChatService(
@@ -240,4 +262,5 @@ def get_chat_service(
         citation_service,
         grounding_service,
         safety_service,
+        judge_service,
     )

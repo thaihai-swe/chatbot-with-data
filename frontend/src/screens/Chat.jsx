@@ -35,8 +35,10 @@ export default function ChatScreen() {
     enable_dynamic_routing: false,
     enable_reranking: false,
     enable_parent_child: false,
-    auto_collection_detection: false
-  });
+    auto_collection_detection: false,
+    enable_live_evaluation: false,
+    });
+
   const [debugTrace, setDebugTrace] = useState(null);
 
   // Load sessions
@@ -68,7 +70,8 @@ export default function ChatScreen() {
                 role: "assistant", 
                 content: turn.answer_text,
                 citations: turn.citations,
-                trace: turn.retrieval_trace
+                trace: turn.retrieval_trace,
+                evaluation: turn.evaluation_metrics
               });
             }
           });
@@ -158,8 +161,9 @@ export default function ChatScreen() {
           if (prev.length === 0) return prev;
           const last = prev[prev.length - 1];
           if (last.role !== "assistant") return prev;
-          return [...prev.slice(0, -1), { ...last, trace }];
+          return [...prev.slice(0, -1), { ...last, trace: trace.retrieval, evaluation: trace.evaluation }];
         });
+        setDebugTrace(trace);
       },
       onError: (err) => {
         setStatusMessage(`Error: ${err.message}`);
@@ -261,8 +265,12 @@ export default function ChatScreen() {
               <input type="checkbox" checked={advancedConfig.enable_parent_child} onChange={() => toggleConfig("enable_parent_child")} /> Parent-Child
             </label>
             <label style={{ display: "block", marginBottom: "6px" }}>
-              <input type="checkbox" checked={advancedConfig.auto_collection_detection} onChange={() => toggleConfig("auto_collection_detection")} /> Auto Collection
+              <input type="checkbox" checked={advancedConfig.auto_collection_detection} onChange={() => toggleConfig("auto_collection_detection")} /> Auto Collection Detection
             </label>
+            <label style={{ display: "block", marginBottom: "6px" }}>
+              <input type="checkbox" checked={advancedConfig.enable_live_evaluation} onChange={() => toggleConfig("enable_live_evaluation")} /> Live Evaluation (LLM-Judge)
+            </label>
+            </div>
 
             <h4 style={{ margin: "15px 0 10px 0", borderTop: "1px solid rgba(0,0,0,0.05)", paddingTop: "10px" }}>Scope Collections</h4>
             <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid rgba(0,0,0,0.1)", borderRadius: "4px", padding: "8px", background: "rgba(255,255,255,0.3)" }}>
@@ -317,6 +325,16 @@ export default function ChatScreen() {
           {messages.map((msg, idx) => (
             <div key={idx} className={`message-bubble ${msg.role === "user" ? "message-user" : "message-assistant"}`}>
               {msg.content}
+              {msg.evaluation && (
+                <div style={{ marginTop: "10px", display: "flex", gap: "10px" }}>
+                  <div style={{ fontSize: "0.7rem", padding: "2px 8px", borderRadius: "4px", background: "rgba(76, 175, 80, 0.1)", color: "#4CAF50", border: "1px solid rgba(76, 175, 80, 0.2)" }}>
+                    <strong>Groundedness:</strong> {msg.evaluation.groundedness?.score?.toFixed(1)}
+                  </div>
+                  <div style={{ fontSize: "0.7rem", padding: "2px 8px", borderRadius: "4px", background: "rgba(33, 150, 243, 0.1)", color: "#2196F3", border: "1px solid rgba(33, 150, 243, 0.2)" }}>
+                    <strong>Relevance:</strong> {msg.evaluation.relevance?.score?.toFixed(1)}
+                  </div>
+                </div>
+              )}
               {msg.trace && (
                 <div style={{ marginTop: "10px" }}>
                   <button onClick={() => setDebugTrace(msg.trace)} className="button button-outline" style={{ fontSize: "0.7rem", padding: "2px 8px" }}>

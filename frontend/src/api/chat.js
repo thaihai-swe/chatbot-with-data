@@ -97,11 +97,12 @@ export function streamChatTurn(sessionId, queryText, advancedConfig, {
             case "token": onToken?.(data.content); break;
             case "citations": 
               onCitations?.(data.citations); 
-              if (data.retrieval_trace || data.safety_trace) {
-                // Combine traces for the debug view
+              if (data.retrieval_trace || data.safety_trace || data.evaluation_metrics) {
+                // Combine traces and metrics for the debug view
                 onTrace?.({
                   retrieval: data.retrieval_trace,
-                  safety: data.safety_trace
+                  safety: data.safety_trace,
+                  evaluation: data.evaluation_metrics
                 });
               }
               break;
