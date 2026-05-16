@@ -78,6 +78,16 @@ class ChatRepository:
         ]
 
     @staticmethod
+    def delete_session(session_id: str) -> bool:
+        """Delete a chat session and its associated data via CASCADE."""
+        with get_connection() as connection:
+            cursor = connection.execute(
+                "DELETE FROM chat_sessions WHERE id = ?",
+                (session_id,),
+            )
+            return cursor.rowcount > 0
+
+    @staticmethod
     def create_turn(
         id: str,
         session_id: str,

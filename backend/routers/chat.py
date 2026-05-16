@@ -74,6 +74,15 @@ def get_session(session_id: str) -> ChatSessionResponse:
     )
 
 
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_session(session_id: str) -> None:
+    """Delete a chat session."""
+    deleted = ChatRepository.delete_session(session_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return
+
+
 @router.get("/sessions/{session_id}/history", response_model=List[ChatTurnResponse])
 def get_session_history(session_id: str) -> List[ChatTurnResponse]:
     """Get the history of turns for a session."""

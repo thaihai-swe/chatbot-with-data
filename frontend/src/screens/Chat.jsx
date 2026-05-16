@@ -5,7 +5,8 @@ import {
   listChatSessions, 
   getChatHistory, 
   streamChatTurn,
-  cancelChatTurn
+  cancelChatTurn,
+  deleteChatSession
 } from "../api/chat";
 
 export default function ChatScreen() {
@@ -174,6 +175,30 @@ export default function ChatScreen() {
     }
   };
 
+  const handleDeleteSession = async (e, sid) => {
+    e.stopPropagation();
+    if (isGenerating && sid === sessionId) {
+      alert("Cannot delete an active session while it is generating.");
+      return;
+    }
+
+    if (!window.confirm("Are you sure you want to delete this chat session? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      await deleteChatSession(sid);
+      setChatSessions(prev => prev.filter(s => s.id !== sid));
+      
+      if (sid === sessionId) {
+        navigate("/chat");
+        setMessages([]);
+      }
+    } catch (err) {
+      alert("Failed to delete session");
+    }
+  };
+
   const toggleConfig = (key) => {
     setAdvancedConfig(prev => ({ ...prev, [key]: !prev[key] }));
   };
@@ -226,8 +251,18 @@ export default function ChatScreen() {
             <div key={s.id} 
                 onClick={() => navigate(`/chat/${s.id}`)}
                 className={`session-item ${sessionId === s.id ? "session-item-active" : ""}`}>
-              <div className="mono" style={{ fontSize: "0.75rem", opacity: 0.8 }}>{s.id.slice(0, 8)}</div>
-              <div style={{ fontSize: "0.7rem", marginTop: "4px" }}>{new Date(s.created_at).toLocaleString()}</div>
+              <div style={{ flex: 1 }}>
+                <div className="mono" style={{ fontSize: "0.75rem", opacity: 0.8 }}>{s.id.slice(0, 8)}</div>
+                <div style={{ fontSize: "0.7rem", marginTop: "4px" }}>{new Date(s.created_at).toLocaleString()}</div>
+              </div>
+              <button 
+                onClick={(e) => handleDeleteSession(e, s.id)}
+                className="delete-button"
+                title="Delete Session"
+                disabled={isGenerating && s.id === sessionId}
+              >
+                ×
+              </button>
             </div>
           ))}
         </div>

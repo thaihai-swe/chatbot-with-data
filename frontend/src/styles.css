@@ -337,6 +337,9 @@ td {
   transition: background 0.2s;
   margin-bottom: 4px;
   font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .session-item:hover {
@@ -346,4 +349,38 @@ td {
 .session-item-active {
   background: #173847;
   color: white;
+}
+
+.delete-button {
+  background: transparent;
+  border: none;
+  color: currentColor;
+  opacity: 0.4;
+  cursor: pointer;
+  font-size: 1.4rem;
+  line-height: 1;
+  padding: 4px;
+  border-radius: 4px;
+  transition: opacity 0.2s, background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.delete-button:hover {
+  opacity: 1;
+  background: rgba(180, 73, 58, 0.2);
+  color: #b4493a;
+}
+
+.session-item-active .delete-button:hover {
+  color: #ff9d8f;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.delete-button:disabled {
+  opacity: 0.1;
+  cursor: not-allowed;
 }

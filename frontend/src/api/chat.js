@@ -26,6 +26,14 @@ export async function getChatHistory(sessionId) {
   return response.json();
 }
 
+export async function deleteChatSession(sessionId) {
+  const response = await fetch(`${API_BASE_URL}/chat/sessions/${sessionId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok && response.status !== 404) throw new Error("Failed to delete chat session");
+  return true;
+}
+
 export async function cancelChatTurn(turnId) {
   const response = await fetch(`${API_BASE_URL}/chat/turns/${turnId}/cancel`, {
     method: "POST",
