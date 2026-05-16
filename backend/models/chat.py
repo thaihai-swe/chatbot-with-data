@@ -10,7 +10,7 @@ class ChatSession:
     Represents a chat session with a user.
     """
     id: str
-    collection_id: Optional[str] = None  # None means 'all collections'
+    collection_ids: List[str] = field(default_factory=list)  # Empty means 'all collections'
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     metadata_json: str = "{}"

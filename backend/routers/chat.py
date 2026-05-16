@@ -29,13 +29,13 @@ def create_session(payload: ChatSessionCreate) -> ChatSessionResponse:
 
     session = ChatRepository.create_session(
         id=session_id,
-        collection_id=payload.collection_id,
+        collection_ids=payload.collection_ids,
         metadata_json=metadata_json,
     )
 
     return ChatSessionResponse(
         id=session.id,
-        collection_id=session.collection_id,
+        collection_ids=session.collection_ids,
         metadata_json=session.metadata_json,
         created_at=session.created_at,
         updated_at=session.updated_at,
@@ -49,7 +49,7 @@ def list_sessions() -> List[ChatSessionResponse]:
     return [
         ChatSessionResponse(
             id=s.id,
-            collection_id=s.collection_id,
+            collection_ids=s.collection_ids,
             metadata_json=s.metadata_json,
             created_at=s.created_at,
             updated_at=s.updated_at,
@@ -67,7 +67,7 @@ def get_session(session_id: str) -> ChatSessionResponse:
 
     return ChatSessionResponse(
         id=session.id,
-        collection_id=session.collection_id,
+        collection_ids=session.collection_ids,
         metadata_json=session.metadata_json,
         created_at=session.created_at,
         updated_at=session.updated_at,

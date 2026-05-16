@@ -4,11 +4,11 @@
 
 const API_BASE_URL = "/api"; // Assuming vite proxy or similar
 
-export async function createChatSession(collectionId = null, metadata = {}) {
+export async function createChatSession(collectionIds = [], metadata = {}) {
   const response = await fetch(`${API_BASE_URL}/chat/sessions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ collection_id: collectionId, metadata }),
+    body: JSON.stringify({ collection_ids: collectionIds, metadata }),
   });
   if (!response.ok) throw new Error("Failed to create chat session");
   return response.json();

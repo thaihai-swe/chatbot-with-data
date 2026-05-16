@@ -84,12 +84,13 @@ Query: "{query_text}"
 Synonyms (JSON dictionary):"""
 
 
-COLLECTION_DETECTION_PROMPT = """You are a routing assistant. Based on the user's query and the available document collections, determine the most relevant collection ID.
-If the query is broad or applies to all collections, or if you are unsure, reply with "all".
-Only reply with the collection ID (or "all") and nothing else.
+COLLECTION_DETECTION_PROMPT = """You are a routing assistant. Based on the user's query and the available document collections, determine the most relevant collection ID or IDs.
+If the query is broad or applies to multiple collections, list them all.
+If the query applies to all collections, or if you are unsure, return a list containing "all".
+Output your response as a JSON list of strings.
 
 Available Collections:
 {collections_string}
 
 Query: "{query_text}"
-Collection ID:"""
+Collection IDs (JSON list of strings):"""

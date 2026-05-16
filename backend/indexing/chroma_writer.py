@@ -157,7 +157,7 @@ class ChromaVectorWriter:
         self,
         query_embedding: list[float],
         n_results: int = 10,
-        collection_filter: Optional[str] = None,
+        collection_filter: Optional[str | list[str]] = None,
     ) -> dict:
         """
         Query the vector index for similar embeddings.
@@ -165,14 +165,22 @@ class ChromaVectorWriter:
         Args:
             query_embedding: Query vector as list of floats
             n_results: Number of results to return
-            collection_filter: Optional collection_id to filter results
+            collection_filter: Optional collection_id or list of collection_ids to filter results
 
         Returns:
             Dict with 'ids', 'embeddings', 'metadatas', 'distances'
         """
         where_filter = None
         if collection_filter:
-            where_filter = {"collection_id": {"$eq": collection_filter}}
+            if isinstance(collection_filter, list):
+                if not collection_filter:
+                    where_filter = None
+                elif len(collection_filter) == 1:
+                    where_filter = {"collection_id": {"$eq": collection_filter[0]}}
+                else:
+                    where_filter = {"collection_id": {"$in": collection_filter}}
+            else:
+                where_filter = {"collection_id": {"$eq": collection_filter}}
 
         try:
             results = self.collection.query(
@@ -192,7 +200,7 @@ class ChromaVectorWriter:
     def query_by_collection(
         self,
         query_embedding: list[float],
-        collection_id: str,
+        collection_filter: str | list[str],
         n_results: int = 10,
     ) -> list[tuple[str, float, dict]]:
         """
@@ -200,7 +208,7 @@ class ChromaVectorWriter:
 
         Args:
             query_embedding: Query vector
-            collection_id: Collection ID to filter by
+            collection_filter: Collection ID or list of IDs to filter by
             n_results: Number of results
 
         Returns:
@@ -209,7 +217,7 @@ class ChromaVectorWriter:
         results = self.query(
             query_embedding=query_embedding,
             n_results=n_results,
-            collection_filter=collection_id,
+            collection_filter=collection_filter,
         )
 
         # Flatten results and compute similarity from distance

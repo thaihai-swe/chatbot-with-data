@@ -275,10 +275,24 @@ SCHEMA_STATEMENTS = [
     """
     CREATE INDEX IF NOT EXISTS idx_citations_turn_id ON citations(turn_id)
     """,
+    """
+    CREATE TABLE IF NOT EXISTS chat_session_collections (
+        session_id TEXT NOT NULL,
+        collection_id TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (session_id, collection_id),
+        FOREIGN KEY(session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE,
+        FOREIGN KEY(collection_id) REFERENCES collections(id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_chat_session_collections_session_id ON chat_session_collections(session_id)
+    """,
 ]
 
 
 DROP_STATEMENTS = [
+    "DROP TABLE IF EXISTS chat_session_collections",
     "DROP TABLE IF EXISTS citations",
     "DROP TABLE IF EXISTS chat_turns",
     "DROP TABLE IF EXISTS chat_sessions",
@@ -331,6 +345,21 @@ def apply_migrations() -> None:
                     )
                 else:
                     raise e
+
+        # 0004_multi_collection_chat
+        cursor = connection.execute("SELECT 1 FROM schema_migrations WHERE version = ?", ("0004_multi_collection_chat",))
+        if not cursor.fetchone():
+            # Data migration: Move existing collection_id to the mapping table
+            connection.execute(
+                """
+                INSERT INTO chat_session_collections (session_id, collection_id)
+                SELECT id, collection_id FROM chat_sessions WHERE collection_id IS NOT NULL
+                """
+            )
+            connection.execute(
+                "INSERT INTO schema_migrations(version) VALUES (?)",
+                ("0004_multi_collection_chat",),
+            )
 
 
 def reset_database() -> None:

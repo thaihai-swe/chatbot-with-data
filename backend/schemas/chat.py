@@ -5,13 +5,13 @@ from pydantic import BaseModel, Field
 
 
 class ChatSessionCreate(BaseModel):
-    collection_id: Optional[str] = Field(None, description="Collection ID to scope the chat. None for all collections.")
+    collection_ids: Optional[List[str]] = Field(default_factory=list, description="Collection IDs to scope the chat. Empty for all collections.")
     metadata: Optional[dict[str, Any]] = Field(default_factory=dict)
 
 
 class ChatSessionResponse(BaseModel):
     id: str
-    collection_id: Optional[str]
+    collection_ids: List[str] = Field(default_factory=list)
     metadata_json: str
     created_at: str
     updated_at: str

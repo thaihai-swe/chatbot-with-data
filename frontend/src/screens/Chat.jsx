@@ -8,11 +8,14 @@ import {
   cancelChatTurn,
   deleteChatSession
 } from "../api/chat";
+import { listCollections } from "../api/knowledgeApi";
 
 export default function ChatScreen() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const [sessions, setChatSessions] = useState([]);
+  const [availableCollections, setAvailableCollections] = useState([]);
+  const [selectedCollections, setSelectedCollections] = useState([]);
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -38,11 +41,18 @@ export default function ChatScreen() {
   // Load sessions
   useEffect(() => {
     listChatSessions().then(setChatSessions).catch(console.error);
+    listCollections().then(setAvailableCollections).catch(console.error);
   }, []);
 
   // Load history when sessionId changes
   useEffect(() => {
     if (sessionId) {
+      // Find session in list to get its collections
+      const currentSession = sessions.find(s => s.id === sessionId);
+      if (currentSession) {
+        setSelectedCollections(currentSession.collection_ids || []);
+      }
+
       getChatHistory(sessionId)
         .then(history => {
           // If we are currently generating and history is empty, it's a new session
@@ -76,7 +86,7 @@ export default function ChatScreen() {
 
   const handleCreateSession = async () => {
     try {
-      const session = await createChatSession();
+      const session = await createChatSession(selectedCollections);
       setChatSessions([session, ...sessions]);
       navigate(`/chat/${session.id}`);
     } catch (err) {
@@ -93,7 +103,7 @@ export default function ChatScreen() {
 
     if (!sid) {
       try {
-        const session = await createChatSession();
+        const session = await createChatSession(selectedCollections);
         setChatSessions([session, ...sessions]);
         sid = session.id;
         isNew = true;
@@ -175,6 +185,12 @@ export default function ChatScreen() {
     }
   };
 
+  const handleToggleCollection = (cid) => {
+    setSelectedCollections(prev => 
+      prev.includes(cid) ? prev.filter(id => id !== cid) : [...prev, cid]
+    );
+  };
+
   const handleDeleteSession = async (e, sid) => {
     e.stopPropagation();
     if (isGenerating && sid === sessionId) {
@@ -243,6 +259,25 @@ export default function ChatScreen() {
             <label style={{ display: "block", marginBottom: "6px" }}>
               <input type="checkbox" checked={advancedConfig.auto_collection_detection} onChange={() => toggleConfig("auto_collection_detection")} /> Auto Collection
             </label>
+
+            <h4 style={{ margin: "15px 0 10px 0", borderTop: "1px solid rgba(0,0,0,0.05)", paddingTop: "10px" }}>Scope Collections</h4>
+            <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid rgba(0,0,0,0.1)", borderRadius: "4px", padding: "8px", background: "rgba(255,255,255,0.3)" }}>
+              {availableCollections.length === 0 && <div style={{ opacity: 0.5, fontSize: "0.7rem" }}>No collections available</div>}
+              {availableCollections.map(c => (
+                <label key={c.id} style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
+                  <input 
+                    type="checkbox" 
+                    style={{ width: "auto", marginRight: "8px" }}
+                    checked={selectedCollections.includes(c.id)} 
+                    onChange={() => handleToggleCollection(c.id)} 
+                  /> 
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
+                </label>
+              ))}
+            </div>
+            <div style={{ marginTop: "8px", fontSize: "0.7rem", opacity: 0.7 }}>
+              {selectedCollections.length === 0 ? "Searching all collections" : `Searching ${selectedCollections.length} selected collections`}
+            </div>
           </div>
         )}
 

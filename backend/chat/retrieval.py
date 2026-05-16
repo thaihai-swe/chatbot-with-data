@@ -76,19 +76,34 @@ class QueryIntelligenceService:
             logger.error(f"Failed to parse synonym JSON: {e}")
             return {}
 
-    def detect_collection(self, query_text: str, collections: List[Dict[str, Any]]) -> Optional[str]:
+    def detect_collections(self, query_text: str, collections: List[Dict[str, Any]]) -> list[str]:
         if not collections:
-            return None
+            return []
 
         collections_string = "\n".join([f"- ID: {c['id']}, Name: {c['name']}, Description: {c.get('description', '')}" for c in collections])
         prompt = COLLECTION_DETECTION_PROMPT.format(collections_string=collections_string, query_text=query_text)
         result = self._call_llm(prompt)
 
+        try:
+            detected_ids = json.loads(result)
+            if not isinstance(detected_ids, list):
+                detected_ids = [str(detected_ids)]
+        except Exception as e:
+            logger.error(f"Failed to parse collection detection JSON: {e}. Raw result: {result}")
+            # Fallback to simple string check if JSON fails
+            detected_ids = [result.strip()]
+
         # Valid ID check
         valid_ids = {c['id'] for c in collections}
-        if result in valid_ids:
-            return result
-        return None
+        final_ids = []
+        for det_id in detected_ids:
+            if det_id in valid_ids:
+                final_ids.append(det_id)
+            elif det_id == "all":
+                # If "all" is present, we return empty list to signify no filter (search all)
+                return []
+        
+        return final_ids
 
 
 def get_query_intelligence_service(llm_client: LLMClient = Depends(get_llm_client)) -> QueryIntelligenceService:
@@ -157,31 +172,31 @@ class RetrievalService:
     def retrieve_relevant_chunks(
         self,
         query_text: str,
-        collection_id: Optional[str] = None,
+        collection_ids: Optional[str | list[str]] = None,
         k: int = 10,
     ) -> List[Dict[str, Any]]:
         """
-        Retrieve relevant chunks for a query, scoped to a collection.
+        Retrieve relevant chunks for a query, scoped to collections.
 
         Args:
             query_text: The user's query
-            collection_id: The collection ID to scope the search to (None for all)
+            collection_ids: The collection ID or list of IDs to scope the search to (None for all)
             k: Number of chunks to retrieve
 
         Returns:
             List of chunk metadata dicts with similarity scores
         """
-        logger.info(f"Retrieving {k} chunks for query: '{query_text}' (collection={collection_id})")
+        logger.info(f"Retrieving {k} chunks for query: '{query_text}' (collections={collection_ids})")
 
         # 1. Generate embedding for the query
         query_embedding = self.embedding_client.embed(query_text)
 
         # 2. Query Chroma
-        if collection_id:
+        if collection_ids:
             # Query with collection filter
             raw_results = self.chroma_writer.query_by_collection(
                 query_embedding=query_embedding,
-                collection_id=collection_id,
+                collection_filter=collection_ids,
                 n_results=k,
             )
         else:
@@ -283,7 +298,7 @@ class AdvancedRetrievalService:
         self,
         query_text: str,
         config: AdvancedRetrievalConfig,
-        collection_id: Optional[str] = None,
+        collection_ids: Optional[list[str]] = None,
         k: int = 10,
     ) -> Tuple[List[Dict[str, Any]], RetrievalTrace]:
         """
@@ -292,16 +307,16 @@ class AdvancedRetrievalService:
         """
         trace = RetrievalTrace(original_query=query_text)
 
-        if config.auto_collection_detection and not collection_id:
+        if config.auto_collection_detection and not collection_ids:
             core_repo = Repository()
             available_collections = core_repo.list_collections()
             t0 = time.time()
-            inferred_collection = self.query_intelligence_service.detect_collection(query_text, available_collections)
+            inferred_collections = self.query_intelligence_service.detect_collections(query_text, available_collections)
             trace.execution_time_ms["collection_detection"] = int((time.time() - t0) * 1000)
-            if inferred_collection:
-                collection_id = inferred_collection
-                trace.routing.inferred_collections.append(inferred_collection)
-                trace.routing.reason = f"Auto-detected collection: {inferred_collection}"
+            if inferred_collections:
+                collection_ids = inferred_collections
+                trace.routing.inferred_collections.extend(inferred_collections)
+                trace.routing.reason = f"Auto-detected collections: {', '.join(inferred_collections)}"
             else:
                 trace.routing.reason = "Auto-detection returned 'all' or invalid. Searching all collections."
                 trace.routing.fallback_triggered = True
@@ -375,7 +390,7 @@ class AdvancedRetrievalService:
 
             chunks = self.baseline_retrieval_service.retrieve_relevant_chunks(
                 query_text=search_query,
-                collection_id=collection_id,
+                collection_ids=collection_ids,
                 k=k
             )
             all_results.append(chunks)
@@ -434,7 +449,7 @@ class AdvancedRetrievalService:
     def retrieve_relevant_chunks(
         self,
         query_text: str,
-        collection_id: Optional[str] = None,
+        collection_ids: Optional[list[str]] = None,
         k: int = 10,
         config: Optional[AdvancedRetrievalConfig] = None,
     ) -> List[Dict[str, Any]]:
@@ -446,7 +461,7 @@ class AdvancedRetrievalService:
         chunks, _ = self.retrieve(
             query_text=query_text,
             config=effective_config,
-            collection_id=collection_id,
+            collection_ids=collection_ids,
             k=k,
         )
         return chunks

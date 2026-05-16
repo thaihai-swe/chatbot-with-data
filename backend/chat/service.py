@@ -98,7 +98,7 @@ class ChatService:
         retrieved_chunks, trace = self.advanced_retrieval_service.retrieve(
             query_text=query_text,
             config=advanced_config,
-            collection_id=session.collection_id,
+            collection_ids=session.collection_ids,
         )
 
         # 4. Chunk safety check

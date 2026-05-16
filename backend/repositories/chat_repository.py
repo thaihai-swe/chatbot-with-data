@@ -14,18 +14,24 @@ class ChatRepository:
     @staticmethod
     def create_session(
         id: str,
-        collection_id: Optional[str] = None,
+        collection_ids: Optional[List[str]] = None,
         metadata_json: str = "{}",
     ) -> ChatSession:
         """Create a new chat session."""
         with get_connection() as connection:
             connection.execute(
                 """
-                INSERT INTO chat_sessions (id, collection_id, metadata_json)
-                VALUES (?, ?, ?)
+                INSERT INTO chat_sessions (id, metadata_json)
+                VALUES (?, ?)
                 """,
-                (id, collection_id, metadata_json),
+                (id, metadata_json),
             )
+            if collection_ids:
+                for col_id in collection_ids:
+                    connection.execute(
+                        "INSERT INTO chat_session_collections (session_id, collection_id) VALUES (?, ?)",
+                        (id, col_id),
+                    )
         return ChatRepository.get_session(id)
 
     @staticmethod
@@ -34,7 +40,7 @@ class ChatRepository:
         with get_connection() as connection:
             cursor = connection.execute(
                 """
-                SELECT id, collection_id, created_at, updated_at, metadata_json
+                SELECT id, created_at, updated_at, metadata_json
                 FROM chat_sessions
                 WHERE id = ?
                 """,
@@ -42,15 +48,22 @@ class ChatRepository:
             )
             row = cursor.fetchone()
 
-        if not row:
-            return None
+            if not row:
+                return None
+
+            # Get collection IDs
+            cursor = connection.execute(
+                "SELECT collection_id FROM chat_session_collections WHERE session_id = ?",
+                (session_id,),
+            )
+            collection_ids = [r[0] for r in cursor.fetchall()]
 
         return ChatSession(
             id=row[0],
-            collection_id=row[1],
-            created_at=row[2],
-            updated_at=row[3],
-            metadata_json=row[4],
+            collection_ids=collection_ids,
+            created_at=row[1],
+            updated_at=row[2],
+            metadata_json=row[3],
         )
 
     @staticmethod
@@ -59,9 +72,12 @@ class ChatRepository:
         with get_connection() as connection:
             cursor = connection.execute(
                 """
-                SELECT id, collection_id, created_at, updated_at, metadata_json
-                FROM chat_sessions
-                ORDER BY created_at DESC
+                SELECT s.id, s.created_at, s.updated_at, s.metadata_json,
+                       GROUP_CONCAT(sc.collection_id) as collection_ids
+                FROM chat_sessions s
+                LEFT JOIN chat_session_collections sc ON s.id = sc.session_id
+                GROUP BY s.id
+                ORDER BY s.created_at DESC
                 """
             )
             rows = cursor.fetchall()
@@ -69,10 +85,10 @@ class ChatRepository:
         return [
             ChatSession(
                 id=row[0],
-                collection_id=row[1],
-                created_at=row[2],
-                updated_at=row[3],
-                metadata_json=row[4],
+                collection_ids=row[4].split(",") if row[4] else [],
+                created_at=row[1],
+                updated_at=row[2],
+                metadata_json=row[3],
             )
             for row in rows
         ]
