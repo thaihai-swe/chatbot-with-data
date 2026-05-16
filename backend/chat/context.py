@@ -46,11 +46,10 @@ class ContextService:
         context_parts = []
         for i, chunk in enumerate(retrieved_chunks):
             # Include source info for grounding
-            source_info = f"Source {i+1} (ID: {chunk['chunk_id']})"
-            if chunk.get('title'):
-                source_info += f" - {chunk['title']}"
-            if chunk.get('page_number'):
-                source_info += f", Page {chunk['page_number']}"
+            source_label = f"Source {i+1}"
+            source_id = chunk.get('chunk_id', 'unknown')
+            title = chunk.get('title', 'Unknown')
+            page = chunk.get('page_number', 'N/A')
 
             # Ensure we have the chunk text; retrieval may only return metadata
             chunk_text = chunk.get("text")
@@ -63,7 +62,7 @@ class ContextService:
                 except Exception:
                     chunk_text = ""
 
-            part = f"--- {source_info} ---\n{chunk_text}"
+            part = f'<source label="{source_label}" id="{source_id}" title="{title}" page="{page}">\n{chunk_text}\n</source>'
             context_parts.append(part)
 
         context_string = "\n\n".join(context_parts)

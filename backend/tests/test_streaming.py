@@ -20,6 +20,15 @@ def test_streaming_orchestrator_uses_advanced_retrieval_service():
     citation_service = Mock()
     grounding_service = Mock()
     grounding_service.evaluate_evidence.return_value = (False, "Not enough evidence")
+    
+    safety_service = Mock()
+    safety_service.check_query.return_value = Mock(
+        answerability=Mock(is_answerable=True),
+        query_classification="safe",
+        injection_risk="low",
+        classifier_reason="Mock safe"
+    )
+    safety_service.check_chunks.side_effect = lambda chunks: chunks
 
     orchestrator = StreamingOrchestrator(
         advanced_retrieval_service,
@@ -27,6 +36,7 @@ def test_streaming_orchestrator_uses_advanced_retrieval_service():
         generation_service,
         citation_service,
         grounding_service,
+        safety_service,
     )
     config = AdvancedRetrievalConfig(enable_expansion=True)
 

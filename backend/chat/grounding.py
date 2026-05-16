@@ -45,12 +45,13 @@ class GroundingService:
 
         max_similarity = max(chunk.get('similarity_score', 0) for chunk in retrieved_chunks)
 
-        # if max_similarity < self.min_similarity_threshold:
-        #     return False, (
-        #         f"I found some potential matches, but they don't seem closely "
-        #         f"related to your question (max similarity: {max_similarity:.2f}). "
-        #         "I don't have enough confident information to provide an answer."
-        #     )
+        if max_similarity < self.min_similarity_threshold:
+            logger.info(f"Refusing answer due to low similarity: {max_similarity:.2f} < {self.min_similarity_threshold}")
+            return False, (
+                f"I found some potential matches, but they don't seem closely "
+                f"related to your question (max similarity: {max_similarity:.2f}). "
+                "I don't have enough confident information to provide an answer."
+            )
 
         return True, ""
 
@@ -58,5 +59,7 @@ class GroundingService:
 def get_grounding_service() -> GroundingService:
     """Factory function for GroundingService."""
     settings = get_settings()
-    # Can add threshold to settings later
-    return GroundingService()
+    return GroundingService(
+        min_similarity_threshold=settings.min_similarity_threshold,
+        min_results_count=settings.min_results_count,
+    )

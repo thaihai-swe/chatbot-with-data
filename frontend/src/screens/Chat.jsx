@@ -44,6 +44,10 @@ export default function ChatScreen() {
     if (sessionId) {
       getChatHistory(sessionId)
         .then(history => {
+          // If we are currently generating and history is empty, it's a new session
+          // we just initialized locally. Don't let the empty history wipe it.
+          if (isGenerating && history.length === 0) return;
+
           const formatted = [];
           history.forEach(turn => {
             formatted.push({ role: "user", content: turn.query_text });
@@ -83,21 +87,33 @@ export default function ChatScreen() {
     e.preventDefault();
     if (!inputValue.trim() || isGenerating) return;
 
-    if (!sessionId) {
-      // Auto-create session if none selected
-      const session = await createChatSession();
-      setChatSessions([session, ...sessions]);
-      navigate(`/chat/${session.id}`);
-      _submitMessage(session.id, inputValue);
-    } else {
-      _submitMessage(sessionId, inputValue);
+    let sid = sessionId;
+    let isNew = false;
+
+    if (!sid) {
+      try {
+        const session = await createChatSession();
+        setChatSessions([session, ...sessions]);
+        sid = session.id;
+        isNew = true;
+        navigate(`/chat/${sid}`);
+      } catch (err) {
+        alert("Failed to create session");
+        return;
+      }
     }
     
+    _submitMessage(sid, inputValue, isNew);
     setInputValue("");
   };
 
-  const _submitMessage = (sid, text) => {
-    setMessages(prev => [...prev, { role: "user", content: text }]);
+  const _submitMessage = (sid, text, clear = false) => {
+    if (clear) {
+      setMessages([{ role: "user", content: text }]);
+    } else {
+      setMessages(prev => [...prev, { role: "user", content: text }]);
+    }
+    
     setIsGenerating(true);
     setStatusMessage("Starting...");
     
@@ -111,20 +127,25 @@ export default function ChatScreen() {
       },
       onToken: (token) => {
         setMessages(prev => {
+          if (prev.length === 0) return prev;
           const last = prev[prev.length - 1];
-          const updated = [...prev.slice(0, -1), { ...last, content: last.content + token }];
-          return updated;
+          if (last.role !== "assistant") return prev;
+          return [...prev.slice(0, -1), { ...last, content: last.content + token }];
         });
       },
       onCitations: (citations) => {
         setMessages(prev => {
+          if (prev.length === 0) return prev;
           const last = prev[prev.length - 1];
+          if (last.role !== "assistant") return prev;
           return [...prev.slice(0, -1), { ...last, citations }];
         });
       },
       onTrace: (trace) => {
         setMessages(prev => {
+          if (prev.length === 0) return prev;
           const last = prev[prev.length - 1];
+          if (last.role !== "assistant") return prev;
           return [...prev.slice(0, -1), { ...last, trace }];
         });
       },
@@ -134,7 +155,9 @@ export default function ChatScreen() {
       },
       onDone: () => {
         setMessages(prev => {
+          if (prev.length === 0) return prev;
           const last = prev[prev.length - 1];
+          if (last.role !== "assistant") return prev;
           return [...prev.slice(0, -1), { ...last, isStreaming: false }];
         });
         setIsGenerating(false);

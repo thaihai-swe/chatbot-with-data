@@ -52,6 +52,9 @@ class Settings:
     context_window_size: int = int(os.getenv("CONTEXT_WINDOW_SIZE", "128000"))
     max_history_turns: int = int(os.getenv("MAX_HISTORY_TURNS", "10"))
     retrieval_k: int = int(os.getenv("RETRIEVAL_K", "10"))
+    min_similarity_threshold: float = float(os.getenv("MIN_SIMILARITY_THRESHOLD", "0.1"))
+    min_results_count: int = int(os.getenv("MIN_RESULTS_COUNT", "1"))
+    safety_risk_threshold: float = float(os.getenv("SAFETY_RISK_THRESHOLD", "0.7"))
 
     # Logging Settings
     log_level: str = os.getenv("LOG_LEVEL", "INFO")

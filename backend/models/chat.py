@@ -32,6 +32,10 @@ class ChatTurn:
     retrieved_chunks_json: str = "[]"  # List of chunk IDs or full metadata
     context_used_json: str = "{}"  # Prompt and retrieval results used
     status: str = "pending"  # pending, generating, completed, error, cancelled
+    safety_status: Optional[str] = None
+    safety_risk_score: Optional[float] = None
+    safety_reason: Optional[str] = None
+    groundedness_score: Optional[float] = None
     error_message: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None

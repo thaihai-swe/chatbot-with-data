@@ -10,7 +10,7 @@ from indexing.chroma_writer import ChromaVectorWriter
 from embeddings.openai_client import OpenAIEmbeddingClient
 from config import get_settings
 from repositories.chunk_repository import ChunkRepository
-from schemas.chat import AdvancedRetrievalConfig, RetrievalTrace, RetrievalRunTrace
+from schemas.chat import AdvancedRetrievalConfig, RerankingTrace, RetrievalTrace, RetrievalRunTrace
 from chat.prompts import (
     QUERY_CLASSIFICATION_PROMPT,
     QUERY_EXPANSION_PROMPT,
@@ -79,11 +79,11 @@ class QueryIntelligenceService:
     def detect_collection(self, query_text: str, collections: List[Dict[str, Any]]) -> Optional[str]:
         if not collections:
             return None
-        
+
         collections_string = "\n".join([f"- ID: {c['id']}, Name: {c['name']}, Description: {c.get('description', '')}" for c in collections])
         prompt = COLLECTION_DETECTION_PROMPT.format(collections_string=collections_string, query_text=query_text)
         result = self._call_llm(prompt)
-        
+
         # Valid ID check
         valid_ids = {c['id'] for c in collections}
         if result in valid_ids:
@@ -108,32 +108,32 @@ class CandidateMerger:
         """
         if not results_list:
             return []
-            
+
         chunk_map = {}
         rrf_scores = {}
-        
+
         for results in results_list:
             for rank, chunk in enumerate(results):
                 chunk_id = chunk.get("chunk_id")
                 if not chunk_id:
                     continue
-                    
+
                 if chunk_id not in chunk_map:
                     chunk_map[chunk_id] = chunk
                     rrf_scores[chunk_id] = 0.0
-                    
+
                 rrf_scores[chunk_id] += 1.0 / (self.rrf_k + rank + 1)
-                
+
         # Sort by RRF score descending
         sorted_chunk_ids = sorted(rrf_scores.keys(), key=lambda cid: rrf_scores[cid], reverse=True)
-        
+
         merged_chunks = []
         for cid in sorted_chunk_ids[:top_k]:
             chunk = chunk_map[cid].copy()
             chunk["similarity_score"] = rrf_scores[cid]
             chunk["original_score"] = chunk_map[cid].get("similarity_score")
             merged_chunks.append(chunk)
-            
+
         return merged_chunks
 
 class RetrievalService:
@@ -172,10 +172,10 @@ class RetrievalService:
             List of chunk metadata dicts with similarity scores
         """
         logger.info(f"Retrieving {k} chunks for query: '{query_text}' (collection={collection_id})")
-        
+
         # 1. Generate embedding for the query
         query_embedding = self.embedding_client.embed(query_text)
-        
+
         # 2. Query Chroma
         if collection_id:
             # Query with collection filter
@@ -190,7 +190,7 @@ class RetrievalService:
                 query_embedding=query_embedding,
                 n_results=k,
             )
-            
+
             # Flatten raw Chroma results into (chunk_id, similarity, metadata) format
             raw_results = []
             if results['ids'] and results['ids'][0]:
@@ -210,16 +210,16 @@ class RetrievalService:
                 "similarity_score": similarity,
                 **metadata
             }
-            
+
             if chunk_id:
                 chunk_data = chunk_repo.get_chunk(chunk_id)
                 if chunk_data:
                     for key, value in chunk_data.items():
                         if key not in result and value is not None:
                             result[key] = value
-                            
+
             formatted_results.append(result)
-            
+
         logger.info(f"Found {len(formatted_results)} relevant chunks")
         return formatted_results
 
@@ -250,15 +250,15 @@ class RerankingService:
     def rerank(self, query_text: str, chunks: List[Dict[str, Any]], top_k: int) -> Tuple[List[Dict[str, Any]], RerankingTrace]:
         if not chunks:
             return chunks, RerankingTrace(model=self.model)
-            
+
         t0 = time.time()
         pre_order_ids = [str(c.get("chunk_id")) for c in chunks]
-        
+
         # Dummy reranking: Sort by similarity_score
         sorted_chunks = sorted(chunks, key=lambda c: c.get("similarity_score", 0), reverse=True)[:top_k]
-        
+
         post_order_ids = [str(c.get("chunk_id")) for c in sorted_chunks]
-        
+
         trace = RerankingTrace(
             model=self.model,
             pre_order_ids=pre_order_ids,
@@ -272,7 +272,7 @@ def get_reranking_service() -> RerankingService:
 
 class AdvancedRetrievalService:
     """Wrapper service for advanced retrieval strategies."""
-    
+
     def __init__(self, baseline_retrieval_service: RetrievalService, query_intelligence_service: QueryIntelligenceService, reranking_service: RerankingService):
         self.baseline_retrieval_service = baseline_retrieval_service
         self.query_intelligence_service = query_intelligence_service
@@ -291,7 +291,7 @@ class AdvancedRetrievalService:
         Defaults to baseline if no advanced features are enabled.
         """
         trace = RetrievalTrace(original_query=query_text)
-        
+
         if config.auto_collection_detection and not collection_id:
             core_repo = Repository()
             available_collections = core_repo.list_collections()
@@ -305,12 +305,12 @@ class AdvancedRetrievalService:
             else:
                 trace.routing.reason = "Auto-detection returned 'all' or invalid. Searching all collections."
                 trace.routing.fallback_triggered = True
-        
+
         if config.enable_intelligence:
             t0 = time.time()
             trace.classification = self.query_intelligence_service.classify_query(query_text)
             trace.execution_time_ms["classification"] = int((time.time() - t0) * 1000)
-            
+
             if config.enable_dynamic_routing and trace.classification:
                 if trace.classification == "simple":
                     config.enable_expansion = False
@@ -334,45 +334,45 @@ class AdvancedRetrievalService:
             else:
                 trace.routing.selected_strategy = "manual"
                 trace.routing.reason = "Dynamic routing disabled or no classification available."
-            
+
         if config.enable_expansion:
             t0 = time.time()
             trace.transformations.expanded_queries = self.query_intelligence_service.expand_query(query_text, config.expansion_count)
             trace.execution_time_ms["expansion"] = int((time.time() - t0) * 1000)
-            
+
         if config.enable_decomposition:
             t0 = time.time()
             trace.transformations.sub_questions = self.query_intelligence_service.decompose_query(query_text)
             trace.execution_time_ms["decomposition"] = int((time.time() - t0) * 1000)
-            
+
         if config.enable_hyde:
             t0 = time.time()
             trace.transformations.hyde_doc = self.query_intelligence_service.generate_hyde(query_text)
             trace.execution_time_ms["hyde"] = int((time.time() - t0) * 1000)
-            
+
         if config.enable_synonym_expansion:
             t0 = time.time()
             trace.transformations.synonym_expansions = self.query_intelligence_service.expand_synonyms(query_text)
             trace.execution_time_ms["synonym_expansion"] = int((time.time() - t0) * 1000)
-        
+
         queries_to_run = [query_text]
-        
+
         if config.enable_expansion and trace.transformations.expanded_queries:
             queries_to_run.extend(trace.transformations.expanded_queries)
-            
+
         if config.enable_decomposition and trace.transformations.sub_questions:
             queries_to_run.extend(trace.transformations.sub_questions)
-            
+
         if config.enable_hyde and trace.transformations.hyde_doc:
             queries_to_run.append(trace.transformations.hyde_doc)
-            
+
         all_results = []
         for q in queries_to_run:
             search_query = q
             if config.enable_synonym_expansion and trace.transformations.synonym_expansions:
                 for old, new in trace.transformations.synonym_expansions.items():
                     search_query = search_query.replace(old, new)
-                    
+
             chunks = self.baseline_retrieval_service.retrieve_relevant_chunks(
                 query_text=search_query,
                 collection_id=collection_id,
@@ -384,7 +384,7 @@ class AdvancedRetrievalService:
                 raw_count=len(chunks),
                 top_scores=[float(c.get("similarity_score", 0.0)) for c in chunks]
             ))
-            
+
         if len(all_results) > 1:
             t0 = time.time()
             merged_chunks = self.candidate_merger.merge(all_results, top_k=k)
@@ -392,7 +392,7 @@ class AdvancedRetrievalService:
             final_chunks = merged_chunks
         else:
             final_chunks = all_results[0] if all_results else []
-            
+
         trace.merged_candidates_count = len(final_chunks)
 
         if config.enable_reranking:
@@ -407,7 +407,7 @@ class AdvancedRetrievalService:
             expanded_chunks = []
             seen_parent_ids = set()
             chunk_repo = ChunkRepository()
-            
+
             for chunk in final_chunks:
                 parent_id = chunk.get("parent_chunk_id")
                 if parent_id:
@@ -425,7 +425,7 @@ class AdvancedRetrievalService:
                             expanded_chunks.append(chunk)
                 else:
                     expanded_chunks.append(chunk)
-            
+
             final_chunks = expanded_chunks
             trace.execution_time_ms["parent_child_expansion"] = int((time.time() - t0) * 1000)
 

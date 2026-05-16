@@ -1,6 +1,4 @@
-# GEMINI.md
 
----
 
 ## 0. Non-negotiables
 For Python is always use with virtualenv.

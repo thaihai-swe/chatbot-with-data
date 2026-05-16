@@ -88,6 +88,25 @@ class RetrievalTrace(BaseModel):
     execution_time_ms: dict[str, int] = Field(default_factory=dict)
 
 
+class SafetyGroundedness(BaseModel):
+    score: Optional[float] = None
+    status: str = "unchecked"
+
+
+class SafetyAnswerability(BaseModel):
+    is_answerable: bool = True
+    refusal_reason: Optional[str] = None
+
+
+class SafetyTrace(BaseModel):
+    query_classification: Optional[str] = None
+    injection_risk: str = "low"
+    matched_patterns: List[str] = Field(default_factory=list)
+    classifier_reason: Optional[str] = None
+    groundedness: SafetyGroundedness = Field(default_factory=SafetyGroundedness)
+    answerability: SafetyAnswerability = Field(default_factory=SafetyAnswerability)
+
+
 class ChatTurnResponse(BaseModel):
     id: str
     session_id: str
@@ -96,8 +115,13 @@ class ChatTurnResponse(BaseModel):
     retrieved_chunks_json: str
     context_used_json: str
     status: str
+    safety_status: Optional[str] = None
+    safety_risk_score: Optional[float] = None
+    safety_reason: Optional[str] = None
+    groundedness_score: Optional[float] = None
     error_message: Optional[str]
     created_at: str
     updated_at: str
     citations: List[CitationResponse] = []
     retrieval_trace: Optional[RetrievalTrace] = None
+    safety_trace: Optional[SafetyTrace] = None

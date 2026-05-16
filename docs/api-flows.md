@@ -42,12 +42,12 @@ This document details the end-to-end flow for every API endpoint in the system.
 ## 4. Grounded Chat
 | Method | Endpoint | Description | Flow |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/chat/sessions` | New chat session | Frontend → Router → `ChatRepository.create_session` → SQLite |
+| `POST` | `/chat/sessions/{id}` | New chat session | Frontend → Router → `ChatRepository.create_session` → SQLite |
 | `GET` | `/chat/sessions` | List history | Frontend → Router → `ChatRepository.list_sessions` → SQLite |
 | `GET` | `/chat/sessions/{id}` | Get session details | Frontend → Router → `ChatRepository.get_session` → SQLite |
 | `GET` | `/chat/sessions/{id}/history` | Get turns for session | Frontend → Router → `ChatRepository.list_turns_by_session` + `list_citations_by_turn` → SQLite |
-| `POST` | `/chat/sessions/{id}/turns` | Non-streaming query | Frontend → Router → `ChatService.process_turn` → Retrieval → Grounding → Generation → Citations → Save to DB |
-| `POST` | `/chat/sessions/{id}/turns/stream` | Streaming RAG query | Frontend → Router → `StreamingOrchestrator.stream_turn` → SSE Event Stream → Parallel Retrieval & Generation → Stream Citations |
+| `POST` | `/chat/sessions/{id}/turns` | Non-streaming query | Frontend → Router → `ChatService.process_turn` → **Safety Check (Query)** → Retrieval → **Safety Check (Chunks)** → **Grounding Check** → Generation → Citations → Save to DB |
+| `POST` | `/chat/sessions/{id}/turns/stream` | Streaming RAG query | Frontend → Router → `StreamingOrchestrator.stream_turn` → SSE Event Stream → **Safety Check (Query)** → Parallel Retrieval & **Safety Check (Chunks)** → **Grounding Check** → LLM Generation → Stream Citations |
 | `POST` | `/chat/turns/{id}/cancel` | Stop generation | Frontend → Router → `chat.cancellation.cancel_turn` → Signal `StreamingOrchestrator` to stop LLM call |
 
 ---
@@ -67,8 +67,10 @@ These flows are triggered by API calls but run asynchronously.
 6.  **Complete:** Status moves to `COMPLETED`.
 
 ### B. Streaming RAG Flow (`stream_turn`)
-1.  **Retrieve:** `AdvancedRetrievalService` performs multi-step retrieval (HyDE, Expansion, RRF).
-2.  **Validate:** `GroundingService` checks if evidence is sufficient.
-3.  **Stream Tokens:** LLM tokens are pushed to SSE as they arrive.
-4.  **Stream Citations:** Final citation mapping is pushed after token stream completes.
-5.  **Finalize:** Save turn metadata and citation records to SQLite.
+1.  **Check Safety:** `SafetyService` validates the query.
+2.  **Retrieve:** `AdvancedRetrievalService` performs multi-step retrieval (HyDE, Expansion, RRF).
+3.  **Check Chunks:** `SafetyService` filters malicious chunks.
+4.  **Validate:** `GroundingService` checks if evidence is sufficient.
+5.  **Stream Tokens:** LLM tokens are pushed to SSE as they arrive.
+6.  **Stream Citations:** Final citation mapping, **Retrieval Trace**, and **Safety Trace** are pushed after token stream completes.
+7.  **Finalize:** Save turn metadata and citation records to SQLite.

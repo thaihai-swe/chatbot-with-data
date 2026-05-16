@@ -112,12 +112,14 @@ graph TD
 ### D. Grounded Chat (RAG) Flow
 The final step where retrieved knowledge is synthesized into an answer.
 
-1.  **Retrieval:** Executes the Advanced Retrieval flow (Section C).
-2.  **Grounding Evaluation:** `GroundingService` checks if the retrieved chunks are sufficient. If not, the system returns a polite refusal rather than hallucinating.
-3.  **Context Assembly:** Combines query, history, and retrieved chunks into a specialized prompt.
-4.  **Generation (Streaming):** LLM generates the answer with citations (e.g., `[1]`).
-5.  **Citation Validation:** `CitationService` ensures every `[n]` in the text correctly maps to a retrieved chunk.
-6.  **Traceability:** The system returns a "Retrieval Trace" showing exactly which strategies were used and how long they took.
+1.  **Query Safety Check:** `SafetyService` checks the user query for prompt-injection patterns or malicious intent. If high risk, the system refuses immediately.
+2.  **Retrieval:** Executes the Advanced Retrieval flow (Section C).
+3.  **Chunk Safety Check:** `SafetyService` scans retrieved chunks for indirect injection attempts and filters out high-risk content.
+4.  **Grounding Evaluation:** `GroundingService` checks if the remaining safe chunks are sufficient. If not, the system returns a polite refusal rather than hallucinating.
+5.  **Context Assembly:** Combines query, history, and retrieved chunks into a specialized prompt using XML delimiters for isolation.
+6.  **Generation (Streaming):** LLM generates the answer with citations (e.g., `[1]`).
+7.  **Citation Validation:** `CitationService` ensures every `[n]` in the text correctly maps to a retrieved chunk.
+8.  **Traceability:** The system returns a "Retrieval Trace" and "Safety Trace" showing exactly which strategies and safety checks were used.
 
 ---
 

@@ -13,8 +13,9 @@ from chat.context import ContextService, get_context_service
 from chat.generation import GenerationService, get_generation_service
 from chat.citations import CitationService, get_citation_service
 from chat.grounding import GroundingService, get_grounding_service
+from chat.safety import SafetyService, get_safety_service
 from repositories.chat_repository import ChatRepository
-from schemas.chat import ChatTurnResponse, CitationResponse, AdvancedRetrievalConfig
+from schemas.chat import ChatTurnResponse, CitationResponse, AdvancedRetrievalConfig, SafetyTrace
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +30,14 @@ class ChatService:
         generation_service: GenerationService,
         citation_service: CitationService,
         grounding_service: GroundingService,
+        safety_service: SafetyService,
     ):
         self.advanced_retrieval_service = advanced_retrieval_service
         self.context_service = context_service
         self.generation_service = generation_service
         self.citation_service = citation_service
         self.grounding_service = grounding_service
+        self.safety_service = safety_service
 
     def process_turn(
         self,
@@ -50,7 +53,45 @@ class ChatService:
         if not session:
             raise ValueError(f"Session {session_id} not found")
 
-        # 2. Retrieve chunks
+        # 2. Safety check (Query)
+        safety_trace = self.safety_service.check_query(query_text)
+        
+        if not safety_trace.answerability.is_answerable:
+            # Handle early safety refusal
+            turn_id = str(uuid.uuid4())
+            answer_text = safety_trace.answerability.refusal_reason or "I cannot answer this question due to safety concerns."
+            ChatRepository.create_turn(
+                id=turn_id,
+                session_id=session_id,
+                query_text=query_text,
+                status="completed",
+                answer_text=answer_text,
+                safety_status=safety_trace.query_classification,
+                safety_risk_score=1.0 if safety_trace.injection_risk == "high" else 0.0,
+                safety_reason=safety_trace.classifier_reason,
+            )
+            turn = ChatRepository.get_turn(turn_id)
+            return ChatTurnResponse(
+                id=turn.id,
+                session_id=turn.session_id,
+                query_text=turn.query_text,
+                answer_text=turn.answer_text,
+                retrieved_chunks_json=turn.retrieved_chunks_json,
+                context_used_json=turn.context_used_json,
+                status=turn.status,
+                safety_status=turn.safety_status,
+                safety_risk_score=turn.safety_risk_score,
+                safety_reason=turn.safety_reason,
+                groundedness_score=turn.groundedness_score,
+                error_message=turn.error_message,
+                created_at=turn.created_at,
+                updated_at=turn.updated_at,
+                citations=[],
+                retrieval_trace=None,
+                safety_trace=safety_trace,
+            )
+
+        # 3. Retrieve chunks
         if advanced_config is None:
             advanced_config = AdvancedRetrievalConfig()
             
@@ -60,16 +101,33 @@ class ChatService:
             collection_id=session.collection_id,
         )
 
-        # 3. Evaluate evidence
-        is_sufficient, refusal_reason = self.grounding_service.evaluate_evidence(retrieved_chunks)
+        # 4. Chunk safety check
+        checked_chunks = self.safety_service.check_chunks(retrieved_chunks)
+        safe_chunks = [c for c in checked_chunks if c.get("safety_risk") != "high"]
+        
+        if len(safe_chunks) < len(retrieved_chunks):
+            logger.info(f"Filtered out {len(retrieved_chunks) - len(safe_chunks)} malicious chunks.")
 
-        # 4. Create turn record (pending)
+        # 5. Evaluate evidence
+        is_sufficient, refusal_reason = self.grounding_service.evaluate_evidence(safe_chunks)
+        
+        # Update safety_trace with grounding info
+        if not is_sufficient:
+            safety_trace.answerability.is_answerable = False
+            safety_trace.answerability.refusal_reason = refusal_reason
+            safety_trace.groundedness.status = "unsupported"
+        else:
+            safety_trace.groundedness.status = "supported"
+            # We could compute a real score here if GroundingService supported it
+            safety_trace.groundedness.score = 1.0 
+
+        # 6. Create turn record (pending)
         turn_id = str(uuid.uuid4())
         history = ChatRepository.list_turns_by_session(session_id)
 
         context_package = self.context_service.assemble_context(
             query_text=query_text,
-            retrieved_chunks=retrieved_chunks,
+            retrieved_chunks=safe_chunks,
             chat_history=history,
         )
 
@@ -77,14 +135,17 @@ class ChatService:
             id=turn_id,
             session_id=session_id,
             query_text=query_text,
-            retrieved_chunks_json=json.dumps(retrieved_chunks),
+            retrieved_chunks_json=json.dumps(safe_chunks),
             context_used_json=json.dumps(context_package),
             status="generating",
+            safety_status=safety_trace.query_classification,
+            safety_risk_score=1.0 if safety_trace.injection_risk == "high" else 0.0,
+            safety_reason=safety_trace.classifier_reason,
         )
 
         try:
             if not is_sufficient:
-                # Handle refusal case
+                # Handle grounding refusal
                 answer_text = refusal_reason
                 ChatRepository.update_turn_status(
                     turn_id=turn_id,
@@ -99,7 +160,7 @@ class ChatService:
                 # 6. Extract and validate citations
                 citation_labels = self.citation_service.extract_citations(answer_text)
                 valid_citations = self.citation_service.map_citations_to_chunks(
-                    citation_labels, retrieved_chunks
+                    citation_labels, safe_chunks
                 )
 
                 # 7. Persist citations and update turn
@@ -130,6 +191,10 @@ class ChatService:
                 retrieved_chunks_json=turn.retrieved_chunks_json,
                 context_used_json=turn.context_used_json,
                 status=turn.status,
+                safety_status=turn.safety_status,
+                safety_risk_score=turn.safety_risk_score,
+                safety_reason=turn.safety_reason,
+                groundedness_score=turn.groundedness_score,
                 error_message=turn.error_message,
                 created_at=turn.created_at,
                 updated_at=turn.updated_at,
@@ -146,6 +211,7 @@ class ChatService:
                     for c in citations
                 ],
                 retrieval_trace=trace,
+                safety_trace=safety_trace,
             )
 
         except Exception as e:
@@ -164,6 +230,7 @@ def get_chat_service(
     generation_service: GenerationService = Depends(get_generation_service),
     citation_service: CitationService = Depends(get_citation_service),
     grounding_service: GroundingService = Depends(get_grounding_service),
+    safety_service: SafetyService = Depends(get_safety_service),
 ) -> ChatService:
     """Factory function for ChatService."""
     return ChatService(
@@ -172,4 +239,5 @@ def get_chat_service(
         generation_service,
         citation_service,
         grounding_service,
+        safety_service,
     )

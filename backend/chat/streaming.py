@@ -12,8 +12,9 @@ from chat.context import ContextService
 from chat.generation import GenerationService
 from chat.citations import CitationService
 from chat.grounding import GroundingService, get_grounding_service
+from chat.safety import SafetyService, get_safety_service
 from repositories.chat_repository import ChatRepository
-from schemas.chat import AdvancedRetrievalConfig
+from schemas.chat import AdvancedRetrievalConfig, SafetyTrace
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +31,14 @@ class StreamingOrchestrator:
         generation_service: GenerationService,
         citation_service: CitationService,
         grounding_service: GroundingService,
+        safety_service: SafetyService,
     ):
         self.advanced_retrieval_service = advanced_retrieval_service
         self.context_service = context_service
         self.generation_service = generation_service
         self.citation_service = citation_service
         self.grounding_service = grounding_service
+        self.safety_service = safety_service
 
     async def stream_turn(
         self,
@@ -56,7 +59,30 @@ class StreamingOrchestrator:
         turn_id = str(uuid.uuid4())
 
         try:
-            # 1. Status: Understanding query & retrieving
+            # 1. Status: Understanding query & checking safety
+            yield self._format_sse("status", {"stage": "retrieving", "message": "Checking query safety...", "turn_id": turn_id})
+
+            # 1a. Safety check (Query)
+            safety_trace = self.safety_service.check_query(query_text)
+            
+            if not safety_trace.answerability.is_answerable:
+                # Handle early safety refusal
+                answer_text = safety_trace.answerability.refusal_reason or "I cannot answer this question due to safety concerns."
+                ChatRepository.create_turn(
+                    id=turn_id,
+                    session_id=session_id,
+                    query_text=query_text,
+                    status="completed",
+                    answer_text=answer_text,
+                    safety_status=safety_trace.query_classification,
+                    safety_risk_score=1.0 if safety_trace.injection_risk == "high" else 0.0,
+                    safety_reason=safety_trace.classifier_reason,
+                )
+                yield self._format_sse("token", {"content": answer_text})
+                yield self._format_sse("done", {"turn_id": turn_id})
+                return
+
+            # 2. Status: Retrieving
             yield self._format_sse("status", {"stage": "retrieving", "message": "Searching knowledge base...", "turn_id": turn_id})
 
             session = ChatRepository.get_session(session_id)
@@ -67,7 +93,7 @@ class StreamingOrchestrator:
             config = advanced_config if advanced_config is not None else AdvancedRetrievalConfig()
 
             # Retrieval
-            retrieved_chunks, _ = self.advanced_retrieval_service.retrieve(
+            retrieved_chunks, trace = self.advanced_retrieval_service.retrieve(
                 query_text=query_text,
                 config=config,
                 collection_id=session.collection_id,
@@ -77,14 +103,30 @@ class StreamingOrchestrator:
                 yield self._format_sse("status", {"stage": "cancelled", "message": "Cancelled."})
                 return
 
-            # 2. Evaluate grounding
-            is_sufficient, refusal_reason = self.grounding_service.evaluate_evidence(retrieved_chunks)
+            # 3. Chunk safety check
+            checked_chunks = self.safety_service.check_chunks(retrieved_chunks)
+            safe_chunks = [c for c in checked_chunks if c.get("safety_risk") != "high"]
+            
+            if len(safe_chunks) < len(retrieved_chunks):
+                logger.info(f"Filtered out {len(retrieved_chunks) - len(safe_chunks)} malicious chunks in stream.")
+
+            # 4. Evaluate grounding
+            is_sufficient, refusal_reason = self.grounding_service.evaluate_evidence(safe_chunks)
+
+            # Update safety_trace with grounding info
+            if not is_sufficient:
+                safety_trace.answerability.is_answerable = False
+                safety_trace.answerability.refusal_reason = refusal_reason
+                safety_trace.groundedness.status = "unsupported"
+            else:
+                safety_trace.groundedness.status = "supported"
+                safety_trace.groundedness.score = 1.0 
 
             # Create turn record
             history = ChatRepository.list_turns_by_session(session_id)
             context_package = self.context_service.assemble_context(
                 query_text=query_text,
-                retrieved_chunks=retrieved_chunks,
+                retrieved_chunks=safe_chunks,
                 chat_history=history,
             )
 
@@ -92,13 +134,16 @@ class StreamingOrchestrator:
                 id=turn_id,
                 session_id=session_id,
                 query_text=query_text,
-                retrieved_chunks_json=json.dumps(retrieved_chunks),
+                retrieved_chunks_json=json.dumps(safe_chunks),
                 context_used_json=json.dumps(context_package),
                 status="generating",
+                safety_status=safety_trace.query_classification,
+                safety_risk_score=1.0 if safety_trace.injection_risk == "high" else 0.0,
+                safety_reason=safety_trace.classifier_reason,
             )
 
             if not is_sufficient:
-                # 3. Handle refusal
+                # 5. Handle refusal
                 yield self._format_sse("status", {"stage": "generating", "message": "Formulating response..."})
                 for token in refusal_reason.split():
                     if is_cancelled(turn_id):
@@ -116,7 +161,7 @@ class StreamingOrchestrator:
                 yield self._format_sse("done", {"turn_id": turn_id})
                 return
 
-            # 4. Status: Generating
+            # 6. Status: Generating
             yield self._format_sse("status", {"stage": "generating", "message": "Generating answer..."})
 
             full_answer = ""
@@ -128,9 +173,8 @@ class StreamingOrchestrator:
                     return
                 full_answer += token
                 yield self._format_sse("token", {"content": token})
-                ##await asyncio.sleep(0)
 
-            # 5. Status: Finalizing citations
+            # 7. Status: Finalizing citations
             yield self._format_sse("status", {"stage": "finalizing", "message": "Finalizing citations..."})
 
             if is_cancelled(turn_id):
@@ -140,7 +184,7 @@ class StreamingOrchestrator:
 
             citation_labels = self.citation_service.extract_citations(full_answer)
             valid_citations = self.citation_service.map_citations_to_chunks(
-                citation_labels, retrieved_chunks
+                citation_labels, safe_chunks
             )
 
             citation_objects = []
@@ -165,7 +209,12 @@ class StreamingOrchestrator:
                 answer_text=full_answer,
             )
 
-            yield self._format_sse("citations", {"citations": citation_objects})
+            # Include safety trace and retrieval trace in the final citations event or a separate event
+            yield self._format_sse("citations", {
+                "citations": citation_objects,
+                "retrieval_trace": trace.dict() if hasattr(trace, 'dict') else trace,
+                "safety_trace": safety_trace.dict() if hasattr(safety_trace, 'dict') else safety_trace
+            })
             yield self._format_sse("done", {"turn_id": turn_id})
 
         except Exception as e:
@@ -196,6 +245,7 @@ def get_streaming_orchestrator(
     generation_service: GenerationService = Depends(get_generation_service),
     citation_service: CitationService = Depends(get_citation_service),
     grounding_service: GroundingService = Depends(get_grounding_service),
+    safety_service: SafetyService = Depends(get_safety_service),
 ) -> StreamingOrchestrator:
     """Factory function for StreamingOrchestrator."""
     return StreamingOrchestrator(
@@ -204,4 +254,5 @@ def get_streaming_orchestrator(
         generation_service,
         citation_service,
         grounding_service,
+        safety_service,
     )

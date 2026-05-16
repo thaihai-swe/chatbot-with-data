@@ -86,6 +86,10 @@ class ChatRepository:
         retrieved_chunks_json: str = "[]",
         context_used_json: str = "{}",
         status: str = "pending",
+        safety_status: Optional[str] = None,
+        safety_risk_score: Optional[float] = None,
+        safety_reason: Optional[str] = None,
+        groundedness_score: Optional[float] = None,
         error_message: Optional[str] = None,
     ) -> ChatTurn:
         """Create a new chat turn."""
@@ -94,8 +98,9 @@ class ChatRepository:
                 """
                 INSERT INTO chat_turns
                 (id, session_id, query_text, answer_text, retrieved_chunks_json,
-                 context_used_json, status, error_message)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 context_used_json, status, safety_status, safety_risk_score,
+                 safety_reason, groundedness_score, error_message)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     id,
@@ -105,6 +110,10 @@ class ChatRepository:
                     retrieved_chunks_json,
                     context_used_json,
                     status,
+                    safety_status,
+                    safety_risk_score,
+                    safety_reason,
+                    groundedness_score,
                     error_message,
                 ),
             )
@@ -117,7 +126,8 @@ class ChatRepository:
             cursor = connection.execute(
                 """
                 SELECT id, session_id, query_text, answer_text, retrieved_chunks_json,
-                       context_used_json, status, error_message, created_at, updated_at
+                       context_used_json, status, safety_status, safety_risk_score,
+                       safety_reason, groundedness_score, error_message, created_at, updated_at
                 FROM chat_turns
                 WHERE id = ?
                 """,
@@ -136,9 +146,13 @@ class ChatRepository:
             retrieved_chunks_json=row[4],
             context_used_json=row[5],
             status=row[6],
-            error_message=row[7],
-            created_at=row[8],
-            updated_at=row[9],
+            safety_status=row[7],
+            safety_risk_score=row[8],
+            safety_reason=row[9],
+            groundedness_score=row[10],
+            error_message=row[11],
+            created_at=row[12],
+            updated_at=row[13],
         )
 
     @staticmethod
@@ -148,7 +162,8 @@ class ChatRepository:
             cursor = connection.execute(
                 """
                 SELECT id, session_id, query_text, answer_text, retrieved_chunks_json,
-                       context_used_json, status, error_message, created_at, updated_at
+                       context_used_json, status, safety_status, safety_risk_score,
+                       safety_reason, groundedness_score, error_message, created_at, updated_at
                 FROM chat_turns
                 WHERE session_id = ?
                 ORDER BY created_at ASC
@@ -166,9 +181,13 @@ class ChatRepository:
                 retrieved_chunks_json=row[4],
                 context_used_json=row[5],
                 status=row[6],
-                error_message=row[7],
-                created_at=row[8],
-                updated_at=row[9],
+                safety_status=row[7],
+                safety_risk_score=row[8],
+                safety_reason=row[9],
+                groundedness_score=row[10],
+                error_message=row[11],
+                created_at=row[12],
+                updated_at=row[13],
             )
             for row in rows
         ]
@@ -178,9 +197,13 @@ class ChatRepository:
         turn_id: str,
         status: str,
         answer_text: Optional[str] = None,
+        safety_status: Optional[str] = None,
+        safety_risk_score: Optional[float] = None,
+        safety_reason: Optional[str] = None,
+        groundedness_score: Optional[float] = None,
         error_message: Optional[str] = None,
     ) -> ChatTurn:
-        """Update turn status and optionally answer/error."""
+        """Update turn status and optionally answer/error/safety fields."""
         query = "UPDATE chat_turns SET status = ?, updated_at = CURRENT_TIMESTAMP"
         params = [status]
 
@@ -188,6 +211,22 @@ class ChatRepository:
             query += ", answer_text = ?"
             params.append(answer_text)
         
+        if safety_status is not None:
+            query += ", safety_status = ?"
+            params.append(safety_status)
+
+        if safety_risk_score is not None:
+            query += ", safety_risk_score = ?"
+            params.append(safety_risk_score)
+
+        if safety_reason is not None:
+            query += ", safety_reason = ?"
+            params.append(safety_reason)
+
+        if groundedness_score is not None:
+            query += ", groundedness_score = ?"
+            params.append(groundedness_score)
+
         if error_message is not None:
             query += ", error_message = ?"
             params.append(error_message)

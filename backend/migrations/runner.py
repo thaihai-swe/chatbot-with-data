@@ -245,6 +245,10 @@ SCHEMA_STATEMENTS = [
         retrieved_chunks_json TEXT NOT NULL DEFAULT '[]',
         context_used_json TEXT NOT NULL DEFAULT '{}',
         status TEXT NOT NULL DEFAULT 'pending',
+        safety_status TEXT,
+        safety_risk_score REAL,
+        safety_reason TEXT,
+        groundedness_score REAL,
         error_message TEXT,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -305,6 +309,28 @@ def apply_migrations() -> None:
             "INSERT OR IGNORE INTO schema_migrations(version) VALUES (?)",
             ("0002_chunking_and_indexing",),
         )
+
+        # 0003_safety_and_groundedness
+        cursor = connection.execute("SELECT 1 FROM schema_migrations WHERE version = ?", ("0003_safety_and_groundedness",))
+        if not cursor.fetchone():
+            try:
+                connection.execute("ALTER TABLE chat_turns ADD COLUMN safety_status TEXT")
+                connection.execute("ALTER TABLE chat_turns ADD COLUMN safety_risk_score REAL")
+                connection.execute("ALTER TABLE chat_turns ADD COLUMN safety_reason TEXT")
+                connection.execute("ALTER TABLE chat_turns ADD COLUMN groundedness_score REAL")
+                connection.execute(
+                    "INSERT INTO schema_migrations(version) VALUES (?)",
+                    ("0003_safety_and_groundedness",),
+                )
+            except Exception as e:
+                # If columns already exist (e.g. from a fresh CREATE TABLE), just record the migration
+                if "duplicate column name" in str(e).lower():
+                    connection.execute(
+                        "INSERT OR IGNORE INTO schema_migrations(version) VALUES (?)",
+                        ("0003_safety_and_groundedness",),
+                    )
+                else:
+                    raise e
 
 
 def reset_database() -> None:
