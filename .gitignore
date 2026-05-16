@@ -41,3 +41,6 @@ data/
 */.chroma_db
 .chroma_db/
 .sqllite3
+*/.chroma_db/
+*/.chroma_db_lock/
+*/.chroma_db

@@ -3,8 +3,10 @@ from __future__ import annotations
 from typing import Optional, List, Any, TYPE_CHECKING
 from pydantic import BaseModel, Field
 
+from schemas.evaluation import CaseMetrics
+
 if TYPE_CHECKING:
-    from schemas.evaluation import CaseMetrics
+    pass
 
 
 class ChatSessionCreate(BaseModel):
@@ -21,20 +23,19 @@ class ChatSessionResponse(BaseModel):
 
 
 class AdvancedRetrievalConfig(BaseModel):
-    enable_intelligence: bool = Field(False, description="Enable query classification and pre-retrieval intelligence")
-    enable_rewriting: bool = Field(False, description="Enable query normalization (Rewriting)")
-    enable_expansion: bool = Field(False, description="Enable LLM-based query expansion")
+    enable_intelligence: bool = Field(True, description="Enable query classification and pre-retrieval intelligence")
+    enable_rewriting: bool = Field(True, description="Enable query normalization (Rewriting)")
+    enable_expansion: bool = Field(True, description="Enable LLM-based query expansion")
     expansion_count: int = Field(3, description="Number of expanded queries to generate")
-    enable_decomposition: bool = Field(False, description="Enable decomposition of complex multi-hop queries")
-    enable_hyde: bool = Field(False, description="Enable Hypothetical Document Embeddings (HyDE)")
-    enable_synonym_expansion: bool = Field(False, description="Enable synonym mapping")
-    enable_dynamic_routing: bool = Field(False, description="Enable dynamic routing based on query classification")
-    enable_reranking: bool = Field(False, description="Enable post-retrieval reranking")
+    enable_decomposition: bool = Field(True, description="Enable decomposition of complex multi-hop queries")
+    enable_hyde: bool = Field(True, description="Enable Hypothetical Document Embeddings (HyDE)")
+    enable_synonym_expansion: bool = Field(True, description="Enable synonym mapping")
+    enable_dynamic_routing: bool = Field(True, description="Enable dynamic routing based on query classification")
+    enable_reranking: bool = Field(True, description="Enable post-retrieval reranking")
     reranker_model: Optional[str] = Field(None, description="Model to use for reranking")
     reranker_top_k: Optional[int] = Field(None, description="Final number of chunks to return after reranking")
-    enable_parent_child: bool = Field(False, description="Enable parent-child chunk retrieval")
-    auto_collection_detection: bool = Field(False, description="Enable automatic detection of target collections")
-    enable_live_evaluation: bool = Field(False, description="Enable real-time LLM-as-a-judge evaluation of this turn")
+    enable_parent_child: bool = Field(True, description="Enable parent-child chunk retrieval")
+    enable_live_evaluation: bool = Field(True, description="Enable real-time LLM-as-a-judge evaluation of this turn")
 
 
 class ChatTurnCreate(BaseModel):
@@ -64,8 +65,6 @@ class RetrievalRouting(BaseModel):
     selected_strategy: str = "baseline"
     reason: Optional[str] = None
     fallback_triggered: bool = False
-    inferred_collections: List[str] = Field(default_factory=list)
-    collection_confidence: Optional[float] = None
 
 
 class RetrievalRunTrace(BaseModel):
@@ -131,3 +130,6 @@ class ChatTurnResponse(BaseModel):
     retrieval_trace: Optional[RetrievalTrace] = None
     safety_trace: Optional[SafetyTrace] = None
     evaluation_metrics: Optional[CaseMetrics] = None
+
+
+ChatTurnResponse.model_rebuild()

@@ -11,6 +11,7 @@ from config import get_settings
 from llm.client import LLMClient, get_llm_client
 from schemas.chat import SafetyTrace, SafetyGroundedness, SafetyAnswerability
 from chat.prompts import SAFETY_CLASSIFICATION_PROMPT
+from chat.utils import parse_json_from_llm
 
 logger = logging.getLogger(__name__)
 
@@ -63,21 +64,14 @@ class SafetyService:
 
         try:
             response_text = self.llm_client.generate_completion(messages)
-            # Try to parse JSON from response
-            try:
-                # Basic JSON extraction if LLM adds preamble
-                json_start = response_text.find("{")
-                json_end = response_text.rfind("}") + 1
-                if json_start != -1 and json_end != -1:
-                    safety_data = json.loads(response_text[json_start:json_end])
-                else:
-                    safety_data = json.loads(response_text)
-
+            # Try to parse JSON from response using utility
+            safety_data = parse_json_from_llm(response_text)
+            
+            if isinstance(safety_data, dict):
                 classification = safety_data.get("classification", "safe")
                 llm_risk_score = safety_data.get("risk_score", 0.0)
                 reason = safety_data.get("reason", "LLM check completed.")
-
-            except (json.JSONDecodeError, ValueError):
+            else:
                 logger.warning(f"Failed to parse safety LLM response: {response_text}")
                 classification = "safe"
                 llm_risk_score = 0.5 if matched_patterns else 0.0

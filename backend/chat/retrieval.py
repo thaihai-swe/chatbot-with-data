@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import json
 import time
+import re
 from typing import Optional, List, Tuple, Dict, Any
 
 from indexing.chroma_writer import ChromaVectorWriter
@@ -17,11 +18,11 @@ from chat.prompts import (
     QUERY_REWRITING_PROMPT,
     QUERY_DECOMPOSITION_PROMPT,
     HYDE_PROMPT,
-    SYNONYM_EXPANSION_PROMPT,
-    COLLECTION_DETECTION_PROMPT
+    SYNONYM_EXPANSION_PROMPT
 )
 from repositories.core import Repository
 from fastapi import Depends
+from chat.utils import parse_json_from_llm
 
 from llm.client import LLMClient, get_llm_client
 
@@ -36,11 +37,17 @@ class QueryIntelligenceService:
     def _call_llm(self, prompt: str) -> str:
         # LLMClient handles temperature 0.0 internally or via parameters if supported
         # For simplicity, we pass messages and temperature=0.0
-        return self.llm_client.generate_completion(
+        result = self.llm_client.generate_completion(
             messages=[{"role": "user", "content": prompt}],
             temperature=0.0,
             stream=False
         )
+        # Final safety cleanup for string-based responses
+        if result:
+            result = result.strip()
+            # Remove common LLM chatter/notes if they slip through (e.g. (Note: ...))
+            result = re.sub(r"\(Note:.*?\)", "", result, flags=re.IGNORECASE | re.DOTALL).strip()
+        return result
 
     def classify_query(self, query_text: str) -> str:
         prompt = QUERY_CLASSIFICATION_PROMPT.format(query_text=query_text)
@@ -49,11 +56,11 @@ class QueryIntelligenceService:
     def expand_query(self, query_text: str, count: int) -> List[str]:
         prompt = QUERY_EXPANSION_PROMPT.format(query_text=query_text, count=count)
         result = self._call_llm(prompt)
-        try:
-            return json.loads(result)
-        except Exception as e:
-            logger.error(f"Failed to parse query expansion JSON: {e}")
-            return []
+        parsed = parse_json_from_llm(result)
+        if isinstance(parsed, list):
+            return [str(q).strip() for q in parsed]
+        logger.error(f"Failed to parse query expansion JSON: {result}")
+        return []
 
     def rewrite_query(self, query_text: str) -> str:
         prompt = QUERY_REWRITING_PROMPT.format(query_text=query_text)
@@ -62,11 +69,11 @@ class QueryIntelligenceService:
     def decompose_query(self, query_text: str) -> List[str]:
         prompt = QUERY_DECOMPOSITION_PROMPT.format(query_text=query_text)
         result = self._call_llm(prompt)
-        try:
-            return json.loads(result)
-        except Exception as e:
-            logger.error(f"Failed to parse query decomposition JSON: {e}")
-            return []
+        parsed = parse_json_from_llm(result)
+        if isinstance(parsed, list):
+            return [str(q).strip() for q in parsed]
+        logger.error(f"Failed to parse query decomposition JSON: {result}")
+        return []
 
     def generate_hyde(self, query_text: str) -> str:
         prompt = HYDE_PROMPT.format(query_text=query_text)
@@ -75,40 +82,18 @@ class QueryIntelligenceService:
     def expand_synonyms(self, query_text: str) -> Dict[str, str]:
         prompt = SYNONYM_EXPANSION_PROMPT.format(query_text=query_text)
         result = self._call_llm(prompt)
-        try:
-            return json.loads(result)
-        except Exception as e:
-            logger.error(f"Failed to parse synonym JSON: {e}")
-            return {}
-
-    def detect_collections(self, query_text: str, collections: List[Dict[str, Any]]) -> list[str]:
-        if not collections:
-            return []
-
-        collections_string = "\n".join([f"- ID: {c['id']}, Name: {c['name']}, Description: {c.get('description', '')}" for c in collections])
-        prompt = COLLECTION_DETECTION_PROMPT.format(collections_string=collections_string, query_text=query_text)
-        result = self._call_llm(prompt)
-
-        try:
-            detected_ids = json.loads(result)
-            if not isinstance(detected_ids, list):
-                detected_ids = [str(detected_ids)]
-        except Exception as e:
-            logger.error(f"Failed to parse collection detection JSON: {e}. Raw result: {result}")
-            # Fallback to simple string check if JSON fails
-            detected_ids = [result.strip()]
-
-        # Valid ID check
-        valid_ids = {c['id'] for c in collections}
-        final_ids = []
-        for det_id in detected_ids:
-            if det_id in valid_ids:
-                final_ids.append(det_id)
-            elif det_id == "all":
-                # If "all" is present, we return empty list to signify no filter (search all)
-                return []
-        
-        return final_ids
+        parsed = parse_json_from_llm(result)
+        if isinstance(parsed, dict):
+            # Ensure values are joined if they are lists
+            cleaned = {}
+            for k, v in parsed.items():
+                if isinstance(v, list):
+                    cleaned[str(k)] = " ".join(map(str, v))
+                else:
+                    cleaned[str(k)] = str(v)
+            return cleaned
+        logger.error(f"Failed to parse synonym JSON: {result}")
+        return {}
 
 
 def get_query_intelligence_service(llm_client: LLMClient = Depends(get_llm_client)) -> QueryIntelligenceService:
@@ -312,20 +297,6 @@ class AdvancedRetrievalService:
         """
         trace = RetrievalTrace(original_query=query_text)
 
-        if config.auto_collection_detection and not collection_ids:
-            core_repo = Repository()
-            available_collections = core_repo.list_collections()
-            t0 = time.time()
-            inferred_collections = self.query_intelligence_service.detect_collections(query_text, available_collections)
-            trace.execution_time_ms["collection_detection"] = int((time.time() - t0) * 1000)
-            if inferred_collections:
-                collection_ids = inferred_collections
-                trace.routing.inferred_collections.extend(inferred_collections)
-                trace.routing.reason = f"Auto-detected collections: {', '.join(inferred_collections)}"
-            else:
-                trace.routing.reason = "Auto-detection returned 'all' or invalid. Searching all collections."
-                trace.routing.fallback_triggered = True
-
         if config.enable_intelligence:
             t0 = time.time()
             trace.classification = self.query_intelligence_service.classify_query(query_text)
@@ -335,8 +306,10 @@ class AdvancedRetrievalService:
                 if trace.classification == "simple":
                     config.enable_expansion = False
                     config.enable_decomposition = False
+                    config.enable_hyde = False
+                    config.enable_synonym_expansion = False
                     trace.routing.selected_strategy = "baseline"
-                    trace.routing.reason = "Simple query: skipping expansion and decomposition."
+                    trace.routing.reason = "Simple query: skipping complex expansions (HyDE, Synonyms, etc.)."
                 elif trace.classification == "multi_hop":
                     config.enable_decomposition = True
                     config.enable_expansion = False
@@ -345,6 +318,8 @@ class AdvancedRetrievalService:
                 elif trace.classification in ["out_of_domain", "conversational"]:
                     config.enable_expansion = False
                     config.enable_decomposition = False
+                    config.enable_hyde = False
+                    config.enable_synonym_expansion = False
                     trace.routing.selected_strategy = "baseline"
                     trace.routing.reason = f"Classification is {trace.classification}. Skipping expansion."
                 else:
@@ -412,6 +387,10 @@ class AdvancedRetrievalService:
             search_query = q
             if config.enable_synonym_expansion and trace.transformations.synonym_expansions:
                 for old, new in trace.transformations.synonym_expansions.items():
+                    if isinstance(new, list):
+                        new = " ".join(map(str, new))
+                    elif not isinstance(new, str):
+                        new = str(new)
                     search_query = search_query.replace(old, new)
 
             chunks = self.baseline_retrieval_service.retrieve_relevant_chunks(

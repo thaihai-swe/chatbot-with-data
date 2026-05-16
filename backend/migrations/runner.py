@@ -328,10 +328,10 @@ def apply_migrations() -> None:
         cursor = connection.execute("SELECT 1 FROM schema_migrations WHERE version = ?", ("0003_safety_and_groundedness",))
         if not cursor.fetchone():
             try:
-                connection.execute("ALTER TABLE chat_turns ADD COLUMN safety_status TEXT")
-                connection.execute("ALTER TABLE chat_turns ADD COLUMN safety_risk_score REAL")
-                connection.execute("ALTER TABLE chat_turns ADD COLUMN safety_reason TEXT")
-                connection.execute("ALTER TABLE chat_turns ADD COLUMN groundedness_score REAL")
+                # connection.execute("ALTER TABLE chat_turns ADD COLUMN safety_status TEXT")
+                # connection.execute("ALTER TABLE chat_turns ADD COLUMN safety_risk_score REAL")
+                # connection.execute("ALTER TABLE chat_turns ADD COLUMN safety_reason TEXT")
+                # connection.execute("ALTER TABLE chat_turns ADD COLUMN groundedness_score REAL")
                 connection.execute(
                     "INSERT INTO schema_migrations(version) VALUES (?)",
                     ("0003_safety_and_groundedness",),
@@ -374,7 +374,7 @@ if __name__ == "__main__":
         print("Resetting database...")
         reset_database()
         print("Database reset.")
-    
+
     print("Applying migrations...")
     apply_migrations()
     print("Migrations applied successfully.")

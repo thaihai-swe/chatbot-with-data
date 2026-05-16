@@ -25,18 +25,17 @@ export default function ChatScreen() {
 
   const [showSettings, setShowSettings] = useState(false);
   const [advancedConfig, setAdvancedConfig] = useState({
-    enable_intelligence: false,
-    enable_rewriting: false,
-    enable_expansion: false,
+    enable_intelligence: true,
+    enable_rewriting: true,
+    enable_expansion: true,
     expansion_count: 3,
-    enable_decomposition: false,
-    enable_hyde: false,
-    enable_synonym_expansion: false,
-    enable_dynamic_routing: false,
-    enable_reranking: false,
-    enable_parent_child: false,
-    auto_collection_detection: false,
-    enable_live_evaluation: false,
+    enable_decomposition: true,
+    enable_hyde: true,
+    enable_synonym_expansion: true,
+    enable_dynamic_routing: true,
+    enable_reranking: true,
+    enable_parent_child: true,
+    enable_live_evaluation: true,
     });
 
   const [debugTrace, setDebugTrace] = useState(null);
@@ -237,40 +236,36 @@ export default function ChatScreen() {
         {showSettings && (
           <div style={{ marginBottom: "20px", fontSize: "0.8rem", background: "var(--color-bg)", padding: "10px", borderRadius: "8px" }}>
             <h4 style={{ margin: "0 0 10px 0" }}>Retrieval Config</h4>
-            <label style={{ display: "block", marginBottom: "6px" }}>
-              <input type="checkbox" checked={advancedConfig.enable_intelligence} onChange={() => toggleConfig("enable_intelligence")} /> Intelligence (Classify)
+            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
+              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_intelligence} onChange={() => toggleConfig("enable_intelligence")} /> Intelligence (Classify)
             </label>
-            <label style={{ display: "block", marginBottom: "6px" }}>
-              <input type="checkbox" checked={advancedConfig.enable_rewriting} onChange={() => toggleConfig("enable_rewriting")} /> Intent Rewriting
+            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
+              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_rewriting} onChange={() => toggleConfig("enable_rewriting")} /> Intent Rewriting
             </label>
-            <label style={{ display: "block", marginBottom: "6px" }}>
-              <input type="checkbox" checked={advancedConfig.enable_dynamic_routing} onChange={() => toggleConfig("enable_dynamic_routing")} /> Dynamic Routing
+            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
+              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_dynamic_routing} onChange={() => toggleConfig("enable_dynamic_routing")} /> Dynamic Routing
             </label>
-            <label style={{ display: "block", marginBottom: "6px" }}>
-              <input type="checkbox" checked={advancedConfig.enable_expansion} onChange={() => toggleConfig("enable_expansion")} /> Query Expansion
+            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
+              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_expansion} onChange={() => toggleConfig("enable_expansion")} /> Query Expansion
             </label>
-            <label style={{ display: "block", marginBottom: "6px" }}>
-              <input type="checkbox" checked={advancedConfig.enable_decomposition} onChange={() => toggleConfig("enable_decomposition")} /> Decomposition
+            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
+              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_decomposition} onChange={() => toggleConfig("enable_decomposition")} /> Decomposition
             </label>
-            <label style={{ display: "block", marginBottom: "6px" }}>
-              <input type="checkbox" checked={advancedConfig.enable_hyde} onChange={() => toggleConfig("enable_hyde")} /> HyDE
+            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
+              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_hyde} onChange={() => toggleConfig("enable_hyde")} /> HyDE
             </label>
-            <label style={{ display: "block", marginBottom: "6px" }}>
-              <input type="checkbox" checked={advancedConfig.enable_synonym_expansion} onChange={() => toggleConfig("enable_synonym_expansion")} /> Synonyms
+            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
+              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_synonym_expansion} onChange={() => toggleConfig("enable_synonym_expansion")} /> Synonyms
             </label>
-            <label style={{ display: "block", marginBottom: "6px" }}>
-              <input type="checkbox" checked={advancedConfig.enable_reranking} onChange={() => toggleConfig("enable_reranking")} /> Reranking
+            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
+              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_reranking} onChange={() => toggleConfig("enable_reranking")} /> Reranking
             </label>
-            <label style={{ display: "block", marginBottom: "6px" }}>
-              <input type="checkbox" checked={advancedConfig.enable_parent_child} onChange={() => toggleConfig("enable_parent_child")} /> Parent-Child
+            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
+              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_parent_child} onChange={() => toggleConfig("enable_parent_child")} /> Parent-Child
             </label>
-            <label style={{ display: "block", marginBottom: "6px" }}>
-              <input type="checkbox" checked={advancedConfig.auto_collection_detection} onChange={() => toggleConfig("auto_collection_detection")} /> Auto Collection Detection
+            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
+              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_live_evaluation} onChange={() => toggleConfig("enable_live_evaluation")} /> Live Evaluation (LLM-Judge)
             </label>
-            <label style={{ display: "block", marginBottom: "6px" }}>
-              <input type="checkbox" checked={advancedConfig.enable_live_evaluation} onChange={() => toggleConfig("enable_live_evaluation")} /> Live Evaluation (LLM-Judge)
-            </label>
-            </div>
 
             <h4 style={{ margin: "15px 0 10px 0", borderTop: "1px solid rgba(0,0,0,0.05)", paddingTop: "10px" }}>Scope Collections</h4>
             <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid rgba(0,0,0,0.1)", borderRadius: "4px", padding: "8px", background: "rgba(255,255,255,0.3)" }}>
