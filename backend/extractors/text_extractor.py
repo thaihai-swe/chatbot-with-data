@@ -7,7 +7,9 @@ from extractors.common import normalized_text_hash, sha256_bytes, title_from_fil
 
 
 class TextExtractor:
-    def extract(self, artifact_path: str, source_type: str) -> dict[str, Any]:
+    def extract(
+        self, artifact_path: str, source_type: str, fallback_title: str | None = None
+    ) -> dict[str, Any]:
         path = Path(artifact_path)
         content = path.read_bytes()
         last_error: UnicodeDecodeError | None = None
@@ -22,8 +24,9 @@ class TextExtractor:
         else:
             raise ValueError(f"Unable to decode text file: {last_error}")
 
+        title = fallback_title or path.name
         return {
-            "title": title_from_filename(path),
+            "title": title_from_filename(title),
             "source_uri": None,
             "canonical_source_uri": None,
             "mime_type": "text/markdown" if source_type == "md" else "text/plain",

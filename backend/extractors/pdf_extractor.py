@@ -10,7 +10,7 @@ from extractors.common import normalized_text_hash, sha256_bytes, title_from_fil
 
 
 class PdfExtractor:
-    def extract(self, artifact_path: str) -> dict[str, Any]:
+    def extract(self, artifact_path: str, fallback_title: str | None = None) -> dict[str, Any]:
         path = Path(artifact_path)
         content = path.read_bytes()
         file_hash = sha256_bytes(content)
@@ -32,9 +32,12 @@ class PdfExtractor:
             raise ValueError(f"Unable to extract PDF text: {exc}") from exc
 
         text = "\n".join(page for page in pages if page).strip()
-        title = metadata.get("pdf_metadata", {}).get("Title") or title_from_filename(path)
+        title = metadata.get("pdf_metadata", {}).get("Title")
+        if not title:
+            title = fallback_title or path.name
+        
         return {
-            "title": title,
+            "title": title_from_filename(title) if title else "Untitled",
             "source_uri": None,
             "canonical_source_uri": None,
             "mime_type": "application/pdf",

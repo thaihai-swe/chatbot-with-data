@@ -22,7 +22,7 @@ class WebExtractor:
         self.settings = get_settings()
         self.storage = LocalStorage()
 
-    def extract(self, source_uri: str) -> dict[str, Any]:
+    def extract(self, source_uri: str, fallback_title: str | None = None) -> dict[str, Any]:
         try:
             response = requests.get(source_uri, timeout=self.settings.url_timeout_seconds)
             response.raise_for_status()

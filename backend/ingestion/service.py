@@ -58,6 +58,7 @@ class IngestionService:
                 source_type=attempt["source_type"],
                 artifact_path=attempt["artifact_path"],
                 source_uri=attempt["source_uri"],
+                fallback_title=attempt.get("submitted_filename"),
             )
             candidate = {
                 **extraction,
