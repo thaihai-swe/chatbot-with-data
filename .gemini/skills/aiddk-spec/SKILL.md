@@ -38,7 +38,7 @@ It owns:
 ## Workflow
 
 1. **Initialization:** If `status.md` does not exist, create it from `references/status-template.md`. Set phase to `Spec'ing`.
-2. **Clarification (The Grilling Phase):** Before drafting, if the request is non-trivial, you **must** ask 3-5 targeted clarifying questions that reduce product ambiguity. Do not ask a generic questionnaire.
+2. **The Grilling Phase (Relentless Alignment):** Before drafting, you **must** ask 3-5 targeted clarifying questions that reduce product ambiguity. Do not ask a generic questionnaire. If the request is non-trivial, keep grilling until the path to success is 100% clear.
 3. **Alignment (The Proposal):** Draft `proposal.md` from `references/proposal-template.md`. Present it to the user and **stop**. Wait for alignment confirmation before proceeding to the full spec.
 4. **Scope Cut:** Once aligned, define the smallest useful release slice. Make `In Scope`, `Out Of Scope`, and `Non-Goals` explicit before writing detailed requirements.
 5. **Authoring:** Draft `spec.md` focusing on *what* and *why*, not how. Prioritize 1-3 primary user scenarios and tie every requirement back to a scenario or outcome.
@@ -54,6 +54,7 @@ It owns:
 
 ## Core Rules
 
+- **The 3-Question Minimum:** Never start a spec without asking at least 3 high-signal questions.
 - **What, not How:** Avoid prescribing technical solutions in the spec.
 - **Smallest Useful Slice:** Default to the smallest releasable scope that still solves the stated problem.
 - **Explicit Non-Goals:** If something is intentionally excluded, say so directly.
@@ -63,12 +64,14 @@ It owns:
 - **Brownfield Protection:** Preserve unchanged behavior explicitly when modifying existing systems.
 - **Spec-Anchored:** The `spec.md` is the source of truth. If requirements change during implementation, you must return to this skill first.
 
-## Common Rationalizations
+## Rationalization vs. Reality
 
 | Rationalization | Reality |
 |---|---|
 | "We can lock requirements and fill in the product gaps later." | Unresolved product ambiguity leaks downstream into design and planning. |
 | "A big umbrella spec is faster." | Oversized specs hide scope decisions and make review weaker. |
+| "The user's prompt is clear enough, no need to ask questions." | "Vibe alignment" is a trap. 3-5 targeted questions often reveal hidden constraints or simpler paths. |
+| "I'll define the 'How' here to save time during planning." | Mixing 'What' and 'How' locks you into technical debt before you've even understood the problem. |
 
 ## Red Flags
 

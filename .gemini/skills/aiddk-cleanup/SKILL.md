@@ -46,16 +46,20 @@ It handles:
 
 ## Core Rules
 
-- **Zero Behavior Change:** If the tests fail after cleanup, the cleanup was too aggressive.
+- **The Fallow Pass:** This is a dedicated phase for maintenance. No new features or bug fixes are allowed during a Fallow Pass.
+- **Zero Behavior Change:** If the tests fail after cleanup, the cleanup was too aggressive. Every cleanup step MUST be verified by existing tests.
 - **Campground Rule:** Always leave the code cleaner than you found it.
 - **Surgical:** Touch only what is necessary; do not perform "drive-by" refactors of unrelated code.
+- **Delete over Refactor:** If code is unused, delete it. Do not try to "make it better" if it's no longer needed.
 
-## Common Rationalizations
+## Rationalization vs. Reality
 
 | Rationalization | Reality |
 |---|---|
 | "I'll just fix this bug while I'm cleaning up." | Cleanup should never change behavior. Stop and use `aiddk-spec`. |
-| "A little refactor in this adjacent file won't hurt." | Surgicality is the rule. Touch only the debt identified in the inventory. |
+| "A little refactor in this adjacent file won't hurt." | Surgicality is the rule. Touch only the debt identified in the inventory. Unrelated changes make reviews harder and increase risk. |
+| "I might need this function later, I'll just comment it out." | Dead code is debt. Delete it. Git will remember it if you truly need it back. |
+| "Formatting doesn't matter for AI-generated code." | Professional engineering requires professional presentation. Consistency reduces cognitive load for humans. |
 
 ## Red Flags
 

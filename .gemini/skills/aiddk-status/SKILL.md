@@ -50,15 +50,15 @@ It handles:
 - **Actionable:** Every feature summary must include a recommended next command.
 - **Concise:** Keep the high-level report brief; only go into detail when blockers are present.
 
-## Common Rationalizations
+## Rationalization vs. Reality
 
 | Rationalization | Reality |
 |---|---|
-| "The status doesn't matter if the code is getting done." | Status is the bridge between agents and sessions; without it, context is lost. |
-| "I'll update the status after I finish the PR." | Status must be updated at every skill boundary to prevent drift. |
+| "Updating status is just busywork." | Status is the 'pulse' of the project. It ensures everyone (human or AI) knows exactly where we are. |
+| "I'll update it at the end of the day." | Stale status leads to duplicated work and misaligned expectations. |
+| "The user can see what I'm doing from the logs." | Logs are too granular. `status.md` provides the high-level narrative progress. |
 
 ## Red Flags
-
 - Feature directories exist without a `status.md`.
 - Features are marked `Done` but missing verification evidence.
 - The "Next Step" command is missing or logically incorrect for the current phase.

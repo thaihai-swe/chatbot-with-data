@@ -64,15 +64,15 @@ Read these inputs when they exist:
 - If root cause is still uncertain, end with the strongest supported hypothesis.
 - Identify **Promotion Candidates** for the constitution or project knowledge base.
 
-## Common Rationalizations
+## Rationalization vs. Reality
 
 | Rationalization | Reality |
 |---|---|
-| "I already know how this area works." | Repository evidence beats memory, especially in brownfield areas. |
-| "I can turn this straight into a spec." | Research should reduce uncertainty, not silently replace downstream artifacts. |
+| "I'll just fix it while I'm researching." | Research is for understanding root causes, not for patching symptoms. |
+| "I've seen this error before, I know what it is." | Assumptions are the root of most failed fixes. Verify every hunch with evidence. |
+| "Searching the whole codebase is too slow." | Narrow searches miss global patterns. Targeted, exhaustive research prevents 'whack-a-mole' debugging. |
 
 ## Red Flags
-
 - The analysis reads like a spec, design, or plan instead of observed current state.
 - The artifact is mostly file inventory instead of findings.
 - Root-cause claims are stated as fact without repository evidence.

@@ -50,12 +50,13 @@ This skill manages the creation, evaluation, and logging of Architecture Decisio
 - **Immutability:** Once "Accepted," ADRs should be superseded or deprecated, not deleted or significantly altered.
 - **Surgical Scope:** Focus on the architectural decision, not the implementation details.
 
-## Common Rationalizations
+## Rationalization vs. Reality
+
 | Rationalization | Reality |
 |---|---|
-| "The choice is obvious." | Obvious today is mysterious in 6 months. Document the rationale. |
-| "We'll document it later." | Documentation happens during the decision process, or it doesn't happen at all. |
-| "It's just a small change." | Small architectural changes can have large long-term consequences. |
+| "It's too small for an ADR." | Small decisions compound into big technical debt. |
+| "Everyone agreed in chat, no need to document." | Chat logs are not architectural history. New team members shouldn't have to search Slack to understand why a choice was made. |
+| "I'll write the ADR after I'm done with the implementation." | Post-hoc documentation often omits the alternatives considered and the 'why' behind the chosen path. |
 
 ## Red Flags
 - The ADR lacks a "Consequences" section (everything has a cost).

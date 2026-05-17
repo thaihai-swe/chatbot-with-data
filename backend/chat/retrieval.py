@@ -384,7 +384,7 @@ class AdvancedRetrievalService:
 
         unique_queries = list(dict.fromkeys(unique_queries)) # Deduplicate preserve order
 
-        search_mode = global_config.retrieval.retrieval_mode
+        search_mode = config.retrieval_mode or global_config.retrieval.retrieval_mode
         
         # Map search_mode to effective alpha
         if search_mode == "keyword":
@@ -392,7 +392,7 @@ class AdvancedRetrievalService:
         elif search_mode == "semantic":
             effective_alpha = 1.0
         else: # hybrid
-            effective_alpha = global_config.retrieval.hybrid_weight
+            effective_alpha = config.hybrid_weight if config.hybrid_weight is not None else global_config.retrieval.hybrid_weight
 
         all_results = []
         for q in unique_queries:

@@ -48,22 +48,25 @@ It turns an approved spec into a concrete execution strategy that an implementer
 
 ## Core Rules
 
+- **The 2-5 Minute Task Rule:** Break implementation into the smallest possible verifiable increments. If a task takes more than 5 minutes to implement or more than 10 lines of code, it must be decomposed further.
 - **Stress-Testing:** Use a subagent to "red-team" your proposed design against the existing codebase to find hidden side effects or edge cases.
 - **Stay Anchored:** Align strictly with the approved `spec.md`.
 - **Lean by Default:** Do not turn `plan.md` into a second spec. Include only the detail needed to execute safely.
 - **Phased Rollout:** Prefer reversible, phased changes over big-bang rewrites.
-- **Validation-First:** Plan validation (tests, proofs) as part of the tasks.
+- **Validation-First:** Plan validation (tests, proofs) as part of the tasks. No task is complete without a corresponding "Proof" step.
 - **Small Tasks:** Each task should ideally produce one reviewable diff and one clear proof.
 - **Immediate Usability:** The next implementer should be able to start the first unblocked task from `tasks.md` without rereading the entire discussion.
 - **Parallel Safety:** Mark tasks with `[P]` only if boundaries are truly independent.
 - **Explicit Ownership:** If a task is parallel-safe, state the ownership boundary and reintegration expectations.
 
-## Common Rationalizations
+## Rationalization vs. Reality
 
 | Rationalization | Reality |
 |---|---|
 | "The implementer can figure out the rest." | Planning should remove core sequencing and approach ambiguity. |
 | "Validation can be added later during coding." | Validation belongs inside the plan, not as cleanup. |
+| "This task is too small to list separately." | Smaller tasks lead to higher confidence and easier debugging. 2-5 minute tasks are the target. |
+| "I'll just list 'Fix Bug X' as one task." | Vague tasks lead to drift. Decompose into: Reproduce -> Instrument -> Fix -> Verify. |
 
 ## Red Flags
 

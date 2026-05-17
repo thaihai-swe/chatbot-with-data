@@ -10,6 +10,7 @@ import {
 } from "../api/chat";
 import { listCollections } from "../api/knowledgeApi";
 import XRayPanel from "../components/XRayPanel";
+import CitationModal from "../components/CitationModal";
 
 export default function ChatScreen() {
   const { sessionId } = useParams();
@@ -40,6 +41,8 @@ export default function ChatScreen() {
     });
 
   const [debugTrace, setDebugTrace] = useState(null);
+  const [activeCitation, setActiveCitation] = useState(null);
+  const [activeChunk, setActiveChunk] = useState(null);
 
   // Load sessions
   useEffect(() => {
@@ -70,8 +73,12 @@ export default function ChatScreen() {
                 role: "assistant", 
                 content: turn.answer_text,
                 citations: turn.citations,
-                trace: turn.retrieval_trace,
-                evaluation: turn.evaluation_metrics
+                chunks: turn.retrieved_chunks_json ? JSON.parse(turn.retrieved_chunks_json) : [],
+                trace: {
+                  retrieval: turn.retrieval_trace,
+                  safety: turn.safety_trace,
+                  evaluation: turn.evaluation_metrics
+                }
               });
             }
           });
@@ -148,12 +155,12 @@ export default function ChatScreen() {
           return [...prev.slice(0, -1), { ...last, content: last.content + token }];
         });
       },
-      onCitations: (citations) => {
+      onCitations: (data) => {
         setMessages(prev => {
           if (prev.length === 0) return prev;
           const last = prev[prev.length - 1];
           if (last.role !== "assistant") return prev;
-          return [...prev.slice(0, -1), { ...last, citations }];
+          return [...prev.slice(0, -1), { ...last, citations: data.citations, chunks: data.retrieved_chunks }];
         });
       },
       onTrace: (trace) => {
@@ -161,7 +168,7 @@ export default function ChatScreen() {
           if (prev.length === 0) return prev;
           const last = prev[prev.length - 1];
           if (last.role !== "assistant") return prev;
-          return [...prev.slice(0, -1), { ...last, trace: trace.retrieval, evaluation: trace.evaluation }];
+          return [...prev.slice(0, -1), { ...last, trace: trace }];
         });
         setDebugTrace(trace);
       },
@@ -222,6 +229,14 @@ export default function ChatScreen() {
 
   const toggleConfig = (key) => {
     setAdvancedConfig(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleCitationClick = (citation, chunks) => {
+    const chunk = chunks.find(c => c.chunk_id === citation.chunk_id);
+    if (chunk) {
+      setActiveCitation(citation);
+      setActiveChunk(chunk);
+    }
   };
 
   return (
@@ -340,7 +355,12 @@ export default function ChatScreen() {
                   <strong>Sources:</strong>
                   <div style={{ marginTop: "6px" }}>
                     {msg.citations.map((c, ci) => (
-                      <span key={ci} className="citation-tag">
+                      <span 
+                        key={ci} 
+                        className="citation-tag"
+                        onClick={() => handleCitationClick(c, msg.chunks || [])}
+                        style={{ cursor: "pointer" }}
+                      >
                         {c.metadata?.title ? (c.metadata.title.length > 20 ? c.metadata.title.slice(0, 20) + '...' : c.metadata.title) : `Source ${c.chunk_id.slice(0,4)}`}
                       </span>
                     ))}
@@ -380,6 +400,11 @@ export default function ChatScreen() {
       </div>
 
       <XRayPanel trace={debugTrace} onClose={() => setDebugTrace(null)} />
+      <CitationModal 
+        citation={activeCitation} 
+        chunk={activeChunk} 
+        onClose={() => { setActiveCitation(null); setActiveChunk(null); }} 
+      />
     </div>
   );
 }

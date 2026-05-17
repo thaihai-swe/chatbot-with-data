@@ -55,15 +55,15 @@ The `aiddk-diagram` skill transforms technical descriptions, specifications, or 
 - **Directional Consistency:** Use `TD` (Top-Down) or `LR` (Left-Right) consistently to optimize for the expected medium (e.g., mobile-friendly docs prefer `TD`).
 - **Standard Symbols:** Adhere to the shapes and connection styles defined in the reference guides.
 
-## Common Rationalizations
+## Rationalization vs. Reality
 
 | Rationalization | Reality |
 |---|---|
-| "The code is the documentation." | Visuals provide immediate mental models that code cannot replicate at scale. |
-| "Mermaid is too limited for this." | Use C4 or Advanced Styling to bridge the gap; prioritize clarity over pixel-perfection. |
+| "The code is the documentation." | Code explains 'how', diagrams explain 'how it fits together'. Visuals provide immediate mental models that code cannot replicate at scale. |
+| "Diagrams get out of date too fast." | Mermaid diagrams as code are easy to update and provide high-level context that code alone lacks. |
+| "I don't have time to make it pretty." | Clarity of flow matters more than aesthetics. A rough Mermaid chart is better than no mental map. |
 
 ## Red Flags
-
 - **Spaghetti Diagrams:** Too many crossing lines or nodes indicate the diagram should be split into multiple subgraphs or separate files.
 - **Outdated Labels:** Using variable names or IDs that don't match the current `spec.md` or codebase.
 

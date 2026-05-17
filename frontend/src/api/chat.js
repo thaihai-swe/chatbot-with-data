@@ -104,7 +104,7 @@ export function streamChatTurn(sessionId, queryText, advancedConfig, {
             case "status": onStatus?.(data); break;
             case "token": onToken?.(data.content); break;
             case "citations": 
-              onCitations?.(data.citations); 
+              onCitations?.(data); 
               if (data.retrieval_trace || data.safety_trace || data.evaluation_metrics) {
                 // Combine traces and metrics for the debug view
                 onTrace?.({

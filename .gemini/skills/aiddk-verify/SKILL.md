@@ -51,20 +51,24 @@ It handles:
 
 ## Core Rules
 
-- **Evidence over Confidence:** Review fresh evidence, not just the diff.
+- **The Beyonce Rule:** "If you liked it, you should have put a test on it." If a behavior is not covered by an automated test, it is not verified. No exceptions.
+- **Evidence over Confidence:** Review fresh evidence, not just the diff. If a test was not run in this session, the proof is stale.
 - **Security Lens:** Always audit auth, permissions, and data handling.
 - **Traceability:** Verify `REQ -> AC -> TASK -> validation` is intact.
-- **Drift Detection:** If implementation materially diverged from artifacts, call it out.
+- **Drift Detection:** If implementation materially diverged from artifacts, call it out. The code must match the spec, or the spec must be updated.
 - **Stale Evidence Is A Finding:** Old, missing, or indirect proof does not count as done.
 - **Missing Tests Matter:** If a behavior changed and the proof surface is weak, record it as a finding.
 - **Task-State Honesty:** Reopen or downgrade task state when the evidence does not support `Done`.
 
-## Common Rationalizations
+## Rationalization vs. Reality
 
 | Rationalization | Reality |
 |---|---|
-| "The diff looks right, so the review can be light." | Review is about evidence, not plausibility. |
-| "Missing verification is just a paperwork issue." | Weak or stale evidence is a real review finding. |
+| "The diff looks right, so the review can be light." | Review is about evidence, not plausibility. Plausible code can still be wrong. |
+| "Missing verification is just a paperwork issue." | Weak or stale evidence is a real review finding. If it's not verified, it's not done. |
+| "I'll add the tests in a separate PR." | The Beyonce Rule: If it's not tested, it doesn't exist. Tests belong with the feature. |
+| "It passed locally on my machine once." | Reproducible, automated evidence is the only currency in verification. |
+| "Naming doesn't matter as long as the logic works." | The Dictionary Guardian ensures maintainability. Generic naming is technical debt that leads to future drift. |
 
 ## Red Flags
 
@@ -80,6 +84,12 @@ Before finalizing the review, verify:
 - Requirement coverage and validation quality were checked.
 - Task-state accuracy was reviewed.
 - Spec drift, stale evidence, and missing-proof risks were checked explicitly.
+
+## Output Rules
+
+- Update only `review.md` and `testing-scenarios.md`.
+- Do not rewrite the spec or plan during review.
+y.
 
 ## Output Rules
 

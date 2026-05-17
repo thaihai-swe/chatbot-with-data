@@ -117,42 +117,21 @@ Describe important module or system boundaries and why they matter.
   Why it matters:
   Watchout:
 
-## Durable Brownfield Watchouts
+## Project Dictionary / Shared Language
 
-Capture stable hotspots, historical pitfalls, or areas that regularly need extra care.
+Capture the project-specific vocabulary to ensure the agent uses the same language as the domain experts and code. This prevents naming collisions and reduces token usage by establishing a common ground.
 
-- Watchout:
-  Use this knowledge when:
-  Impact if ignored:
+- **Term:** [The exact term used in code/docs]
+  - **Definition:** [What it means in this project]
+  - **Context/Usage:** [Where it appears, e.g., "Used in auth middleware", "Refers to the DynamoDB partition key"]
+  - **Aliases:** [Other names this might be called by users or in old code]
 
-- Watchout:
-  Use this knowledge when:
-  Impact if ignored:
+- **Term:** 
+  - **Definition:** 
+  - **Context/Usage:** 
+  - **Aliases:** 
 
-## Ubiquitous Language
-
-Capture the project-specific vocabulary to ensure the agent uses the same language as the domain experts and code.
-
-- Term:
-  Definition:
-  Context/Usage:
-- Term:
-  Definition:
-  Context/Usage:
-
-## Glossary And Naming
-
-Capture important project terms, aliases, and naming conventions agents should recognize.
-
-- Term:
-  Meaning:
-  Notes:
-
-- Term:
-  Meaning:
-  Notes:
-
-## Freshness And Maintenance
+## Stable Invariants
 
 - Last major refresh date:
 - What kinds of changes should trigger a refresh:

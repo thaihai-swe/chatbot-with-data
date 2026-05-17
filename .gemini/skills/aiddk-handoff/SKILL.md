@@ -51,15 +51,15 @@ The result should be skim-friendly and actionable in under a minute.
 - **Validation State Matters:** If work stopped before proof passed, say that directly.
 - **Blocker Transparency:** Explicitly call out why work stopped (e.g., "Waiting for user clarification on X").
 
-## Common Rationalizations
+## Rationalization vs. Reality
 
 | Rationalization | Reality |
 |---|---|
-| "The next agent will just read the code." | Reading code doesn't explain *intent* or *failed attempts*. |
-| "I'll just summarize in the chat." | Chat history is transient; `handoff.md` is durable. |
+| "The next agent will figure it out." | Handoff is about Zero Amnesia; every missing detail is a wasted turn. |
+| "The chat history is enough." | Chat history is noisy and context-heavy. A clean handoff doc provides a focused, executable starting point. |
+| "I'm almost done, I'll just finish it instead of handing off." | Over-staying your context or energy leads to sloppy finishes. A clean handoff ensures the next agent starts fresh and focused. |
 
 ## Red Flags
-
 - Handoff contains vague statements like "Work is progressing."
 - The next step still requires guessing which file, task, or command to use.
 - No "Next Step Prompt" is provided.

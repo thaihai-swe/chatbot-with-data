@@ -21,6 +21,8 @@ class ChatSessionResponse(BaseModel):
 
 
 class AdvancedRetrievalConfig(BaseModel):
+    retrieval_mode: Optional[str] = Field(None, description="Override global search mode (semantic, keyword, hybrid)")
+    hybrid_weight: Optional[float] = Field(None, description="Override global hybrid weight (0.0 to 1.0)")
     enable_intelligence: bool = Field(True, description="Enable query classification and pre-retrieval intelligence")
     enable_rewriting: bool = Field(True, description="Enable query normalization (Rewriting)")
     enable_expansion: bool = Field(True, description="Enable LLM-based query expansion")

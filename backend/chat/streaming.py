@@ -209,9 +209,10 @@ class StreamingOrchestrator:
                 answer_text=full_answer,
             )
 
-            # Include safety trace and retrieval trace
+            # Include safety trace, retrieval trace, and full chunks
             yield self._format_sse("citations", {
                 "citations": citation_objects,
+                "retrieved_chunks": safe_chunks,
                 "retrieval_trace": trace.dict() if hasattr(trace, 'dict') else trace,
                 "safety_trace": safety_trace.dict() if hasattr(safety_trace, 'dict') else safety_trace,
             })
