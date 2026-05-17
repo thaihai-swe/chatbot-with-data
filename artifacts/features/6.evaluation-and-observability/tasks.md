@@ -3,9 +3,9 @@
 ## Phase 1: Infrastructure & Backend Foundations
 
 - [ ] **Task T-001: Create Evaluation Dataset**
-  - **Target:** `backend/data/eval_dataset.json`
+  - **Target:** `backend/test_data/eval_dataset.json`
   - **Description:** Create a sample dataset with 10-20 "golden" questions and expected document IDs.
-  - **Proof:** `cat backend/data/eval_dataset.json` shows valid JSON.
+  - **Proof:** `cat backend/test_data/eval_dataset.json` shows valid JSON.
 
 - [ ] **Task T-002: Define Evaluation Schemas**
   - **Target:** `backend/schemas/chat.py`

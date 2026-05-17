@@ -253,6 +253,7 @@ class IndexingService:
                     embedding_vector,
                     {
                         "chunk_id": chunk["id"],
+                        "text": text,  # Crucial for Weaviate keyword search (BM25)
                         "document_id": document_id,
                         "collection_id": collection_id,
                         "chunk_order": chunk["chunk_order"],

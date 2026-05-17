@@ -25,7 +25,7 @@ Users and reviewers need to "see inside" the RAG pipeline to understand why a sp
 - **Debug Visibility (X-Ray):** Integrated toggle in the chat interface to show internal pipeline state.
 - **Basic Eval Runner:** UI-triggered script for running a small "golden" dataset.
 - **LLM-as-a-Judge:** Simple integration to score "Groundedness" for the 10-20 test cases.
-- **JSON Dataset Management:** Storing and reading test cases from `backend/data/eval_dataset.json`.
+- **JSON Dataset Management:** Storing and reading test cases from `backend/test_data/eval_dataset.json`.
 
 ## Out Of Scope
 - Large-scale batch evaluations (>20 cases).

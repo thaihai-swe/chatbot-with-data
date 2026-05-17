@@ -1,0 +1,18 @@
+[
+    {
+        "id": "tc-001",
+        "question": "What is the Nexus-7-Alpha designed for?",
+        "expected_document_id": "nexus-7-alpha-spec"
+    },
+    {
+        "id": "tc-002",
+        "question": "What should I do if I see error ERR-999-X?",
+        "expected_document_id": "nexus-7-alpha-spec"
+    },
+    {
+        "id": "tc-003",
+        "question": "What kit was used to fix the signal synchronization issue reported for the Nexus-7-Alpha?",
+        "expected_document_id": "nexus-7-maintenance-log",
+        "notes": "Multi-hop: Needs to know Nexus-7-Alpha uses WRN-404-Y for signal sync (from Spec) and then find the fix in the Log."
+    }
+]

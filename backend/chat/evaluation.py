@@ -30,10 +30,27 @@ class EvaluationService:
             logger.error(f"Failed to load eval dataset: {str(e)}")
             return []
 
-    async def run_sanity_check(self, dataset_path: str = "backend/data/eval_dataset.json") -> SanityCheckResponse:
+    async def run_sanity_check(self, dataset_path: Optional[str] = None) -> SanityCheckResponse:
         """
         Run the 10-20 'golden' test cases.
         """
+        if dataset_path is None:
+            # Try to find eval_dataset.json in common locations
+            import os
+            possible_paths = [
+                "test_test_data/eval_dataset.json",
+                "backend/test_test_data/eval_dataset.json",
+                "../test_test_data/eval_dataset.json"
+            ]
+            for path in possible_paths:
+                if os.path.exists(path):
+                    dataset_path = path
+                    break
+
+            if dataset_path is None:
+                # Default fallback if not found
+                dataset_path = "backend/test_data/eval_dataset.json"
+
         dataset = self._load_dataset(dataset_path)
         if not dataset:
             return SanityCheckResponse(
@@ -48,11 +65,11 @@ class EvaluationService:
         # We'll use a dummy session or create one for evaluation
         # For simplicity, we'll process each turn in isolation
         session_id = "eval-session"
-        
+
         tasks = []
         for case in dataset:
             tasks.append(self._evaluate_case(case))
-        
+
         results = await asyncio.gather(*tasks)
 
         total = len(results)
@@ -80,7 +97,7 @@ class EvaluationService:
             # Run in a thread if process_turn is blocking (it is)
             # In a real production app, we'd make ChatService async
             loop = asyncio.get_event_loop()
-            
+
             # Note: We need a session. Let's assume 'default' exists or we mock it.
             # For the Lab, we'll just try to use a session 'eval'
             try:
@@ -91,28 +108,43 @@ class EvaluationService:
                 pass
 
             response = await loop.run_in_executor(
-                None, 
-                self.chat_service.process_turn, 
-                "eval", 
-                question, 
+                None,
+                self.chat_service.process_turn,
+                "eval",
+                question,
                 AdvancedRetrievalConfig()
             )
 
             # 1. Recall Check
             retrieved_chunks = json.loads(response.retrieved_chunks_json)
-            retrieved_doc_ids = [str(c.get("document_id")) for c in retrieved_chunks]
-            recall_status = expected_doc_id in retrieved_doc_ids
+            # Try to get document_id from various possible keys
+            retrieved_doc_ids = []
+            for c in retrieved_chunks:
+                doc_id = c.get("document_id") or c.get("metadata", {}).get("document_id")
+                if doc_id:
+                    retrieved_doc_ids.append(str(doc_id).strip())
 
-            # 2. Groundedness (already computed by ChatService now?)
+            # Case-insensitive comparison
+            recall_status = any(expected_document_id.lower() == rid.lower() for rid in retrieved_doc_ids)
+
+            logger.info(f"EVAL [{case_id}] Expected: {expected_document_id}")
+            logger.info(f"EVAL [{case_id}] Retrieved Doc IDs: {retrieved_doc_ids}")
+            if retrieved_chunks:
+                logger.info(f"EVAL [{case_id}] FULL FIRST CHUNK: {json.dumps(retrieved_chunks[0], indent=2)}")
+            else:
+                logger.info(f"EVAL [{case_id}] NO CHUNKS RETRIEVED")
+            logger.info(f"EVAL [{case_id}] Recall Result: {recall_status}")
+
+            # 2. Groundedness
             # Actually, I haven't updated ChatService yet.
             # Let's call calculate_groundedness directly here to be sure.
             score, reason = self.chat_service.grounding_service.calculate_groundedness(
-                response.answer_text, 
+                response.answer_text,
                 retrieved_chunks
             )
 
             latency = int((time.time() - t0) * 1000)
-            
+
             # Pass criteria: Recall is True AND Groundedness > 0.7
             passed = recall_status and score >= 0.7
 

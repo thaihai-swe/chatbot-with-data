@@ -5,7 +5,7 @@
 - Related Design: `artifacts/features/6.evaluation-and-observability/design.md`
 
 ## 1. Execution Order
-1. **Infrastructure:** Create `backend/data/eval_dataset.json` and basic schema for evaluation results.
+1. **Infrastructure:** Create `backend/test_data/eval_dataset.json` and basic schema for evaluation results.
 2. **Backend (Grounding):** Enhance `GroundingService` with LLM-based groundedness scoring.
 3. **Backend (Evaluation):** Implement `EvaluationService` and the `/api/chat/evaluate/sanity-check` endpoint.
 4. **Frontend (Observability):** Implement "Debug Mode" toggle and "X-Ray" panel in the chat interface.

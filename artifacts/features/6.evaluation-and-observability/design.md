@@ -20,7 +20,7 @@ The `ChatTurnResponse` schema already supports `retrieval_trace` and `safety_tra
 
 ### 2.2 Evaluation Service (`backend/chat/evaluation.py`)
 A new service to manage the sanity check workflow:
-- **Load Dataset:** Reads `backend/data/eval_dataset.json`.
+- **Load Dataset:** Reads `backend/test_data/eval_dataset.json`.
 - **Execute cases:** Iterates through cases. For each case, it calls a lightweight version of `ChatService.process_turn` (bypassing persistence if needed, but ideally using the same logic).
 - **Calculate Recall:** Check if `expected_document_id` (from JSON) matches any retrieved chunk's `document_id`.
 - **Calculate Groundedness:** Uses the updated `GroundingService`.
@@ -48,7 +48,7 @@ A new service to manage the sanity check workflow:
 - **Results:** A modern table showing Question, Status (Pass/Fail), Recall (%), and Groundedness Score.
 
 ## 4. Data Model
-`backend/data/eval_dataset.json`:
+`backend/test_data/eval_dataset.json`:
 ```json
 [
   {

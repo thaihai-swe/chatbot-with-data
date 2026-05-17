@@ -78,6 +78,8 @@ Create a document-aware AI assistant and experimentation platform that can:
 * Use query decomposition for complex, comparative, or multi-hop questions
 * Use dynamic routing to select the best retrieval strategy for a query
 * Stream generated answers in the chat UI
+* Retrieve evidence using configured Advanced Retrieval methods (Query Expansion, Decomposition, HyDE, RRF).
+* **Feature 4.2 specific:** Retrieve evidence using explicit search modes (Keyword/BM25, Semantic/Vector, Hybrid) powered by Weaviate.
 * Inspect experiment results in a dashboard
 * Configure rerankers and compare their effects on answer quality
 
@@ -1381,6 +1383,7 @@ The Chat screen must allow users to:
 * view citation details
 * see refusal messages when evidence is insufficient
 * continue a conversation with preserved chat history
+* delete individual chat sessions
 
 The Chat screen should include:
 
@@ -1616,7 +1619,7 @@ Backend:
 
 Storage:
 
-* ChromaDB for vectors
+* Weaviate for native hybrid search (Vector + BM25) via a SOLID VectorStore abstraction.
 * SQLite for metadata, runs, evaluations, and logs
 
 Model:
