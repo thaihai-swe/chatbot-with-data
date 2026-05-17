@@ -42,6 +42,14 @@ export async function cancelChatTurn(turnId) {
   return response.json();
 }
 
+export async function runSanityCheck() {
+  const response = await fetch(`${API_BASE_URL}/chat/evaluate/sanity-check`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error("Failed to run sanity check");
+  return response.json();
+}
+
 /**
  * Stream a chat turn using SSE.
  * 

@@ -157,6 +157,14 @@ class ChatService:
                 # 5. Generate answer
                 answer_text = self.generation_service.generate_answer(context_package)
 
+                # 5.1 Calculate real groundedness for observability
+                score, reason = self.grounding_service.calculate_groundedness(
+                    answer_text, 
+                    safe_chunks
+                )
+                safety_trace.groundedness.score = score
+                safety_trace.groundedness.status = "supported" if score >= 0.7 else "partial"
+
                 # 6. Extract and validate citations
                 citation_labels = self.citation_service.extract_citations(answer_text)
                 valid_citations = self.citation_service.map_citations_to_chunks(
@@ -177,6 +185,7 @@ class ChatService:
                     turn_id=turn_id,
                     status="completed",
                     answer_text=answer_text,
+                    groundedness_score=score,  # Persist score
                 )
 
             # 8. Reload turn and return

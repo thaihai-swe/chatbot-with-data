@@ -108,6 +108,27 @@ class SafetyTrace(BaseModel):
     answerability: SafetyAnswerability = Field(default_factory=SafetyAnswerability)
 
 
+class EvalResult(BaseModel):
+    case_id: str
+    question: str
+    expected_document_id: str
+    actual_answer: Optional[str] = None
+    recall_status: bool = False
+    groundedness_score: float = 0.0
+    groundedness_reason: Optional[str] = None
+    latency_ms: int = 0
+    passed: bool = False
+
+
+class SanityCheckResponse(BaseModel):
+    timestamp: str
+    total_cases: int
+    passed_cases: int
+    overall_recall: float
+    overall_groundedness: float
+    results: List[EvalResult] = Field(default_factory=list)
+
+
 class ChatTurnResponse(BaseModel):
     id: str
     session_id: str

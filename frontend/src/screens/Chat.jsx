@@ -9,6 +9,7 @@ import {
   deleteChatSession
 } from "../api/chat";
 import { listCollections } from "../api/knowledgeApi";
+import XRayPanel from "../components/XRayPanel";
 
 export default function ChatScreen() {
   const { sessionId } = useParams();
@@ -24,6 +25,7 @@ export default function ChatScreen() {
   const messagesEndRef = useRef(null);
 
   const [showSettings, setShowSettings] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
   const [advancedConfig, setAdvancedConfig] = useState({
     enable_intelligence: true,
     enable_rewriting: true,
@@ -228,9 +230,19 @@ export default function ChatScreen() {
         <button onClick={handleCreateSession} className="button" style={{ width: "100%", marginBottom: "20px" }}>
           + New Chat
         </button>
-        <button onClick={() => setShowSettings(!showSettings)} className="button button-outline" style={{ width: "100%", marginBottom: "20px" }}>
-          {showSettings ? "Hide Advanced Settings" : "Advanced Settings"}
-        </button>
+        
+        <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+          <button onClick={() => setShowSettings(!showSettings)} className="button button-outline" style={{ flex: 1 }}>
+            {showSettings ? "Hide Settings" : "Settings"}
+          </button>
+          <button 
+            onClick={() => setDebugMode(!debugMode)} 
+            className={`button ${debugMode ? "" : "button-outline"}`} 
+            style={{ flex: 1, border: debugMode ? "1px solid #173847" : "" }}
+          >
+            {debugMode ? "Debug: ON" : "Debug: OFF"}
+          </button>
+        </div>
         
         {showSettings && (
           <div style={{ marginBottom: "20px", fontSize: "0.8rem", background: "var(--color-bg)", padding: "10px", borderRadius: "8px" }}>
@@ -316,10 +328,10 @@ export default function ChatScreen() {
           {messages.map((msg, idx) => (
             <div key={idx} className={`message-bubble ${msg.role === "user" ? "message-user" : "message-assistant"}`}>
               {msg.content}
-              {msg.trace && (
+              {debugMode && msg.trace && (
                 <div style={{ marginTop: "10px" }}>
-                  <button onClick={() => setDebugTrace(msg.trace)} className="button button-outline" style={{ fontSize: "0.7rem", padding: "2px 8px" }}>
-                    🔍 View Trace
+                  <button onClick={() => setDebugTrace(msg.trace)} className="button button-outline" style={{ fontSize: "0.7rem", padding: "2px 8px", background: "rgba(255,255,255,0.8)" }}>
+                    🔍 Pipeline X-Ray
                   </button>
                 </div>
               )}
@@ -367,29 +379,7 @@ export default function ChatScreen() {
         </form>
       </div>
 
-      {debugTrace && (
-        <div style={{
-          position: "absolute", top: 0, right: 0, bottom: 0, width: "400px", 
-          background: "white", borderLeft: "1px solid var(--color-border)",
-          boxShadow: "-2px 0 10px rgba(0,0,0,0.1)", zIndex: 100, overflowY: "auto"
-        }}>
-          <div style={{ padding: "20px", display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--color-border)" }}>
-            <h3 style={{ margin: 0 }}>Retrieval Trace</h3>
-            <button onClick={() => setDebugTrace(null)} className="button button-outline" style={{ padding: "4px 8px" }}>Close</button>
-          </div>
-          <div style={{ padding: "20px" }}>
-            {debugTrace.retrieval?.transformations?.rewritten_query && (
-              <div style={{ marginBottom: "15px", padding: "10px", background: "rgba(0,123,255,0.05)", borderRadius: "6px", border: "1px solid rgba(0,123,255,0.1)" }}>
-                <div style={{ fontSize: "0.7rem", fontWeight: "bold", textTransform: "uppercase", marginBottom: "4px", color: "#007bff" }}>Cleaned Intent</div>
-                <div style={{ fontSize: "0.85rem" }}>{debugTrace.retrieval.transformations.rewritten_query}</div>
-              </div>
-            )}
-            <pre className="mono" style={{ fontSize: "0.75rem", whiteSpace: "pre-wrap", background: "var(--color-bg)", padding: "10px", borderRadius: "8px" }}>
-              {JSON.stringify(debugTrace, null, 2)}
-            </pre>
-          </div>
-        </div>
-      )}
+      <XRayPanel trace={debugTrace} onClose={() => setDebugTrace(null)} />
     </div>
   );
 }

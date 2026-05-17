@@ -13,12 +13,22 @@ from schemas.chat import (
     ChatTurnCreate,
     ChatTurnResponse,
     CitationResponse,
+    SanityCheckResponse,
 )
 from chat.service import get_chat_service, ChatService
+from chat.evaluation import get_evaluation_service, EvaluationService
 from chat.streaming import get_streaming_orchestrator, StreamingOrchestrator
 from chat.cancellation import cancel_turn
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+@router.post("/evaluate/sanity-check", response_model=SanityCheckResponse)
+async def run_sanity_check(
+    evaluation_service: EvaluationService = Depends(get_evaluation_service),
+) -> SanityCheckResponse:
+    """Run the 10-20 golden test cases evaluation."""
+    return await evaluation_service.run_sanity_check()
 
 
 @router.post("/sessions", response_model=ChatSessionResponse, status_code=status.HTTP_201_CREATED)
