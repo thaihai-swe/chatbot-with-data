@@ -7,7 +7,7 @@ import json
 from typing import List, Dict, Any, Optional
 
 from fastapi import Depends
-from config import get_settings
+from config import get_settings, get_config
 from llm.client import LLMClient, get_llm_client
 from schemas.chat import SafetyTrace, SafetyGroundedness, SafetyAnswerability
 from chat.prompts import SAFETY_CLASSIFICATION_PROMPT
@@ -124,5 +124,5 @@ class SafetyService:
 
 def get_safety_service(llm_client: LLMClient = Depends(get_llm_client)) -> SafetyService:
     """Factory function for SafetyService."""
-    settings = get_settings()
-    return SafetyService(llm_client, safety_threshold=settings.safety_risk_threshold)
+    config = get_config()
+    return SafetyService(llm_client, safety_threshold=config.safety.injection_risk_threshold)

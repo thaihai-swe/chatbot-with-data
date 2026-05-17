@@ -2,7 +2,7 @@ import logging
 from typing import Optional, List, Dict, Any, Iterator, Union
 
 from openai import OpenAI
-from config import get_settings
+from config import get_settings, get_config
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +66,9 @@ class LLMClient:
 
 def get_llm_client() -> LLMClient:
     settings = get_settings()
+    config = get_config()
     return LLMClient(
         api_key=settings.openai_api_key,
         api_base=settings.openai_api_base,
-        model=settings.chat_model,
+        model=config.llm.model,
     )

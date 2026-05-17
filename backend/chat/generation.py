@@ -7,6 +7,7 @@ from typing import Optional, List, Dict, Any, Iterator
 
 from fastapi import Depends
 from llm.client import LLMClient, get_llm_client
+from config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -26,19 +27,22 @@ class GenerationService:
     def generate_answer(
         self,
         context_package: Dict[str, Any],
-        stream: bool = False,
+        stream: bool | None = None,
     ) -> Any:
         """
         Generate an answer from the context package.
 
         Args:
             context_package: Package containing system prompt, history, and query
-            stream: Whether to stream the response
+            stream: Whether to stream the response (defaults to config)
 
         Returns:
             If stream=False: The full response string
             If stream=True: An iterator of response tokens
         """
+        config = get_config()
+        effective_stream = stream if stream is not None else config.llm.streaming_enabled
+        
         print(f"Context package for generation: {json.dumps(context_package, indent=2)}")
         messages = [
             {"role": "system", "content": context_package["system_prompt"]},
@@ -50,10 +54,14 @@ class GenerationService:
         # Add current query
         messages.append({"role": "user", "content": context_package["current_query"]})
 
-        logger.info(f"Generating answer using LLMClient (stream={stream})")
+        logger.info(f"Generating answer using LLMClient (stream={effective_stream})")
 
         try:
-            return self.llm_client.generate_completion(messages, stream=stream)
+            return self.llm_client.generate_completion(
+                messages, 
+                temperature=config.llm.temperature,
+                stream=effective_stream
+            )
         except Exception as e:
             logger.error(f"Error generating answer: {str(e)}")
             raise

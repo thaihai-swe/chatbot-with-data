@@ -9,7 +9,7 @@ from typing import Optional, List, Tuple, Dict, Any
 
 from indexing.chroma_writer import ChromaVectorWriter
 from embeddings.openai_client import OpenAIEmbeddingClient
-from config import get_settings
+from config import get_settings, get_config
 from repositories.chunk_repository import ChunkRepository
 from schemas.chat import AdvancedRetrievalConfig, RerankingTrace, RetrievalTrace, RetrievalRunTrace
 from chat.prompts import (
@@ -163,7 +163,7 @@ class RetrievalService:
         self,
         query_text: str,
         collection_ids: Optional[str | list[str]] = None,
-        k: int = 10,
+        k: int | None = None,
     ) -> List[Dict[str, Any]]:
         """
         Retrieve relevant chunks for a query, scoped to collections.
@@ -171,11 +171,14 @@ class RetrievalService:
         Args:
             query_text: The user's query
             collection_ids: The collection ID or list of IDs to scope the search to (None for all)
-            k: Number of chunks to retrieve
+            k: Number of chunks to retrieve (defaults to config)
 
         Returns:
             List of chunk metadata dicts with similarity scores
         """
+        config = get_config()
+        k = k or config.retrieval.top_k
+        
         logger.info(f"Retrieving {k} chunks for query: '{query_text}' (collections={collection_ids})")
 
         # 1. Generate embedding for the query
@@ -232,14 +235,15 @@ class RetrievalService:
 def get_retrieval_service() -> RetrievalService:
     """Factory function for RetrievalService."""
     settings = get_settings()
+    config = get_config()
     embedding_client = OpenAIEmbeddingClient(
         api_key=settings.openai_api_key,
         api_base=settings.openai_api_base,
-        model=settings.embedding_model,
+        model=config.ingestion.embedding_model,
     )
     chroma_writer = ChromaVectorWriter(
         persist_directory=settings.chroma_db_path,
-        collection_name=settings.chroma_collection_name,
+        collection_name=config.ingestion.vector_db_collection,
     )
     return RetrievalService(embedding_client, chroma_writer)
 
@@ -289,12 +293,15 @@ class AdvancedRetrievalService:
         query_text: str,
         config: AdvancedRetrievalConfig,
         collection_ids: Optional[list[str]] = None,
-        k: int = 10,
+        k: int | None = None,
     ) -> Tuple[List[Dict[str, Any]], RetrievalTrace]:
         """
         Retrieve chunks using configured advanced strategies.
         Defaults to baseline if no advanced features are enabled.
         """
+        global_config = get_config()
+        k = k or global_config.retrieval.top_k
+        
         trace = RetrievalTrace(original_query=query_text)
 
         if config.enable_intelligence:
@@ -455,7 +462,7 @@ class AdvancedRetrievalService:
         self,
         query_text: str,
         collection_ids: Optional[list[str]] = None,
-        k: int = 10,
+        k: int | None = None,
         config: Optional[AdvancedRetrievalConfig] = None,
     ) -> List[Dict[str, Any]]:
         """

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from config import get_config
 from repositories.chunk_repository import ChunkRepository
 from chunking.dispatcher import ChunkingDispatcher
 
@@ -22,29 +23,17 @@ class ChunkingService:
         title: str | None = None,
         page_number: int | None = None,
         source_url: str | None = None,
-        chunk_size: int = 512,
-        overlap: int = 0,
+        chunk_size: int | None = None,
+        overlap: int | None = None,
         metadata: dict | None = None,
     ) -> list[dict]:
         """
         Chunk a document and persist chunks to database.
-
-        Args:
-            document_id: Unique document identifier
-            collection_id: Collection identifier
-            text: Document text content
-            strategy: Chunking strategy to use
-            source_type: Document source type (pdf, txt, md, url)
-            title: Document title
-            page_number: Starting page number
-            source_url: Source URL
-            chunk_size: Target chunk size in tokens
-            overlap: Overlap in tokens
-            metadata: Additional metadata
-
-        Returns:
-            List of created chunk dictionaries
         """
+        config = get_config()
+        chunk_size = chunk_size or config.ingestion.chunk_size
+        overlap = overlap if overlap is not None else config.ingestion.chunk_overlap
+
         metadata = metadata or {}
 
         # Use dispatcher to chunk

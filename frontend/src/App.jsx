@@ -5,6 +5,7 @@ import CollectionsScreen from "./screens/Collections";
 import DocumentLibraryScreen from "./screens/DocumentLibrary";
 import ChatScreen from "./screens/Chat";
 import EvaluationScreen from "./screens/Evaluation";
+import SettingsScreen from "./screens/SettingsScreen";
 
 function App() {
   return (
@@ -53,6 +54,14 @@ function App() {
             >
               Evaluation
             </NavLink>
+            <NavLink
+              className={({ isActive }) =>
+                isActive ? "nav-link nav-link-active" : "nav-link"
+              }
+              to="/settings"
+            >
+              Settings
+            </NavLink>
           </nav>
         </header>
         <main className="page-shell">
@@ -62,6 +71,7 @@ function App() {
             <Route path="/chat" element={<ChatScreen />} />
             <Route path="/chat/:sessionId" element={<ChatScreen />} />
             <Route path="/evaluation" element={<EvaluationScreen />} />
+            <Route path="/settings" element={<SettingsScreen />} />
           </Routes>
         </main>
       </div>

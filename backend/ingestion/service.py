@@ -11,7 +11,7 @@ from repositories import Repository
 from storage import LocalStorage
 from chunking.service import get_chunking_service
 from indexing.indexing_service import get_indexing_service
-from config import get_settings
+from config import get_settings, get_config, get_settings_manager
 
 
 class IngestionService:
@@ -50,6 +50,9 @@ class IngestionService:
         if not attempt:
             raise KeyError(f"Ingestion attempt {attempt_id} not found")
         try:
+            # Capture run snapshot
+            get_settings_manager().save_run_snapshot(attempt_id, domain="ingestion")
+
             self.repository.update_ingestion_attempt(
                 attempt_id,
                 status=IngestionStatus.PROCESSING.value,
@@ -251,19 +254,20 @@ class IngestionService:
         if not text:
             return
 
-        # Determine strategy (can be refined)
-        strategy = "fixed_size"
-        if attempt["source_type"] == SourceType.PDF.value:
-            strategy = "page_aware"
-        elif attempt["source_type"] == SourceType.MARKDOWN.value:
-            strategy = "heading_aware"
+        # Determine strategy from config or source_type
+        config = get_config()
+        strategy = config.ingestion.chunking_strategy
+        
+        # Override strategy based on source type if it's "fixed" (default)
+        if strategy == "fixed":
+            if attempt["source_type"] == SourceType.PDF.value:
+                strategy = "page_aware"
+            elif attempt["source_type"] == SourceType.MARKDOWN.value:
+                strategy = "heading_aware"
 
         # Step 1: Chunking
-        # We process for each collection the document belongs to
-        # Note: In a real app, we might want to chunk once and index multiple times if collections share chunks
         collection_ids = attempt["collection_ids"]
 
-        # If no collections specified, use a default collection
         if not collection_ids:
             collection_ids = ["default"]
 
@@ -275,14 +279,15 @@ class IngestionService:
                 strategy=strategy,
                 source_type=attempt["source_type"],
                 title=attempt.get("title") or attempt.get("submitted_filename"),
+                chunk_size=config.ingestion.chunk_size,
+                overlap=config.ingestion.chunk_overlap,
             )
 
             # Step 2: Indexing
-            settings = get_settings()
             self.indexing_service.index_document(
                 document_id=document_id,
                 collection_id=collection_id,
-                embedding_model=settings.embedding_model,
+                embedding_model=config.ingestion.embedding_model,
                 strategy=strategy,
             )
 

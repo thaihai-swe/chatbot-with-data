@@ -16,6 +16,7 @@ from chat.grounding import GroundingService, get_grounding_service
 from chat.safety import SafetyService, get_safety_service
 from repositories.chat_repository import ChatRepository
 from schemas.chat import ChatTurnResponse, CitationResponse, AdvancedRetrievalConfig, SafetyTrace
+from config import get_config, get_settings_manager
 
 logger = logging.getLogger(__name__)
 
@@ -53,12 +54,15 @@ class ChatService:
         if not session:
             raise ValueError(f"Session {session_id} not found")
 
+        # 1.1 Capture run snapshot
+        turn_id = str(uuid.uuid4())
+        get_settings_manager().save_run_snapshot(turn_id, domain="chat")
+
         # 2. Safety check (Query)
         safety_trace = self.safety_service.check_query(query_text)
         
         if not safety_trace.answerability.is_answerable:
             # Handle early safety refusal
-            turn_id = str(uuid.uuid4())
             answer_text = safety_trace.answerability.refusal_reason or "I cannot answer this question due to safety concerns."
             ChatRepository.create_turn(
                 id=turn_id,
@@ -122,7 +126,7 @@ class ChatService:
             safety_trace.groundedness.score = 1.0 
 
         # 6. Create turn record (pending)
-        turn_id = str(uuid.uuid4())
+        # turn_id was pre-generated for snapshot
         history = ChatRepository.list_turns_by_session(session_id)
 
         context_package = self.context_service.assemble_context(
