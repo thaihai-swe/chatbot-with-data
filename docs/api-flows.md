@@ -1,76 +1,59 @@
 # Granular API Endpoint Flows
 
-This document details the end-to-end flow for every API endpoint in the system.
+This document details the end-to-end flow for every API endpoint in the system, mapping frontend requests to backend service execution and data persistence.
 
 ---
 
 ## 1. Health & Status
-| Method | Endpoint | Description | Flow |
+| Method | Endpoint | Description | Internal Flow |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/health` | Check API availability | Router → returns `{"status": "ok"}` |
 
 ---
 
 ## 2. Ingestion & Duplicate Management
-| Method | Endpoint | Description | Flow |
+| Method | Endpoint | Description | Internal Flow |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/ingestion/file-upload` | Upload a PDF/TXT | Frontend (`FormData`) → Router → `IngestionService.submit_file_upload` → Save to Disk → Create SQLite Attempt → **Trigger Background Task** (`process_ingestion_attempt`) |
-| `POST` | `/ingestion/url` | Submit a Web URL | Frontend (`JSON`) → Router → `IngestionService.submit_url` → Create SQLite Attempt → **Trigger Background Task** |
-| `GET` | `/ingestion/attempts` | List all uploads | Frontend → Router → `IngestionRepository.list_ingestion_attempts` → SQLite |
-| `GET` | `/ingestion/attempts/{id}` | Get status of an upload | Frontend → Router → `IngestionRepository.get_ingestion_attempt` → SQLite |
-| `POST` | `/ingestion/attempts/{id}/duplicate-decision` | Resolve a collision | Frontend → Router → `IngestionService.apply_duplicate_decision` → Update SQLite Attempt → **Trigger Chunking/Indexing if Approved** |
+| `POST` | `/ingestion/file-upload` | Upload a PDF/TXT/MD | Frontend (`FormData`) → Router → `IngestionService.submit_file_upload` → Save to Disk (UUID name) → Create SQLite Attempt → **Background Task** (`process_ingestion_attempt`) |
+| `POST` | `/ingestion/url` | Submit a Web URL | Frontend (`JSON`) → Router → `IngestionService.submit_url` → Create SQLite Attempt → **Background Task** |
+| `GET` | `/ingestion/attempts` | List all uploads | Frontend → Router → `Repository.list_ingestion_attempts` → SQLite Join (`attempts` + `collections`) |
+| `GET` | `/ingestion/attempts/{id}` | Get status of an upload | Frontend → Router → `Repository.get_ingestion_attempt` → SQLite |
+| `POST` | `/ingestion/attempts/{id}/duplicate-decision` | Resolve a collision | Frontend → Router → `IngestionService.apply_duplicate_decision` → Update SQLite Attempt → **Trigger Chunking/Indexing** (if Action != SKIP) |
 
 ---
 
 ## 3. Knowledge Base (Collections & Documents)
-| Method | Endpoint | Description | Flow |
+| Method | Endpoint | Description | Internal Flow |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/collections` | List collections | Frontend → Router → `Repository.list_collections` → SQLite |
-| `POST` | `/collections` | Create collection | Frontend → Router → `Repository.create_collection` → SQLite |
-| `GET` | `/collections/{id}` | Get collection details | Frontend → Router → `Repository.get_collection` → SQLite |
-| `PATCH` | `/collections/{id}` | Update collection | Frontend → Router → `Repository.update_collection` → SQLite |
-| `DELETE` | `/collections/{id}` | Delete collection | Frontend → Router → `Repository.delete_collection` → SQLite |
-| `GET` | `/documents` | List docs (optionally by collection) | Frontend → Router → `Repository.list_documents` → SQLite |
-| `GET` | `/documents/{id}` | Get document metadata | Frontend → Router → `Repository.get_document` → SQLite |
-| `DELETE` | `/documents/{id}` | Delete document | Frontend → Router → `Repository.delete_document` (cascading cleanup of Chunks/Vectors) → SQLite + ChromaDB |
-| `POST` | `/documents/{id}/move` | Change document collections | Frontend → Router → `Repository.assign_document_to_collections` → SQLite |
-| `POST` | `/documents/{id}/reindex` | Refresh chunks/vectors | Frontend → Router → `IngestionService._chunk_and_index_document` (Skips extraction) → SQLite + ChromaDB |
-| `POST` | `/documents/{id}/reingest` | Full re-process | Frontend → Router → `Repository.create_reingest_attempt` → **Trigger Background Task** |
+| `GET` | `/collections` | List collections | Router → `Repository.list_collections` → SQLite (with `COUNT(document_id)`) |
+| `POST` | `/collections` | Create collection | Router → `Repository.create_collection` → SQLite |
+| `DELETE` | `/collections/{id}` | Delete collection | Router → `Repository.delete_collection` (Soft delete: `deleted_at`) → SQLite |
+| `GET` | `/documents` | List docs | Router → `Repository.list_documents` → SQLite (Join with `ingestion_attempts` for status/duplicate signals) |
+| `DELETE` | `/documents/{id}` | Delete document | Router → `Repository.delete_document` (Hard delete) → **ChromaDB Cleanup** (`delete_by_document`) + **SQLite Cleanup** (Chunks, Embeddings, Index Entries) |
+| `POST` | `/documents/{id}/move` | Re-scope document | Router → `Repository.assign_document_to_collections` → SQLite Update |
+| `POST` | `/documents/{id}/reindex` | Refresh vectors | Router → `IngestionService._chunk_and_index_document` → SQLite (Chunks) → OpenAI (Embeddings) → ChromaDB (Vectors) |
 
 ---
 
-## 4. Grounded Chat
-| Method | Endpoint | Description | Flow |
+## 4. Grounded Chat (RAG)
+| Method | Endpoint | Description | Internal Flow |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/chat/sessions/{id}` | New chat session | Frontend → Router → `ChatRepository.create_session` → SQLite |
-| `GET` | `/chat/sessions` | List history | Frontend → Router → `ChatRepository.list_sessions` → SQLite |
-| `GET` | `/chat/sessions/{id}` | Get session details | Frontend → Router → `ChatRepository.get_session` → SQLite |
-| `GET` | `/chat/sessions/{id}/history` | Get turns for session | Frontend → Router → `ChatRepository.list_turns_by_session` + `list_citations_by_turn` → SQLite |
-| `POST` | `/chat/sessions/{id}/turns` | Non-streaming query | Frontend → Router → `ChatService.process_turn` → **Safety Check (Query)** → Retrieval → **Safety Check (Chunks)** → **Grounding Check** → Generation → Citations → Save to DB |
-| `POST` | `/chat/sessions/{id}/turns/stream` | Streaming RAG query | Frontend → Router → `StreamingOrchestrator.stream_turn` → SSE Event Stream → **Safety Check (Query)** → Parallel Retrieval & **Safety Check (Chunks)** → **Grounding Check** → LLM Generation → Stream Citations |
-| `POST` | `/chat/turns/{id}/cancel` | Stop generation | Frontend → Router → `chat.cancellation.cancel_turn` → Signal `StreamingOrchestrator` to stop LLM call |
+| `POST` | `/chat/sessions` | Create session | Router → `ChatRepository.create_session` → SQLite |
+| `GET` | `/chat/sessions` | History list | Router → `ChatRepository.list_sessions` → SQLite |
+| `POST` | `/chat/sessions/{id}/turns/stream` | Streaming RAG | Router → `StreamingOrchestrator` → **SafetyService** (Query) → **AdvancedRetrievalService** (Multi-strategy) → **SafetyService** (Chunk Filter) → **GroundingService** (Evidence Check) → OpenAI (Stream Tokens) → **CitationService** (Validate) → SQLite Persistence |
+| `POST` | `/chat/turns/{id}/cancel` | Stop generation | Router → `chat.cancellation` → Signal active stream to abort |
 
 ---
 
-## 5. Background Workflows (Internal)
-These flows are triggered by API calls but run asynchronously.
+## 5. Storage Technical Detail
 
-### A. Ingestion Background Processing (`process_ingestion_attempt`)
-1.  **Extract:** `ExtractorDispatcher` parses file/URL.
-2.  **Deduplicate:** `DuplicateDetector` checks for existing content.
-3.  **Halt for Decision:** If duplicate, status moves to `AWAITING_USER_ACTION`.
-4.  **Finalize:** If unique or approved, create `Document` in SQLite.
-5.  **Chunk & Index:**
-    *   `ChunkingService` splits text based on strategy.
-    *   `IndexingService` generates embeddings via OpenAI.
-    *   `ChromaVectorWriter` saves vectors to ChromaDB.
-6.  **Complete:** Status moves to `COMPLETED`.
+### SQLite (Metadata & Cache)
+SQLite serves as the primary relational database and an embedding cache.
+- **Documents/Chunks:** Stores the structural hierarchy and full text.
+- **Embeddings Table:** Caches OpenAI responses. Before calling OpenAI, the system hashes the chunk text and checks this table to save cost/latency.
+- **Citations Table:** Stores verified links between LLM claims and source chunks.
 
-### B. Streaming RAG Flow (`stream_turn`)
-1.  **Check Safety:** `SafetyService` validates the query.
-2.  **Retrieve:** `AdvancedRetrievalService` performs multi-step retrieval (HyDE, Expansion, RRF).
-3.  **Check Chunks:** `SafetyService` filters malicious chunks.
-4.  **Validate:** `GroundingService` checks if evidence is sufficient.
-5.  **Stream Tokens:** LLM tokens are pushed to SSE as they arrive.
-6.  **Stream Citations:** Final citation mapping, **Retrieval Trace**, and **Safety Trace** are pushed after token stream completes.
-7.  **Finalize:** Save turn metadata and citation records to SQLite.
+### ChromaDB (Vector Search)
+ChromaDB is used strictly for similarity search.
+- **Persistence:** Vectors are saved to `data/.chroma_db`.
+- **Metadata:** Chroma stores minimal metadata (`chunk_id`, `document_id`) to allow the backend to join back to the rich SQLite records.
