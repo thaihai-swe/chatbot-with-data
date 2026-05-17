@@ -69,15 +69,24 @@ function CollectionsScreen() {
   }
 
   return (
-    <div className="stack">
+    <div className="page-shell">
+      <div className="hero">
+        <div>
+          <span className="eyebrow">Knowledge Architecture</span>
+          <h1>Document Collections</h1>
+          <p className="hero-copy">Organize your document library into logical groups for targeted retrieval and context management.</p>
+        </div>
+      </div>
+
       {error ? (
-        <section className="panel panel-danger">
-          <h2>Request failed</h2>
-          <p>{error}</p>
+        <section className="error-banner">
+          <strong>Request failed:</strong> {error}
         </section>
       ) : null}
+
       <CollectionForm onSubmit={handleCreate} />
-      <section className="grid">
+      
+      <section className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))" }}>
         {collections.length ? (
           collections.map((collection) => (
             <CollectionCard
@@ -91,9 +100,11 @@ function CollectionsScreen() {
             />
           ))
         ) : (
-          <section className="panel">
-            <h2>No collections yet</h2>
-            <p>Create a collection to start organizing ingested documents.</p>
+          <section className="panel" style={{ gridColumn: "1 / -1" }}>
+            <div className="empty-state">
+              <h3 style={{ fontSize: "20px", marginBottom: "12px" }}>No collections yet</h3>
+              <p style={{ color: "var(--text-secondary)", fontSize: "15px" }}>Create your first collection to start organizing ingested documents.</p>
+            </div>
           </section>
         )}
       </section>

@@ -5,63 +5,55 @@ export default function CitationModal({ citation, chunk, onClose }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Citation Details</h3>
-          <button className="close-button" onClick={onClose}>&times;</button>
+          <h3>Citation Source</h3>
+          <button className="button button-ghost" style={{ padding: "0", width: "32px", height: "32px", fontSize: "20px" }} onClick={onClose}>&times;</button>
         </div>
         
         <div className="modal-body">
-          <div className="citation-meta-grid">
-            <div className="meta-item">
-              <span className="label">Document</span>
-              <span className="value">{chunk.title || chunk.metadata?.title || "Untitled Document"}</span>
+          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "16px", marginBottom: "24px" }}>
+            <div className="field">
+              <span className="eyebrow" style={{ marginBottom: "4px" }}>Document</span>
+              <span style={{ fontSize: "14px", fontWeight: "600" }}>{chunk.title || chunk.metadata?.title || "Untitled Document"}</span>
             </div>
-            <div className="meta-item">
-              <span className="label">Score</span>
-              <span className={`value mono ${(chunk.similarity_score || chunk.score || 0) > 0.7 ? "text-success" : ""}`}>
-                {(chunk.similarity_score || chunk.score || 0).toFixed(4)}
+            <div className="field">
+              <span className="eyebrow" style={{ marginBottom: "4px" }}>Relevance</span>
+              <span className={`status-badge status-success`} style={{ width: "fit-content" }}>
+                {((chunk.similarity_score || chunk.score || 0) * 100).toFixed(1)}%
               </span>
             </div>
             {(chunk.page_number || chunk.metadata?.page_number) && (
-              <div className="meta-item">
-                <span className="label">Page</span>
-                <span className="value">{chunk.page_number || chunk.metadata.page_number}</span>
-              </div>
-            )}
-            {(chunk.source_url || chunk.metadata?.source_url) && (
-              <div className="meta-item">
-                <span className="label">Source</span>
-                <a href={chunk.source_url || chunk.metadata.source_url} target="_blank" rel="noopener noreferrer" className="value link">
-                  View Original
-                </a>
+              <div className="field">
+                <span className="eyebrow" style={{ marginBottom: "4px" }}>Page</span>
+                <span style={{ fontSize: "14px", fontWeight: "600" }}>{chunk.page_number || chunk.metadata.page_number}</span>
               </div>
             )}
           </div>
 
-          <div className="chunk-text-container">
-            <h4>Retrieved Chunk Text</h4>
-            <div className="chunk-text">
+          <div className="field">
+            <span className="eyebrow">Excerpt</span>
+            <div className="surface-card" style={{ padding: "16px", background: "var(--surface-muted)", fontSize: "15px", lineHeight: "1.6", whiteSpace: "pre-wrap", border: "1px solid var(--border)" }}>
               {chunk.text || chunk.content || chunk.metadata?.text || "No text content available."}
             </div>
           </div>
 
           {(chunk.parent_text || chunk.metadata?.parent_text) && (
-            <div className="chunk-text-container" style={{ marginTop: "20px" }}>
-              <h4>Parent Context</h4>
-              <div className="chunk-text parent-context">
+            <div className="field" style={{ marginTop: "16px" }}>
+              <span className="eyebrow">Extended Context</span>
+              <div className="surface-card" style={{ padding: "16px", fontSize: "14px", color: "var(--text-secondary)", borderLeft: "3px solid var(--accent)" }}>
                 {chunk.parent_text || chunk.metadata.parent_text}
               </div>
             </div>
           )}
           
-          <div style={{ marginTop: "20px", fontSize: "0.7rem", opacity: 0.5 }} className="mono">
-            Chunk ID: {chunk.chunk_id}
+          <div style={{ marginTop: "24px", fontSize: "11px", color: "var(--text-muted)" }} className="mono">
+            ID: {chunk.chunk_id}
           </div>
         </div>
         
         <div className="modal-footer">
-          <button className="button" onClick={onClose}>Close</button>
+          <button className="button button-primary" onClick={onClose}>Done</button>
         </div>
       </div>
     </div>

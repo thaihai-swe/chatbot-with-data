@@ -10,52 +10,55 @@ function DocumentTable({
   if (!documents.length) {
     return (
       <section className="panel">
-        <h2>Document inventory</h2>
-        <p>No documents are stored yet. Upload a source to create your first record.</p>
+        <div className="empty-state">
+          <h3 style={{ fontSize: "20px", marginBottom: "12px", color: "var(--text-primary)" }}>No documents found</h3>
+          <p style={{ color: "var(--text-secondary)", fontSize: "15px" }}>Upload a source above to populate your library.</p>
+        </div>
       </section>
     );
   }
 
   return (
-    <section className="panel">
-      <h2>Document inventory</h2>
+    <section className="panel" style={{ padding: "0", overflow: "hidden" }}>
+      <div style={{ padding: "32px 32px 0" }}>
+        <h2 style={{ fontSize: "20px", marginBottom: "8px" }}>Library Inventory</h2>
+        <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "24px" }}>Manage and organize your indexed source documents.</p>
+      </div>
       <div className="table-scroll">
         <table>
           <thead>
             <tr>
-              <th>Title</th>
-              <th>Document ID</th>
-              <th>Source type</th>
-              <th>Collections</th>
+              <th>Document Title</th>
+              <th>Source</th>
+              <th>Collection</th>
               <th>Status</th>
-              <th>Duplicate state</th>
-              <th>Actions</th>
+              <th style={{ textAlign: "right" }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {documents.map((document) => (
               <tr key={document.id}>
-                <td>{document.title}</td>
-                <td className="mono">{document.id}</td>
-                <td>{document.source_type}</td>
-                <td>
+                <td style={{ fontWeight: "650", color: "var(--text-primary)" }}>{document.title}</td>
+                <td className="mono" style={{ fontSize: "11px", opacity: 0.7 }}>{document.source_type.toUpperCase()}</td>
+                <td style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
                   {(document.collections || []).map((collection) => collection.name).join(", ") ||
                     "None"}
                 </td>
                 <td>
                   <StatusBadge status={document.latest_status} />
                 </td>
-                <td>{document.latest_duplicate_status || "unique"}</td>
                 <td>
-                  <div className="action-stack">
+                  <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
                     <button
                       className="button button-ghost"
+                      style={{ height: "32px", padding: "0 10px", fontSize: "12px" }}
                       type="button"
                       onClick={() => onReingest(document)}
                     >
                       Re-ingest
                     </button>
                     <select
+                      style={{ width: "160px", height: "32px", fontSize: "12px", padding: "0 8px" }}
                       aria-label={`Move ${document.title} to collection`}
                       defaultValue=""
                       onChange={(event) => {
@@ -75,6 +78,7 @@ function DocumentTable({
                     </select>
                     <button
                       className="button button-danger"
+                      style={{ height: "32px", padding: "0 10px", fontSize: "12px" }}
                       type="button"
                       onClick={() => onDelete(document.id)}
                     >

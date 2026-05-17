@@ -242,83 +242,76 @@ export default function ChatScreen() {
   return (
     <div className="chat-container">
       <aside className="chat-sidebar">
-        <button onClick={handleCreateSession} className="button" style={{ width: "100%", marginBottom: "20px" }}>
-          + New Chat
-        </button>
-        
-        <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
-          <button onClick={() => setShowSettings(!showSettings)} className="button button-outline" style={{ flex: 1 }}>
-            {showSettings ? "Hide Settings" : "Settings"}
+        <div style={{ padding: "16px" }}>
+          <button onClick={handleCreateSession} className="button button-primary" style={{ width: "100%", marginBottom: "16px" }}>
+            + New Chat
           </button>
-          <button 
-            onClick={() => setDebugMode(!debugMode)} 
-            className={`button ${debugMode ? "" : "button-outline"}`} 
-            style={{ flex: 1, border: debugMode ? "1px solid #173847" : "" }}
-          >
-            {debugMode ? "Debug: ON" : "Debug: OFF"}
-          </button>
-        </div>
-        
-        {showSettings && (
-          <div style={{ marginBottom: "20px", fontSize: "0.8rem", background: "var(--color-bg)", padding: "10px", borderRadius: "8px" }}>
-            <h4 style={{ margin: "0 0 10px 0" }}>Retrieval Config</h4>
-            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
-              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_intelligence} onChange={() => toggleConfig("enable_intelligence")} /> Intelligence (Classify)
-            </label>
-            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
-              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_rewriting} onChange={() => toggleConfig("enable_rewriting")} /> Intent Rewriting
-            </label>
-            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
-              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_dynamic_routing} onChange={() => toggleConfig("enable_dynamic_routing")} /> Dynamic Routing
-            </label>
-            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
-              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_expansion} onChange={() => toggleConfig("enable_expansion")} /> Query Expansion
-            </label>
-            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
-              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_decomposition} onChange={() => toggleConfig("enable_decomposition")} /> Decomposition
-            </label>
-            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
-              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_hyde} onChange={() => toggleConfig("enable_hyde")} /> HyDE
-            </label>
-            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
-              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_synonym_expansion} onChange={() => toggleConfig("enable_synonym_expansion")} /> Synonyms
-            </label>
-            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
-              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_reranking} onChange={() => toggleConfig("enable_reranking")} /> Reranking
-            </label>
-            <label style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
-              <input type="checkbox" style={{ width: "auto", marginRight: "8px" }} checked={advancedConfig.enable_parent_child} onChange={() => toggleConfig("enable_parent_child")} /> Parent-Child
-            </label>
-
-            <h4 style={{ margin: "15px 0 10px 0", borderTop: "1px solid rgba(0,0,0,0.05)", paddingTop: "10px" }}>Scope Collections</h4>
-            <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid rgba(0,0,0,0.1)", borderRadius: "4px", padding: "8px", background: "rgba(255,255,255,0.3)" }}>
-              {availableCollections.length === 0 && <div style={{ opacity: 0.5, fontSize: "0.7rem" }}>No collections available</div>}
-              {availableCollections.map(c => (
-                <label key={c.id} style={{ display: "flex", alignItems: "center", marginBottom: "6px", cursor: "pointer" }}>
-                  <input 
-                    type="checkbox" 
-                    style={{ width: "auto", marginRight: "8px" }}
-                    checked={selectedCollections.includes(c.id)} 
-                    onChange={() => handleToggleCollection(c.id)} 
-                  /> 
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
-                </label>
-              ))}
-            </div>
-            <div style={{ marginTop: "8px", fontSize: "0.7rem", opacity: 0.7 }}>
-              {selectedCollections.length === 0 ? "Searching all collections" : `Searching ${selectedCollections.length} selected collections`}
-            </div>
+          
+          <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+            <button onClick={() => setShowSettings(!showSettings)} className="button button-ghost" style={{ flex: 1, fontSize: "12px" }}>
+              {showSettings ? "Hide Settings" : "Settings"}
+            </button>
+            <button 
+              onClick={() => setDebugMode(!debugMode)} 
+              className={`button ${debugMode ? "button-primary" : "button-ghost"}`} 
+              style={{ flex: 1, fontSize: "12px" }}
+            >
+              {debugMode ? "Debug: ON" : "Debug: OFF"}
+            </button>
           </div>
-        )}
+          
+          {showSettings && (
+            <div className="surface-card" style={{ marginBottom: "16px", padding: "12px", borderRadius: "var(--radius-md)" }}>
+              <h4 style={{ margin: "0 0 12px 0", fontSize: "12px", textTransform: "uppercase", color: "var(--text-muted)" }}>Retrieval Config</h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <label className="config-toggle">
+                  <input type="checkbox" checked={advancedConfig.enable_intelligence} onChange={() => toggleConfig("enable_intelligence")} /> Intelligence
+                </label>
+                <label className="config-toggle">
+                  <input type="checkbox" checked={advancedConfig.enable_rewriting} onChange={() => toggleConfig("enable_rewriting")} /> Intent Rewriting
+                </label>
+                <label className="config-toggle">
+                  <input type="checkbox" checked={advancedConfig.enable_dynamic_routing} onChange={() => toggleConfig("enable_dynamic_routing")} /> Dynamic Routing
+                </label>
+                <label className="config-toggle">
+                  <input type="checkbox" checked={advancedConfig.enable_expansion} onChange={() => toggleConfig("enable_expansion")} /> Query Expansion
+                </label>
+                <label className="config-toggle">
+                  <input type="checkbox" checked={advancedConfig.enable_reranking} onChange={() => toggleConfig("enable_reranking")} /> Reranking
+                </label>
+                <label className="config-toggle">
+                  <input type="checkbox" checked={advancedConfig.enable_parent_child} onChange={() => toggleConfig("enable_parent_child")} /> Parent-Child
+                </label>
+              </div>
 
-        <div className="session-list">
+              <h4 style={{ margin: "16px 0 12px 0", fontSize: "12px", textTransform: "uppercase", color: "var(--text-muted)", borderTop: "1px solid var(--border)", paddingTop: "12px" }}>Scope</h4>
+              <div style={{ maxHeight: "120px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px" }}>
+                {availableCollections.length === 0 && <div style={{ opacity: 0.5, fontSize: "11px" }}>No collections</div>}
+                {availableCollections.map(c => (
+                  <label key={c.id} className="config-toggle">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedCollections.includes(c.id)} 
+                      onChange={() => handleToggleCollection(c.id)} 
+                    /> 
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="session-list" style={{ flex: 1, overflowY: "auto" }}>
           {sessions.map(s => (
             <div key={s.id} 
                 onClick={() => navigate(`/chat/${s.id}`)}
                 className={`session-item ${sessionId === s.id ? "session-item-active" : ""}`}>
-              <div style={{ flex: 1 }}>
-                <div className="mono" style={{ fontSize: "0.75rem", opacity: 0.8 }}>{s.id.slice(0, 8)}</div>
-                <div style={{ fontSize: "0.7rem", marginTop: "4px" }}>{new Date(s.created_at).toLocaleString()}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="mono" style={{ fontSize: "11px", opacity: 0.6 }}>{s.id.slice(0, 8)}</div>
+                <div style={{ fontSize: "12px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {new Date(s.created_at).toLocaleDateString()}
+                </div>
               </div>
               <button 
                 onClick={(e) => handleDeleteSession(e, s.id)}
@@ -336,32 +329,32 @@ export default function ChatScreen() {
       <div className="chat-main">
         <div className="messages-list">
           {messages.length === 0 && !isGenerating && (
-            <div style={{ color: "#888", textAlign: "center", marginTop: "100px", maxWidth: "400px", margin: "100px auto" }}>
-              <p>Select a session or start typing to begin a conversation with your document knowledge base.</p>
+            <div style={{ textAlign: "center", marginTop: "120px", padding: "0 40px" }}>
+              <h2 style={{ fontSize: "22px", fontWeight: "600", marginBottom: "12px" }}>Ready to chat?</h2>
+              <p style={{ color: "var(--text-secondary)", fontSize: "15px" }}>Select a session or start typing to begin a conversation with your document knowledge base.</p>
             </div>
           )}
           {messages.map((msg, idx) => (
             <div key={idx} className={`message-bubble ${msg.role === "user" ? "message-user" : "message-assistant"}`}>
               {msg.content}
               {debugMode && msg.trace && (
-                <div style={{ marginTop: "10px" }}>
-                  <button onClick={() => setDebugTrace(msg.trace)} className="button button-outline" style={{ fontSize: "0.7rem", padding: "2px 8px", background: "rgba(255,255,255,0.8)" }}>
+                <div style={{ marginTop: "12px" }}>
+                  <button onClick={() => setDebugTrace(msg.trace)} className="button button-ghost" style={{ fontSize: "11px", height: "24px", padding: "0 8px", background: "var(--surface)" }}>
                     🔍 Pipeline X-Ray
                   </button>
                 </div>
               )}
               {msg.citations && msg.citations.length > 0 && (
                 <div className="citations-list">
-                  <strong>Sources:</strong>
-                  <div style={{ marginTop: "6px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: "600", marginBottom: "8px", color: "var(--text-muted)" }}>SOURCES</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                     {msg.citations.map((c, ci) => (
                       <span 
                         key={ci} 
                         className="citation-tag"
                         onClick={() => handleCitationClick(c, msg.chunks || [])}
-                        style={{ cursor: "pointer" }}
                       >
-                        {c.metadata?.title ? (c.metadata.title.length > 20 ? c.metadata.title.slice(0, 20) + '...' : c.metadata.title) : `Source ${c.chunk_id.slice(0,4)}`}
+                        {c.metadata?.title ? (c.metadata.title.length > 24 ? c.metadata.title.slice(0, 24) + '...' : c.metadata.title) : `Source ${c.chunk_id.slice(0,4)}`}
                       </span>
                     ))}
                   </div>
@@ -370,7 +363,7 @@ export default function ChatScreen() {
             </div>
           ))}
           {statusMessage && (
-            <div className="mono" style={{ fontSize: "0.75rem", color: "#666", alignSelf: "center", background: "rgba(0,0,0,0.05)", padding: "4px 12px", borderRadius: "999px" }}>
+            <div className="status-badge" style={{ alignSelf: "center", height: "28px" }}>
               {statusMessage}...
             </div>
           )}
@@ -378,24 +371,25 @@ export default function ChatScreen() {
         </div>
 
         <form onSubmit={handleSendMessage} className="chat-input-form">
-          <input 
-            type="text" 
-            className="input" 
-            placeholder="Ask a question about your documents..." 
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            disabled={isGenerating}
-            style={{ flex: 1 }}
-          />
-          {isGenerating ? (
-            <button type="button" onClick={handleCancel} className="button button-danger">
-              Cancel
-            </button>
-          ) : (
-            <button type="submit" className="button">
-              Send
-            </button>
-          )}
+          <div style={{ display: "flex", gap: "12px", maxWidth: "800px", margin: "0 auto", width: "100%" }}>
+            <input 
+              type="text" 
+              placeholder="Ask a question..." 
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              disabled={isGenerating}
+              style={{ flex: 1, height: "44px", borderRadius: "var(--radius-lg)" }}
+            />
+            {isGenerating ? (
+              <button type="button" onClick={handleCancel} className="button button-danger" style={{ height: "44px" }}>
+                Cancel
+              </button>
+            ) : (
+              <button type="submit" className="button button-primary" style={{ height: "44px", padding: "0 24px" }}>
+                Send
+              </button>
+            )}
+          </div>
         </form>
       </div>
 

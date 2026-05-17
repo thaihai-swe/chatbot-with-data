@@ -79,27 +79,41 @@ export default function PlaygroundScreen() {
   };
 
   return (
-    <div className="playground-screen">
-      <div className="playground-header">
-        <h2>Strategy Comparison Playground</h2>
-        <p>Compare how different retrieval configurations affect the final answer side-by-side.</p>
-        
-        <form onSubmit={runComparison} className="playground-form">
-          <input 
-            type="text" 
-            className="input playground-input" 
-            placeholder="Enter a query to compare strategies..." 
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            disabled={isRunning}
-          />
-          <button type="submit" className="button" disabled={isRunning || !query.trim()}>
-            {isRunning ? "Running..." : "Run Comparison"}
+    <div className="page-shell">
+      <div className="hero">
+        <div>
+          <span className="eyebrow">A/B Analysis</span>
+          <h1>Strategy Comparison</h1>
+          <p className="hero-copy">Compare how different retrieval configurations and processing steps affect the final assistant response side-by-side.</p>
+        </div>
+      </div>
+
+      <div className="panel" style={{ border: "1px solid var(--accent)", background: "var(--accent-soft)" }}>
+        <form onSubmit={runComparison} style={{ display: "flex", gap: "16px", alignItems: "flex-end" }}>
+          <div className="field" style={{ flex: 1, marginBottom: 0 }}>
+            <label htmlFor="playground-query">Comparative Query</label>
+            <input 
+              id="playground-query"
+              type="text" 
+              placeholder="Enter a complex query to test retrieval logic..." 
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              disabled={isRunning}
+              style={{ background: "var(--surface)" }}
+            />
+          </div>
+          <button 
+            type="submit" 
+            className="button button-primary" 
+            disabled={isRunning || !query.trim()}
+            style={{ height: "44px", padding: "0 32px" }}
+          >
+            {isRunning ? "Synthesizing..." : "Run Side-by-Side"}
           </button>
         </form>
       </div>
 
-      <div className="playground-grid">
+      <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", alignItems: "stretch" }}>
         <PlaygroundPanel 
           panelId="A" 
           config={panelAConfig} 

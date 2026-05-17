@@ -213,8 +213,8 @@ class StreamingOrchestrator:
             yield self._format_sse("citations", {
                 "citations": citation_objects,
                 "retrieved_chunks": safe_chunks,
-                "retrieval_trace": trace.dict() if hasattr(trace, 'dict') else trace,
-                "safety_trace": safety_trace.dict() if hasattr(safety_trace, 'dict') else safety_trace,
+                "retrieval_trace": trace.model_dump() if hasattr(trace, 'model_dump') else (trace.dict() if hasattr(trace, 'dict') else trace),
+                "safety_trace": safety_trace.model_dump() if hasattr(safety_trace, 'model_dump') else (safety_trace.dict() if hasattr(safety_trace, 'dict') else safety_trace),
             })
             yield self._format_sse("done", {"turn_id": turn_id})
 

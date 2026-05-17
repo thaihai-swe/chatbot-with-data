@@ -21,92 +21,103 @@ export default function EvaluationScreen() {
   };
 
   return (
-    <div className="stack">
+    <div className="page-shell">
+      <div className="hero">
+        <div>
+          <span className="eyebrow">Quality Assurance</span>
+          <h1>System Evaluation</h1>
+          <p className="hero-copy">Run side-by-side verification against the Golden Dataset to measure retrieval recall and response groundedness.</p>
+        </div>
+      </div>
+
       <div className="panel">
         <div className="panel-heading">
           <div>
-            <h2>Basic Evaluation (Sanity Check)</h2>
-            <p className="hero-copy" style={{ fontSize: "0.9rem" }}>
-              Run the "Golden Dataset" of 10-20 core scenarios to verify the system's Groundedness and Retrieval Recall.
-            </p>
+            <h3>Golden Dataset Sanity Check</h3>
+            <p>Executes 20+ core scenarios and scores them using LLM-as-a-judge.</p>
           </div>
           <button 
             onClick={handleRunEval} 
-            className="button" 
+            className="button button-primary" 
             disabled={isRunning}
+            style={{ height: "48px", padding: "0 32px" }}
           >
-            {isRunning ? "Running LLM Evaluation..." : "Start Sanity Check"}
+            {isRunning ? "Evaluating System..." : "Start Sanity Check"}
           </button>
         </div>
 
         {error && (
-          <div className="panel panel-danger" style={{ marginTop: "20px" }}>
-            <strong>Error:</strong> {error}
+          <div className="error-banner">
+            <strong>Evaluation Failed:</strong> {error}
           </div>
         )}
 
         {isRunning && (
-          <div style={{ marginTop: "30px", textAlign: "center" }}>
-            <div className="spinner" style={{ margin: "0 auto 20px" }}></div>
-            <p className="mono">Executing test cases and scoring with LLM-as-a-judge...</p>
-            <p style={{ fontSize: "0.8rem", opacity: 0.6 }}>This may take 30-60 seconds depending on model latency.</p>
+          <div className="empty-state">
+            <div className="spinner" style={{ marginBottom: "24px" }}></div>
+            <p className="mono" style={{ fontSize: "14px", fontWeight: "600" }}>Analyzing system performance across test cases...</p>
+            <p style={{ fontSize: "13px", opacity: 0.7, marginTop: "8px" }}>This process typically takes 45-60 seconds.</p>
           </div>
         )}
 
         {results && (
-          <div style={{ marginTop: "30px" }}>
-            <div className="grid" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: "30px" }}>
-              <div className="panel status-muted">
-                <span className="eyebrow" style={{ fontSize: "0.6rem" }}>Total Cases</span>
-                <div style={{ fontSize: "1.8rem", fontWeight: "bold" }}>{results.total_cases}</div>
+          <div style={{ marginTop: "32px" }}>
+            <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", marginBottom: "40px" }}>
+              <div className="surface-card" style={{ textAlign: "center", border: "1px solid var(--border-strong)" }}>
+                <span className="eyebrow" style={{ fontSize: "10px" }}>Total Scenarios</span>
+                <div style={{ fontSize: "32px", fontWeight: "800", marginTop: "8px" }}>{results.total_cases}</div>
               </div>
-              <div className="panel status-success">
-                <span className="eyebrow" style={{ fontSize: "0.6rem" }}>Passed</span>
-                <div style={{ fontSize: "1.8rem", fontWeight: "bold" }}>{results.passed_cases}</div>
+              <div className="surface-card" style={{ textAlign: "center", border: "1px solid var(--success)" }}>
+                <span className="eyebrow" style={{ fontSize: "10px", color: "var(--success)" }}>Passed</span>
+                <div style={{ fontSize: "32px", fontWeight: "800", marginTop: "8px", color: "var(--success)" }}>{results.passed_cases}</div>
               </div>
-              <div className="panel status-info">
-                <span className="eyebrow" style={{ fontSize: "0.6rem" }}>Avg Recall</span>
-                <div style={{ fontSize: "1.8rem", fontWeight: "bold" }}>{(results.overall_recall * 100).toFixed(0)}%</div>
+              <div className="surface-card" style={{ textAlign: "center", border: "1px solid var(--accent)" }}>
+                <span className="eyebrow" style={{ fontSize: "10px", color: "var(--accent)" }}>Avg Recall</span>
+                <div style={{ fontSize: "32px", fontWeight: "800", marginTop: "8px", color: "var(--accent)" }}>{(results.overall_recall * 100).toFixed(0)}%</div>
               </div>
-              <div className="panel status-warning">
-                <span className="eyebrow" style={{ fontSize: "0.6rem" }}>Avg Groundedness</span>
-                <div style={{ fontSize: "1.8rem", fontWeight: "bold" }}>{(results.overall_groundedness * 100).toFixed(0)}%</div>
+              <div className="surface-card" style={{ textAlign: "center", border: "1px solid var(--warning)" }}>
+                <span className="eyebrow" style={{ fontSize: "10px", color: "var(--warning)" }}>Groundedness</span>
+                <div style={{ fontSize: "32px", fontWeight: "800", marginTop: "8px", color: "var(--warning)" }}>{(results.overall_groundedness * 100).toFixed(0)}%</div>
               </div>
             </div>
 
-            <div className="table-scroll">
-              <table className="mono" style={{ fontSize: "0.8rem" }}>
+            <div className="table-scroll" style={{ borderRadius: "var(--radius-lg)", border: "1px solid var(--border)" }}>
+              <table>
                 <thead>
                   <tr>
-                    <th>ID</th>
+                    <th>Scenario</th>
                     <th>Question</th>
-                    <th>Recall</th>
-                    <th>Groundedness</th>
-                    <th>Latency</th>
-                    <th>Status</th>
+                    <th style={{ textAlign: "center" }}>Recall</th>
+                    <th style={{ textAlign: "center" }}>Grounded</th>
+                    <th style={{ textAlign: "center" }}>Latency</th>
+                    <th style={{ textAlign: "right" }}>Verdict</th>
                   </tr>
                 </thead>
                 <tbody>
                   {results.results.map((r) => (
                     <tr key={r.case_id}>
-                      <td>{r.case_id}</td>
-                      <td style={{ maxWidth: "300px" }}>
-                        <div>{r.question}</div>
+                      <td className="mono" style={{ fontSize: "12px", fontWeight: "700" }}>{r.case_id}</td>
+                      <td style={{ maxWidth: "400px" }}>
+                        <div style={{ fontWeight: "600", fontSize: "14px" }}>{r.question}</div>
                         {r.groundedness_reason && (
-                          <div style={{ fontSize: "0.7rem", opacity: 0.6, marginTop: "4px", fontStyle: "italic" }}>
-                            Reason: {r.groundedness_reason}
+                          <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "6px", fontStyle: "italic", borderLeft: "2px solid var(--border)", paddingLeft: "10px" }}>
+                            {r.groundedness_reason}
                           </div>
                         )}
                       </td>
-                      <td>
-                        <span className={`text-${r.recall_status ? "success" : "danger"}`}>
-                          {r.recall_status ? "YES" : "NO"}
+                      <td style={{ textAlign: "center" }}>
+                        <span className={`status-badge ${r.recall_status ? "status-success" : "status-danger"}`} style={{ height: "20px", fontSize: "10px" }}>
+                          {r.recall_status ? "MATCH" : "MISS"}
                         </span>
                       </td>
-                      <td>{(r.groundedness_score * 100).toFixed(0)}%</td>
-                      <td>{r.latency_ms}ms</td>
-                      <td>
-                        <span className={`status-badge ${r.passed ? "status-success" : "status-danger"}`} style={{ minWidth: "80px", textAlign: "center" }}>
+                      <td style={{ textAlign: "center", fontWeight: "700" }}>
+                        <span style={{ color: r.groundedness_score > 0.8 ? "var(--success)" : "var(--text-primary)" }}>
+                          {(r.groundedness_score * 100).toFixed(0)}%
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "center" }} className="mono">{r.latency_ms}ms</td>
+                      <td style={{ textAlign: "right" }}>
+                        <span className={`status-badge ${r.passed ? "status-success" : "status-danger"}`} style={{ minWidth: "80px", justifyContent: "center" }}>
                           {r.passed ? "PASS" : "FAIL"}
                         </span>
                       </td>

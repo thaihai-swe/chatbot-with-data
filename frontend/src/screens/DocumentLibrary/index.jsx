@@ -92,55 +92,71 @@ function DocumentLibraryScreen() {
   }
 
   return (
-    <div className="stack">
+    <div className="page-shell">
+      <div className="hero">
+        <div className="hero-header">
+          <div>
+            <span className="eyebrow">Document Intelligence</span>
+            <h1>Knowledge Library</h1>
+            <p className="hero-copy">Upload, manage, and inspect your source documents. Keep your knowledge base clean and context-ready.</p>
+          </div>
+        </div>
+      </div>
+
       {error ? (
-        <section className="panel panel-danger">
-          <h2>Request failed</h2>
-          <p>{error}</p>
+        <section className="error-banner">
+          <strong>Request failed:</strong> {error}
         </section>
       ) : null}
+
       <UploadForm
         collections={collections}
         onUploadFile={handleUploadFile}
         onSubmitUrl={handleSubmitUrl}
       />
-      <section className="panel">
+
+      <section className="panel" style={{ border: "1px solid var(--border-strong)" }}>
         <div className="panel-heading">
           <div>
-            <h2>Filters</h2>
-            <p>Search by title or filename and narrow results to a collection.</p>
+            <h3>Inventory Filters</h3>
+            <p>Narrow your view by collection or search for specific document titles.</p>
           </div>
         </div>
-        <div className="filter-row">
-          <label className="field">
-            <span>Collection filter</span>
+        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "24px" }}>
+          <div className="field">
+            <label htmlFor="collection-filter">Scope by Collection</label>
             <select
+              id="collection-filter"
               value={selectedCollection}
               onChange={(event) => setSelectedCollection(event.target.value)}
             >
-              <option value="">All collections</option>
+              <option value="">All indexed collections</option>
               {collections.map((collection) => (
                 <option key={collection.id} value={collection.id}>
                   {collection.name}
                 </option>
               ))}
             </select>
-          </label>
-          <label className="field">
-            <span>Search</span>
+          </div>
+          <div className="field">
+            <label htmlFor="search-input">Semantic Search</label>
             <input
-              placeholder="Search by title or filename"
+              id="search-input"
+              placeholder="Filter by title or metadata..."
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
-          </label>
+          </div>
         </div>
       </section>
+
       <DuplicateDecisionScreen attempts={pendingAttempts} onDecide={handleDuplicateDecision} />
+
       {loading ? (
-        <section className="panel">
-          <p>Loading document inventory…</p>
-        </section>
+        <div className="empty-state">
+          <div className="spinner" style={{ marginBottom: "20px" }}></div>
+          <p className="mono" style={{ fontSize: "14px" }}>Synchronizing inventory...</p>
+        </div>
       ) : (
         <DocumentTable
           collections={collections}
