@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from embeddings.openai_client import OpenAIEmbeddingClient
-from indexing.chroma_writer import ChromaVectorWriter
+from indexing.base import VectorStore
 from models.enums import IndexGenerationStatus
 from repositories.chunk_repository import ChunkRepository
 from repositories.embedding_repository import EmbeddingCache
@@ -33,7 +33,7 @@ class IndexingService:
     def __init__(
         self,
         embedding_client: OpenAIEmbeddingClient,
-        chroma_writer: ChromaVectorWriter,
+        vector_store: VectorStore,
         embedding_cache: Optional[EmbeddingCache] = None,
     ):
         """
@@ -41,11 +41,11 @@ class IndexingService:
 
         Args:
             embedding_client: OpenAI embedding client for generating vectors
-            chroma_writer: Chroma writer for storing vectors
+            vector_store: Vector store implementation
             embedding_cache: Optional embedding cache for reusing vectors
         """
         self.embedding_client = embedding_client
-        self.chroma_writer = chroma_writer
+        self.vector_store = vector_store
         self.embedding_cache = embedding_cache or EmbeddingCache()
 
     def index_document(
@@ -223,7 +223,7 @@ class IndexingService:
             return embedding
 
         # Get or create embedding
-        embedding_vector, was_cached = self.embedding_cache.get_or_create(
+        embedding_vector, embedding_id, was_cached = self.embedding_cache.get_or_create(
             chunk_id=chunk["id"],
             text=text,
             create_fn=create_embedding,
@@ -231,7 +231,6 @@ class IndexingService:
 
         # Create index entry in database
         entry_id = str(uuid.uuid4())
-        embedding_id = self._get_embedding_id(chunk["id"], embedding_model)
 
         IndexEntryRepository.create_entry(
             id=entry_id,
@@ -246,35 +245,28 @@ class IndexingService:
             is_active=False,  # Will be activated if generation succeeds
         )
 
-        # Store vector in Chroma
-        self.chroma_writer.add_vector(
-            vector_id=entry_id,
-            embedding=embedding_vector,
-            metadata={
-                "chunk_id": chunk["id"],
-                "document_id": document_id,
-                "collection_id": collection_id,
-                "chunk_order": chunk["chunk_order"],
-                "parent_chunk_id": chunk.get("parent_chunk_id"),
-                "strategy": chunk.get("strategy"),
-            },
+        # Store vector in Vector Store
+        self.vector_store.add_vectors(
+            [
+                (
+                    entry_id,
+                    embedding_vector,
+                    {
+                        "chunk_id": chunk["id"],
+                        "document_id": document_id,
+                        "collection_id": collection_id,
+                        "chunk_order": chunk["chunk_order"],
+                        "parent_chunk_id": chunk.get("parent_chunk_id"),
+                        "strategy": chunk.get("strategy"),
+                    },
+                )
+            ]
         )
 
         logger.debug(
             f"Embedded chunk {chunk['id']} (order {chunk['chunk_order']}) "
             f"for document {document_id} (cached={was_cached})"
         )
-
-    def _get_embedding_id(self, chunk_id: str, embedding_model: str) -> str:
-        """Get the embedding ID for a chunk and model (or create if needed)."""
-        from repositories.embedding_repository import EmbeddingRepository
-
-        embeddings = EmbeddingRepository.list_embeddings_by_chunk(chunk_id)
-        for emb in embeddings:
-            if emb.embedding_model == embedding_model:
-                return emb.id
-        # Return a placeholder (will be created by EmbeddingCache)
-        return str(uuid.uuid4())
 
     def _next_generation_number(self, document_id: str) -> int:
         """Get the next generation number for a document."""
@@ -285,6 +277,7 @@ class IndexingService:
 def get_indexing_service() -> IndexingService:
     """Factory function for IndexingService."""
     from config import get_settings
+    from indexing.weaviate_store import WeaviateVectorStore
 
     settings = get_settings()
     embedding_client = OpenAIEmbeddingClient(
@@ -292,11 +285,8 @@ def get_indexing_service() -> IndexingService:
         api_base=settings.openai_api_base,
         model=settings.embedding_model,
     )
-    chroma_writer = ChromaVectorWriter(
-        persist_directory=settings.chroma_db_path,
-        collection_name=settings.chroma_collection_name,
-    )
+    vector_store = WeaviateVectorStore()
     return IndexingService(
         embedding_client=embedding_client,
-        chroma_writer=chroma_writer,
+        vector_store=vector_store,
     )

@@ -3,48 +3,44 @@
 ```mermaid
 sequenceDiagram
     participant Frontend
-    participant Router as Router (chat.py)
-    participant StreamingOrchestrator
+    participant Orchestrator as StreamingOrchestrator
     participant SafetyService
     participant AdvancedRetrievalService
-    participant ChromaDB
+    participant Weaviate
     participant GroundingService
-    participant LLM
+    participant OpenAI as OpenAI (GPT-4o)
+    participant DB as SQLite
     
-    Frontend->>Router: POST /chat/sessions/{id}/turns/stream
-    Router->>StreamingOrchestrator: start_stream(session_id, message)
-    Router-->>Frontend: SSE Event Stream established
+    Frontend->>Orchestrator: POST /chat/sessions/{id}/turns/stream
     
-    StreamingOrchestrator->>SafetyService: check_query(message)
-    SafetyService-->>StreamingOrchestrator: SafetyTrace
+    Orchestrator->>SafetyService: check_query
+    SafetyService-->>Orchestrator: Safe
     
-    alt Unsafe Query
-        StreamingOrchestrator-->>Frontend: Stream Refusal Tokens
-        StreamingOrchestrator-->>Frontend: Event: done
-    else Safe Query
-        par Retrieval and Safety
-            StreamingOrchestrator->>AdvancedRetrievalService: retrieve(message)
-            AdvancedRetrievalService->>ChromaDB: query_vectors
-            ChromaDB-->>AdvancedRetrievalService: Relevant chunks
-            AdvancedRetrievalService-->>StreamingOrchestrator: Chunks + RetrievalTrace
-            
-            StreamingOrchestrator->>SafetyService: check_chunks(chunks)
-            SafetyService-->>StreamingOrchestrator: Safe chunks
-        end
-        
-        StreamingOrchestrator->>GroundingService: evaluate_evidence(safe_chunks)
-        GroundingService-->>StreamingOrchestrator: is_sufficient?
-        
-        alt Insufficient Evidence
-            StreamingOrchestrator-->>Frontend: Stream Refusal Tokens
-            StreamingOrchestrator-->>Frontend: Event: done
-        else Sufficient Evidence
-            StreamingOrchestrator->>LLM: stream_generation(message, context)
-            LLM-->>StreamingOrchestrator: Tokens
-            StreamingOrchestrator-->>Frontend: Event: token
-            
-            StreamingOrchestrator-->>Frontend: Event: citations (+ Traces)
-            StreamingOrchestrator-->>Frontend: Event: done
-        end
+    rect rgb(240, 240, 240)
+        Note right of Orchestrator: Retrieval Loop
+        Orchestrator->>AdvancedRetrievalService: retrieve
+        AdvancedRetrievalService->>Weaviate: query_hybrid
+        Weaviate-->>AdvancedRetrievalService: Relevant chunks
+        AdvancedRetrievalService-->>Orchestrator: Chunks + Trace
     end
+    
+    Orchestrator->>SafetyService: check_chunks
+    SafetyService-->>Orchestrator: Filtered Safe Chunks
+    
+    Orchestrator->>GroundingService: evaluate_evidence
+    GroundingService-->>Orchestrator: Sufficient
+    
+    Orchestrator->>OpenAI: chat_completions(stream=True)
+    
+    loop For each token
+        OpenAI-->>Orchestrator: Token
+        Orchestrator-->>Frontend: SSE event: token
+    end
+    
+    Orchestrator->>GroundingService: calculate_groundedness
+    GroundingService-->>Orchestrator: Score
+    
+    Orchestrator->>DB: Store Turn & Trace
+    
+    Orchestrator-->>Frontend: SSE event: complete
 ```

@@ -47,9 +47,13 @@ class Settings:
     chat_model: str = field(default_factory=lambda: os.getenv("CHAT_MODEL", "gpt-4o"))
     embedding_model: str = field(default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"))
 
-    # Chroma Settings
-    chroma_db_path: str = field(default_factory=lambda: os.getenv("CHROMA_DB_PATH", "data/.chroma_db"))
-    chroma_collection_name: str = field(default_factory=lambda: os.getenv("CHROMA_COLLECTION_NAME", "document-chunks"))
+    # Vector Store Settings
+    vector_store_provider: str = field(default_factory=lambda: os.getenv("VECTOR_STORE_PROVIDER", "weaviate"))
+
+    # Weaviate Settings
+    weaviate_url: str = field(default_factory=lambda: os.getenv("WEAVIATE_URL", "http://localhost:8080"))
+    weaviate_api_key: Optional[str] = field(default_factory=lambda: os.getenv("WEAVIATE_API_KEY"))
+    weaviate_collection_name: str = field(default_factory=lambda: os.getenv("WEAVIATE_COLLECTION_NAME", "DocumentChunk"))
 
     # RAG Settings
     context_window_size: int = field(default_factory=lambda: int(os.getenv("CONTEXT_WINDOW_SIZE", "128000")))

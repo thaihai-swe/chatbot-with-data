@@ -4,16 +4,13 @@
 sequenceDiagram
     participant Frontend
     participant Router as Router (documents.py)
-    participant Repository as Repository (core.py)
-    participant SQLite
-    participant ChromaDB
+    participant Repository
+    participant Weaviate
     
     Frontend->>Router: DELETE /documents/{id}
     Router->>Repository: delete_document(id)
-    Repository->>SQLite: DELETE FROM documents WHERE id={id}
-    Repository->>ChromaDB: delete_vectors(document_id=id)
-    SQLite-->>Repository: Success
-    ChromaDB-->>Repository: Success
-    Repository-->>Router: Success
+    Repository->>Weaviate: delete_by_document(id)
+    Weaviate-->>Repository: Success
+    Repository-->>Router: Deleted
     Router-->>Frontend: 204 No Content
 ```

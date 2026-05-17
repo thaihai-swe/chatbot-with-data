@@ -5,50 +5,23 @@ sequenceDiagram
     participant Frontend
     participant Router as Router (chat.py)
     participant ChatService
-    participant SafetyService
     participant AdvancedRetrievalService
-    participant ChromaDB
-    participant GroundingService
-    participant LLM
-    participant CitationService
-    participant ChatRepository
-    participant SQLite
+    participant Weaviate
+    participant OpenAI as OpenAI (GPT-4o)
+    participant DB as SQLite
     
-    Frontend->>Router: POST /chat/sessions/{id}/turns (message)
-    Router->>ChatService: process_turn(session_id, message)
+    Frontend->>Router: POST /chat/sessions/{id}/turns
+    Router->>ChatService: process_turn(query)
     
-    ChatService->>SafetyService: check_query(message)
-    SafetyService-->>ChatService: SafetyTrace (is_answerable?)
+    ChatService->>AdvancedRetrievalService: retrieve(query)
+    AdvancedRetrievalService->>Weaviate: query_hybrid
+    Weaviate-->>AdvancedRetrievalService: Relevant chunks
+    AdvancedRetrievalService-->>ChatService: Chunks
     
-    alt Unsafe Query
-        ChatService->>ChatRepository: save_refusal
-        ChatService-->>Router: Refusal JSON
-    else Safe Query
-        ChatService->>AdvancedRetrievalService: retrieve(message)
-        AdvancedRetrievalService->>ChromaDB: query_vectors
-        ChromaDB-->>AdvancedRetrievalService: Relevant chunks
-        AdvancedRetrievalService-->>ChatService: Chunks + RetrievalTrace
-        
-        ChatService->>SafetyService: check_chunks(chunks)
-        SafetyService-->>ChatService: Safe chunks
-        
-        ChatService->>GroundingService: evaluate_evidence(safe_chunks)
-        GroundingService-->>ChatService: is_sufficient?
-        
-        alt Insufficient Evidence
-            ChatService->>ChatRepository: save_refusal
-            ChatService-->>Router: Refusal JSON
-        else Sufficient Evidence
-            ChatService->>LLM: generate_answer(message, context)
-            LLM-->>ChatService: Text response
-            ChatService->>CitationService: extract/map_citations(response, chunks)
-            CitationService-->>ChatService: Citations
-            ChatService->>ChatRepository: save_turn(session_id, response, citations, safety_trace)
-            ChatRepository->>SQLite: INSERT INTO chat_turns
-            ChatRepository-->>ChatService: Saved turn
-            ChatService-->>Router: Response JSON
-        end
-    end
+    ChatService->>OpenAI: generate_answer(query, context)
+    OpenAI-->>ChatService: Answer
     
-    Router-->>Frontend: Response JSON
+    ChatService->>DB: Store Turn
+    ChatService-->>Router: Response
+    Router-->>Frontend: Answer + Citations
 ```

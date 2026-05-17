@@ -48,13 +48,13 @@ def create_app() -> FastAPI:
         return response
 
     # 3. Router registration
-    app.include_router(collections_router, prefix="/api")
-    app.include_router(documents_router, prefix="/api")
-    app.include_router(duplicate_decisions_router, prefix="/api")
-    app.include_router(health_router, prefix="/api")
-    app.include_router(ingestion_router, prefix="/api")
-    app.include_router(chat_router, prefix="/api")
-    app.include_router(settings_router, prefix="/api")
+    app.include_router(collections_router)
+    app.include_router(documents_router)
+    app.include_router(duplicate_decisions_router)
+    app.include_router(health_router)
+    app.include_router(ingestion_router)
+    app.include_router(chat_router)
+    app.include_router(settings_router)
 
     # 4. Error handlers
     register_error_handlers(app)

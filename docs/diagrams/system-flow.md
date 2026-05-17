@@ -24,18 +24,21 @@ SQLite is the primary source of truth for all relational data and serves as a hi
 | **Chat Turns** | Full query history; Stores `query_text`, `answer_text`, `groundedness_score`, and `safety_trace`. |
 | **Citations** | Grounding evidence; Links specific chat turns to chunks with `quote_text` and metadata. |
 
-### B. Vector Store (ChromaDB)
-**Location:** `data/.chroma_db` (configured via `CHROMA_PERSIST_DIR`)
+### B. Vector Store (Weaviate)
+**Location:** Local Docker instance (configured via `WEAVIATE_URL`)
 
-ChromaDB is optimized for Approximate Nearest Neighbor (ANN) search. It stores minimal data to remain fast and lightweight.
+Weaviate is optimized for **Native Hybrid Search**. It uses a dual-engine approach (Vector + BM25) to ensure both context and exact matches are retrieved accurately.
 
+- **Connectivity:** Uses a combination of REST (8080) for schema/management and gRPC (50051) for high-speed indexing and retrieval.
 - **Vectors:** 1536-dimensional embeddings (OpenAI `text-embedding-3-small`).
-- **Metadata (in Chroma):** 
+- **Data (in Weaviate):** 
+    - `text`: Full chunk text (indexed for BM25).
     - `chunk_id`: UUID for joining with SQLite.
     - `document_id`: For document-level filtering.
     - `collection_id`: For rapid collection-scoped search.
-    - `chunk_order`: To support neighbor lookups and parent-child expansion.
-    - `page_number` / `section_title`: For rapid citation display before SQLite join.
+    - `chunk_order`: To support neighbor lookups and context expansion.
+    - `parent_chunk_id`: Links to parent chunks for expansion.
+    - `metadata_json`: Full JSON payload of all metadata.
 
 ---
 
@@ -54,7 +57,7 @@ sequenceDiagram
     participant C as ChunkingService
     participant V as IndexingService
     participant DB as SQLite
-    participant CH as ChromaDB
+    participant WV as Weaviate
 
     U->>F: Upload File / Submit URL
     F->>I: POST /ingestion/file-upload
@@ -79,7 +82,7 @@ sequenceDiagram
     C->>DB: Store Chunks in SQLite
     I->>V: index_document(document_id)
     V->>DB: Check Cache / Create Embeddings (OpenAI)
-    V->>CH: add_vectors(embeddings, metadata)
+    V->>WV: add_vectors(embeddings, metadata)
     I->>DB: Status: COMPLETED
 ```
 
@@ -91,7 +94,7 @@ Intelligent query processing to maximize recall and precision.
 1.  **Intent Classification:** LLM determines if the query is simple, complex (multi-step), or requires specific collection routing.
 2.  **Query Expansion:** Generates 3-5 variations of the query to overcome semantic gaps.
 3.  **HyDE (Hypothetical Document Embeddings):** Generates a synthetic answer to use as a "perfect" query vector.
-4.  **Parallel Vector Search:** Executes all expanded queries against ChromaDB in parallel.
+4.  **Native Hybrid Search:** Executes each query against Weaviate using a configurable `alpha` (weight) to balance **BM25** (keyword) and **Vector** (semantic) scores.
 5.  **RRF (Reciprocal Rank Fusion):** Merges results from multiple retrieval strategies into a single ranked list.
 6.  **Cross-Encoder Reranking:** A secondary LLM pass to re-score the top 20 candidates for maximum relevance.
 7.  **Parent-Child Expansion:** Retrieves small chunks (e.g., 200 tokens) for precision but expands them to "parent" chunks (e.g., 1000 tokens) before sending to the LLM to provide broader context.
@@ -104,14 +107,14 @@ graph TD
     Classify -- Complex --> Decompose[Query Decomposition: Sub-questions]
     Classify -- Simple --> Baseline[Baseline Retrieval]
 
-    Expand --> MultiSearch[Parallel Vector Search]
-    Decompose --> MultiSearch
-    Baseline --> MultiSearch
+    Expand --> HybridSearch[Native Hybrid Search]
+    Decompose --> HybridSearch
+    Baseline --> HybridSearch
     
     Q --> HyDE[HyDE: Generate Hypothetical Answer]
-    HyDE --> MultiSearch
+    HyDE --> HybridSearch
 
-    MultiSearch --> RRF[Reciprocal Rank Fusion]
+    HybridSearch --> RRF[Reciprocal Rank Fusion]
     RRF --> Rerank[Cross-Encoder Reranking]
     Rerank --> PC[Parent-Child Expansion]
     PC --> Final[Final Grounding Context]

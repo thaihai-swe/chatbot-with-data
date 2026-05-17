@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional, Dict, Any
 from enum import Enum
+import os
 
 class IngestionSettings(BaseModel):
     allowed_file_types: List[str] = Field(default=["pdf", "txt", "md"])
@@ -21,9 +22,9 @@ class IngestionSettings(BaseModel):
     parent_child_enabled: bool = False
     
     # Embedding & Vector DB (Infrastructure usually in .env, but some here for experiment)
-    embedding_model: str = "text-embedding-3-small"
+    embedding_model: str = Field(default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"))
     embedding_batch_size: int = Field(default=100, ge=1)
-    vector_db_collection: str = "document-chunks"
+    vector_db_collection: str = "DocumentChunk"
 
 class RetrievalSettings(BaseModel):
     retrieval_mode: str = Field(default="hybrid") # semantic, keyword, hybrid
@@ -41,7 +42,7 @@ class RetrievalSettings(BaseModel):
 
 class LLMSettings(BaseModel):
     provider: str = "openai"
-    model: str = "gpt-4o"
+    model: str = Field(default_factory=lambda: os.getenv("CHAT_MODEL", "gpt-4o"))
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
     max_tokens: int = Field(default=1000, ge=1)
     system_prompt_template: Optional[str] = None

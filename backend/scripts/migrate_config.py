@@ -19,7 +19,7 @@ def migrate():
         ingestion=IngestionSettings(
             chunk_size=legacy.context_window_size, # Note: mapping might not be 1:1, but this is a start
             embedding_model=legacy.embedding_model,
-            vector_db_collection=legacy.chroma_collection_name
+            vector_db_collection=legacy.weaviate_collection_name
         ),
         retrieval=RetrievalSettings(
             top_k=legacy.retrieval_k

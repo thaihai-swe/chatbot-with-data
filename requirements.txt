@@ -1,5 +1,5 @@
 beautifulsoup4
-chromadb
+weaviate-client
 fastapi
 httpx
 openai

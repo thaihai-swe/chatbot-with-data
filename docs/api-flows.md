@@ -29,9 +29,9 @@ This document details the end-to-end flow for every API endpoint in the system, 
 | `POST` | `/collections` | Create collection | Router → `Repository.create_collection` → SQLite |
 | `DELETE` | `/collections/{id}` | Delete collection | Router → `Repository.delete_collection` (Soft delete: `deleted_at`) → SQLite |
 | `GET` | `/documents` | List docs | Router → `Repository.list_documents` → SQLite (Join with `ingestion_attempts` for status/duplicate signals) |
-| `DELETE` | `/documents/{id}` | Delete document | Router → `Repository.delete_document` (Hard delete) → **ChromaDB Cleanup** (`delete_by_document`) + **SQLite Cleanup** (Chunks, Embeddings, Index Entries) |
+| `DELETE` | `/documents/{id}` | Delete document | Router → `Repository.delete_document` (Hard delete) → **Weaviate Cleanup** (`delete_by_document`) + **SQLite Cleanup** (Chunks, Embeddings, Index Entries) |
 | `POST` | `/documents/{id}/move` | Re-scope document | Router → `Repository.assign_document_to_collections` → SQLite Update |
-| `POST` | `/documents/{id}/reindex` | Refresh vectors | Router → `IngestionService._chunk_and_index_document` → SQLite (Chunks) → OpenAI (Embeddings) → ChromaDB (Vectors) |
+| `POST` | `/documents/{id}/reindex` | Refresh vectors | Router → `IngestionService._chunk_and_index_document` → SQLite (Chunks) → OpenAI (Embeddings) → Weaviate (Hybrid Index) |
 
 ---
 
@@ -53,7 +53,8 @@ SQLite serves as the primary relational database and an embedding cache.
 - **Embeddings Table:** Caches OpenAI responses. Before calling OpenAI, the system hashes the chunk text and checks this table to save cost/latency.
 - **Citations Table:** Stores verified links between LLM claims and source chunks.
 
-### ChromaDB (Vector Search)
-ChromaDB is used strictly for similarity search.
-- **Persistence:** Vectors are saved to `data/.chroma_db`.
-- **Metadata:** Chroma stores minimal metadata (`chunk_id`, `document_id`) to allow the backend to join back to the rich SQLite records.
+### Weaviate (Hybrid Search)
+Weaviate is used for native hybrid search, combining vector similarity and keyword relevance.
+- **Connectivity:** Port 8080 (REST) and 50051 (gRPC).
+- **Hybrid Retrieval:** Supports an `alpha` parameter (0.0 to 1.0) to balance **BM25** (keyword) and **Semantic** (vector) scores.
+- **Schema:** Managed as the `DocumentChunk` class, storing both the vector and the raw text properties.

@@ -299,7 +299,7 @@ class EmbeddingCache:
         chunk_id: str,
         text: str,
         create_fn,  # Callable that generates embedding if cache miss
-    ) -> tuple[list[float], bool]:
+    ) -> tuple[list[float], str, bool]:
         """
         Get embedding from cache or create if missing.
 
@@ -309,8 +309,9 @@ class EmbeddingCache:
             create_fn: Callable that takes (text) and returns embedding vector
 
         Returns:
-            Tuple of (embedding_vector, was_cached)
+            Tuple of (embedding_vector, embedding_id, was_cached)
             - embedding_vector: The embedding as list of floats
+            - embedding_id: ID of the embedding record
             - was_cached: True if from cache, False if newly created
         """
         # Compute hash of input text
@@ -321,7 +322,7 @@ class EmbeddingCache:
 
         if cached and EmbeddingRepository.cache_is_valid(cached, text_hash):
             # Cache hit
-            return cached.embedding_vector, True
+            return cached.embedding_vector, cached.id, True
 
         # Cache miss - delete old embedding if it exists
         if cached:
@@ -331,14 +332,14 @@ class EmbeddingCache:
         embedding_vector = create_fn(text)
 
         # Store in cache
-        self.repository.create_embedding(
+        embedding = self.repository.create_embedding(
             chunk_id=chunk_id,
             embedding_model=self.embedding_model,
             embedding_vector=embedding_vector,
             input_text_hash=text_hash,
         )
 
-        return embedding_vector, False
+        return embedding_vector, embedding.id, False
 
     def get_cache_stats(self, chunk_id: str) -> dict:
         """

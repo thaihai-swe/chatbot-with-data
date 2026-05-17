@@ -1,6 +1,6 @@
 # Database Schema & Data Architecture
 
-This document details the data models and storage strategies used in the RAG Knowledge Base Lab. The system employs a **Dual-Database Architecture** to combine the relational strengths of SQLite with the semantic search capabilities of ChromaDB.
+This document details the data models and storage strategies used in the RAG Knowledge Base Lab. The system employs a **Dual-Database Architecture** to combine the relational strengths of SQLite with the hybrid search capabilities of Weaviate.
 
 ---
 
@@ -9,7 +9,7 @@ This document details the data models and storage strategies used in the RAG Kno
 | Store | Technology | Purpose |
 | :--- | :--- | :--- |
 | **Metadata Store** | SQLite | Source of truth for all relational data, ingestion tracking, and grounding evidence. |
-| **Vector Store** | ChromaDB | High-performance vector similarity search (ANN). |
+| **Vector Store** | Weaviate | High-performance hybrid search (Vector + BM25). |
 | **Cache Layer** | SQLite | Stores pre-computed embeddings to minimize OpenAI API costs. |
 
 ---
@@ -126,15 +126,18 @@ Precise evidence linking.
 
 ---
 
-## 4. Vector Store Schema (ChromaDB)
+## 4. Vector Store Schema (Weaviate)
 
-ChromaDB stores embeddings and minimal metadata for rapid similarity lookups.
+Weaviate stores embeddings and full text to support native hybrid search (Vector + BM25).
 
 | Property | Data Type | Purpose |
 | :--- | :--- | :--- |
-| **ID** | UUID | Maps 1:1 with SQLite `chunks.id`. |
-| **Vector** | `float[1536]` | OpenAI Embedding. |
-| **metadata.document_id** | String | For document-level filtering. |
-| **metadata.collection_id**| String | For collection-scoped search. |
-| **metadata.chunk_order** | Integer | Supports context expansion. |
-| **metadata.page_number** | Integer | Used for rapid citation display. |
+| **ID** | UUID | Primary identifier (consistent with `index_entries.vector_db_id`). |
+| **text** | `text` | The raw chunk text, indexed for **BM25** (keyword) search. |
+| **vector** | `float[1536]` | OpenAI Embedding for **Semantic** search. |
+| **chunk_id** | `text` | Maps 1:1 with SQLite `chunks.id`. |
+| **document_id** | `text` | For document-level filtering. |
+| **collection_id** | `text` | For collection-scoped search. |
+| **chunk_order** | `int` | Supports context expansion. |
+| **parent_chunk_id** | `text` | Links to parent chunks for expansion. |
+| **metadata_json** | `text` | Stores a JSON string of all additional metadata. |

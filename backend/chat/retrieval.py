@@ -7,7 +7,7 @@ import time
 import re
 from typing import Optional, List, Tuple, Dict, Any
 
-from indexing.chroma_writer import ChromaVectorWriter
+from indexing.base import VectorStore
 from embeddings.openai_client import OpenAIEmbeddingClient
 from config import get_settings, get_config
 from repositories.chunk_repository import ChunkRepository
@@ -147,23 +147,24 @@ class RetrievalService:
     def __init__(
         self,
         embedding_client: OpenAIEmbeddingClient,
-        chroma_writer: ChromaVectorWriter,
+        vector_store: VectorStore,
     ):
         """
         Initialize the retrieval service.
 
         Args:
             embedding_client: Client for generating embeddings of queries
-            chroma_writer: Client for querying the vector DB
+            vector_store: Vector store implementation
         """
         self.embedding_client = embedding_client
-        self.chroma_writer = chroma_writer
+        self.vector_store = vector_store
 
     def retrieve_relevant_chunks(
         self,
         query_text: str,
         collection_ids: Optional[str | list[str]] = None,
         k: int | None = None,
+        alpha: float | None = None,
     ) -> List[Dict[str, Any]]:
         """
         Retrieve relevant chunks for a query, scoped to collections.
@@ -172,6 +173,7 @@ class RetrievalService:
             query_text: The user's query
             collection_ids: The collection ID or list of IDs to scope the search to (None for all)
             k: Number of chunks to retrieve (defaults to config)
+            alpha: Weight between keyword (0.0) and semantic (1.0) search
 
         Returns:
             List of chunk metadata dicts with similarity scores
@@ -179,35 +181,28 @@ class RetrievalService:
         config = get_config()
         k = k or config.retrieval.top_k
         
-        logger.info(f"Retrieving {k} chunks for query: '{query_text}' (collections={collection_ids})")
+        if alpha is None:
+            search_mode = config.retrieval.retrieval_mode
+            if search_mode == "keyword":
+                alpha = 0.0
+            elif search_mode == "semantic":
+                alpha = 1.0
+            else:
+                alpha = config.retrieval.hybrid_weight
+        
+        logger.info(f"Retrieving {k} chunks (alpha={alpha}) for query: '{query_text}' (collections={collection_ids})")
 
         # 1. Generate embedding for the query
         query_embedding = self.embedding_client.embed(query_text)
 
-        # 2. Query Chroma
-        if collection_ids:
-            # Query with collection filter
-            raw_results = self.chroma_writer.query_by_collection(
-                query_embedding=query_embedding,
-                collection_filter=collection_ids,
-                n_results=k,
-            )
-        else:
-            # Query all collections
-            results = self.chroma_writer.query(
-                query_embedding=query_embedding,
-                n_results=k,
-            )
-
-            # Flatten raw Chroma results into (chunk_id, similarity, metadata) format
-            raw_results = []
-            if results['ids'] and results['ids'][0]:
-                for i, vector_id in enumerate(results['ids'][0]):
-                    distance = results['distances'][0][i]
-                    similarity = 1 - distance
-                    metadata = results['metadatas'][0][i]
-                    chunk_id = metadata.get('chunk_id')
-                    raw_results.append((chunk_id, similarity, metadata))
+        # 2. Query Vector Store
+        raw_results = self.vector_store.query_hybrid(
+            query_text=query_text,
+            query_embedding=query_embedding,
+            alpha=alpha,
+            k=k,
+            collection_ids=collection_ids if isinstance(collection_ids, list) else ([collection_ids] if collection_ids else None)
+        )
 
         # 3. Format results
         formatted_results = []
@@ -234,6 +229,9 @@ class RetrievalService:
 
 def get_retrieval_service() -> RetrievalService:
     """Factory function for RetrievalService."""
+    from config import get_settings
+    from indexing.weaviate_store import WeaviateVectorStore
+
     settings = get_settings()
     config = get_config()
     embedding_client = OpenAIEmbeddingClient(
@@ -241,11 +239,8 @@ def get_retrieval_service() -> RetrievalService:
         api_base=settings.openai_api_base,
         model=config.ingestion.embedding_model,
     )
-    chroma_writer = ChromaVectorWriter(
-        persist_directory=settings.chroma_db_path,
-        collection_name=config.ingestion.vector_db_collection,
-    )
-    return RetrievalService(embedding_client, chroma_writer)
+    vector_store = WeaviateVectorStore()
+    return RetrievalService(embedding_client, vector_store)
 
 
 from schemas.chat import AdvancedRetrievalConfig, RetrievalTrace, RetrievalRunTrace
@@ -389,6 +384,16 @@ class AdvancedRetrievalService:
 
         unique_queries = list(dict.fromkeys(unique_queries)) # Deduplicate preserve order
 
+        search_mode = global_config.retrieval.retrieval_mode
+        
+        # Map search_mode to effective alpha
+        if search_mode == "keyword":
+            effective_alpha = 0.0
+        elif search_mode == "semantic":
+            effective_alpha = 1.0
+        else: # hybrid
+            effective_alpha = global_config.retrieval.hybrid_weight
+
         all_results = []
         for q in unique_queries:
             search_query = q
@@ -403,7 +408,8 @@ class AdvancedRetrievalService:
             chunks = self.baseline_retrieval_service.retrieve_relevant_chunks(
                 query_text=search_query,
                 collection_ids=collection_ids,
-                k=k
+                k=k,
+                alpha=effective_alpha
             )
             all_results.append(chunks)
             trace.retrieval_runs.append(RetrievalRunTrace(
