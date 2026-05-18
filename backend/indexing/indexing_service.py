@@ -282,8 +282,8 @@ def get_indexing_service() -> IndexingService:
 
     settings = get_settings()
     embedding_client = OpenAIEmbeddingClient(
-        api_key=settings.openai_api_key,
-        api_base=settings.openai_api_base,
+        api_key=settings.embedding_api_key,
+        api_base=settings.embedding_api_base,
         model=settings.embedding_model,
     )
     vector_store = WeaviateVectorStore()

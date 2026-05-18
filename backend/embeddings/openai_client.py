@@ -59,14 +59,15 @@ class OpenAIEmbeddingClient:
             max_retries: Max retries for transient errors
             timeout: Request timeout in seconds
         """
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        self.api_key = api_key or os.getenv("EMBEDDING_API_KEY") or os.getenv("OPENAI_API_KEY")
         if not self.api_key:
             raise ValueError(
-                "OPENAI_API_KEY environment variable not set. "
-                "Set it or pass api_key to OpenAIEmbeddingClient."
+                "Neither EMBEDDING_API_KEY nor OPENAI_API_KEY environment variable is set. "
+                "Set one of them or pass api_key to OpenAIEmbeddingClient."
             )
 
-        self.client = OpenAI(api_key=self.api_key, base_url=api_base)
+        self.api_base = api_base or os.getenv("EMBEDDING_API_BASE") or os.getenv("OPENAI_API_BASE")
+        self.client = OpenAI(api_key=self.api_key, base_url=self.api_base)
         
         self.model = model or os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
         self.max_retries = max_retries

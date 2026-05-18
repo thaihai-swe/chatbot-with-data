@@ -29,7 +29,7 @@ class Settings:
     snapshots_dir: Path = field(default_factory=lambda: get_env_path("SNAPSHOTS_DIR", "data/knowledge_ingestion/snapshots"))
     run_artifacts_dir: Path = field(default_factory=lambda: get_env_path("RUN_ARTIFACTS_DIR", "data/knowledge_ingestion/runs"))
     settings_file: Path = field(default_factory=lambda: get_env_path("SETTINGS_FILE", "data/knowledge_ingestion/settings.json"))
-    
+
     cors_origins: tuple[str, ...] = field(default_factory=lambda: tuple(
         origin.strip()
         for origin in os.getenv(
@@ -44,6 +44,8 @@ class Settings:
     # LLM Settings
     openai_api_key: Optional[str] = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
     openai_api_base: Optional[str] = field(default_factory=lambda: os.getenv("OPENAI_API_BASE"))
+    embedding_api_key: Optional[str] = field(default_factory=lambda: os.getenv("EMBEDDING_API_KEY", os.getenv("OPENAI_API_KEY")))
+    embedding_api_base: Optional[str] = field(default_factory=lambda: os.getenv("EMBEDDING_API_BASE", os.getenv("OPENAI_API_BASE")))
     chat_model: str = field(default_factory=lambda: os.getenv("CHAT_MODEL", "gpt-4o"))
     embedding_model: str = field(default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"))
 
@@ -90,7 +92,7 @@ class SettingsManager:
                     config_data = json.load(f)
             except Exception as e:
                 logging.error(f"Failed to load settings from {self.legacy_settings.settings_file}: {e}")
-        
+
         self._config = GlobalSettings(**config_data)
 
     @property
@@ -102,35 +104,35 @@ class SettingsManager:
     def update(self, new_settings: Dict[str, Any]):
         """Validate and persist new settings. Handles one level of nesting."""
         current_data = self.config.model_dump()
-        
+
         # Simple merge for top-level keys (ingestion, retrieval, etc.)
         for key, value in new_settings.items():
             if key in current_data and isinstance(value, dict) and isinstance(current_data[key], dict):
                 current_data[key].update(value)
             else:
                 current_data[key] = value
-                
+
         updated_config = GlobalSettings(**current_data)
-        
+
         # Atomic write
         temp_file = self.legacy_settings.settings_file.with_suffix(".tmp")
         with open(temp_file, "w") as f:
             json.dump(updated_config.model_dump(), f, indent=4)
         shutil.move(temp_file, self.legacy_settings.settings_file)
-        
+
         self._config = updated_config
 
     def save_run_snapshot(self, run_id: str, domain: str = "chat") -> str:
         """Save a snapshot of effective config (secrets excluded)."""
         snapshot = self.config.model_dump()
-        
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"run_{domain}_{timestamp}_{run_id}.json"
         filepath = self.legacy_settings.run_artifacts_dir / filename
-        
+
         with open(filepath, "w") as f:
             json.dump(snapshot, f, indent=4)
-        
+
         return str(filepath)
 
 @lru_cache()
