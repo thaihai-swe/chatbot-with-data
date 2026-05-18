@@ -1,5 +1,26 @@
-## Backend startup:
+# RAG Knowledge Base Lab
 
+A production-ready Retrieval-Augmented Generation (RAG) system with hybrid search, grounded chat, and citation tracking.
+
+## 📚 Documentation
+
+**New to the project?** Start with the [Onboarding Guide](docs/onboarding.md) for complete setup instructions.
+
+### Core Documentation
+- **[Onboarding Guide](docs/onboarding.md)** - Environment setup, installation, and verification steps
+- **[Architecture Overview](docs/architecture-overview.md)** - System components and interaction flow
+- **[AI Learning Guide](docs/ai-learning.md)** - RAG concepts, embeddings, hybrid search, and grounding
+- **[API Flows](docs/api-flows.md)** - Detailed endpoint documentation with examples
+- **[Database Schema](docs/database-schema.md)** - Data models and storage architecture
+- **[System Flow Diagrams](docs/diagrams/system-flow.md)** - Visual end-to-end workflows
+
+---
+
+## Quick Start
+
+### Backend startup:
+
+```bash
 # 1. Activate the Python virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
@@ -10,9 +31,11 @@ pip install -r requirements.txt
 # 3. Start the backend server
 cd backend
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
 
-## Frontend startup:
+### Frontend startup:
 
+```bash
 # In a new terminal, from the root directory
 cd frontend
 
@@ -21,6 +44,9 @@ npm install
 
 # 2. Start the dev server
 npm run dev
+```
+
+---
 
 ## Testing Guide
 

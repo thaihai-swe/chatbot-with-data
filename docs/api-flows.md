@@ -1,6 +1,6 @@
 # Granular API Endpoint Flows
 
-This document details the end-to-end flow for every API endpoint in the system, mapping frontend requests to backend service execution and data persistence.
+This document details the end-to-end flow for every API endpoint in the system, mapping frontend requests to backend service execution and data persistence. Each endpoint includes request/response examples and error cases.
 
 ---
 
@@ -8,6 +8,21 @@ This document details the end-to-end flow for every API endpoint in the system, 
 | Method | Endpoint | Description | Internal Flow |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/health` | Check API availability | Router → returns `{"status": "ok"}` |
+
+### Health Check
+**Request:**
+```bash
+curl http://localhost:8000/health
+```
+
+**Response (200 OK):**
+```json
+{
+  "status": "ok"
+}
+```
+
+**Use Case:** Verify backend is running before making other requests.
 
 ---
 

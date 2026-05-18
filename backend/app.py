@@ -23,7 +23,7 @@ def create_app() -> FastAPI:
     # 1. Basic config
     settings = get_settings()
     configure_logging()
-    
+
     app = FastAPI(
         title=settings.app_name,
         version="0.1.0",
@@ -64,7 +64,7 @@ def create_app() -> FastAPI:
     async def startup_event():
         apply_migrations()
         # Any other startup logic
-        
+
     return app
 
 app = create_app()

@@ -2,6 +2,21 @@
 
 This document details the data models and storage strategies used in the RAG Knowledge Base Lab. The system employs a **Dual-Database Architecture** to combine the relational strengths of SQLite with the hybrid search capabilities of Weaviate.
 
+## Quick Reference
+
+**New to the system?** Start here:
+- **SQLite** stores all metadata: documents, chunks, embeddings cache, chat history, citations
+- **Weaviate** stores vectors for fast hybrid search (BM25 + semantic)
+- **Embeddings Cache** saves cost by avoiding repeated OpenAI API calls
+- **Citations Table** links answers back to source chunks for grounding
+- **Index Entries** map chunks to vector DB IDs across re-indexing generations
+
+**Common Queries:**
+- Find all chunks for a document: `SELECT * FROM chunks WHERE document_id = ?`
+- Get chat history: `SELECT * FROM chat_turns WHERE session_id = ? ORDER BY created_at DESC`
+- Check embedding cache: `SELECT * FROM embeddings WHERE input_text_hash = ?`
+- Verify citations: `SELECT * FROM citations WHERE turn_id = ?`
+
 ---
 
 ## 1. High-Level Architecture

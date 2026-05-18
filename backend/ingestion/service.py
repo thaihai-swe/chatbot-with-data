@@ -271,6 +271,16 @@ class IngestionService:
         if not collection_ids:
             collection_ids = ["default"]
 
+        # Clear old chunks and vectors before re-chunking (for reindex operations)
+        from repositories.chunk_repository import ChunkRepository
+        from indexing.weaviate_store import WeaviateVectorStore
+
+        chunk_repo = ChunkRepository()
+        chunk_repo.delete_chunks_by_document(document_id)
+
+        weaviate_store = WeaviateVectorStore()
+        weaviate_store.delete_by_document(document_id)
+
         for collection_id in collection_ids:
             self.chunking_service.chunk_document(
                 document_id=document_id,

@@ -84,9 +84,9 @@ class IndexingService:
         errors: list[EmbeddingError] = []
 
         try:
-            # Get all chunks for the document
+            # Get all chunks for the document, filtered by collection_id
             chunk_repo = ChunkRepository()
-            chunks = chunk_repo.list_chunks_by_document(document_id)
+            chunks = chunk_repo.list_chunks_by_document(document_id, collection_id=collection_id)
 
             if not chunks:
                 logger.warning(f"No chunks found for document {document_id}")
