@@ -6,7 +6,7 @@ from urllib.parse import urlsplit, urlunsplit
 import requests
 from bs4 import BeautifulSoup
 
-from config import get_settings
+from config import get_settings, get_config
 from extractors.common import normalized_text_hash
 from storage import LocalStorage
 
@@ -19,12 +19,12 @@ def canonicalize_url(url: str) -> str:
 
 class WebExtractor:
     def __init__(self) -> None:
-        self.settings = get_settings()
         self.storage = LocalStorage()
 
     def extract(self, source_uri: str, fallback_title: str | None = None) -> dict[str, Any]:
+        config = get_config()
         try:
-            response = requests.get(source_uri, timeout=self.settings.url_timeout_seconds)
+            response = requests.get(source_uri, timeout=config.ingestion.url_timeout_seconds)
             response.raise_for_status()
         except requests.RequestException as exc:
             raise ValueError(f"Unable to fetch URL: {exc}") from exc

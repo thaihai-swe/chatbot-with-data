@@ -12,6 +12,7 @@ class IngestionSettings(BaseModel):
     duplicate_detection_enabled: bool = True
     duplicate_detection_method: str = Field(default="content_hash")
     near_duplicate_threshold: float = Field(default=0.95, ge=0.0, le=1.0)
+    url_timeout_seconds: int = Field(default_factory=lambda: int(os.getenv("URL_TIMEOUT_SECONDS", "10")))
     
     # Chunking
     chunk_size: int = Field(default=1000, ge=1)
@@ -45,8 +46,9 @@ class LLMSettings(BaseModel):
     model: str = Field(default_factory=lambda: os.getenv("CHAT_MODEL", "gpt-4o"))
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
     max_tokens: int = Field(default=1000, ge=1)
+    context_window_size: int = Field(default_factory=lambda: int(os.getenv("CONTEXT_WINDOW_SIZE", "128000")))
     system_prompt_template: Optional[str] = None
-    chat_history_limit: int = Field(default=10, ge=0)
+    chat_history_limit: int = Field(default_factory=lambda: int(os.getenv("MAX_HISTORY_TURNS", "10")))
     streaming_enabled: bool = True
 
 class SafetySettings(BaseModel):
@@ -54,6 +56,8 @@ class SafetySettings(BaseModel):
     prompt_injection_detection_enabled: bool = True
     injection_risk_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
     refusal_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
+    min_similarity_threshold: float = Field(default_factory=lambda: float(os.getenv("MIN_SIMILARITY_THRESHOLD", "0.1")))
+    min_results_count: int = Field(default_factory=lambda: int(os.getenv("MIN_RESULTS_COUNT", "1")))
 
 class EvaluationSettings(BaseModel):
     enabled_metrics: List[str] = Field(default=["faithfulness", "answer_relevance"])

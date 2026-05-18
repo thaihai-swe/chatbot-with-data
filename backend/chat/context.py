@@ -5,7 +5,7 @@ import logging
 from typing import List, Dict, Any
 
 from models.chat import ChatTurn
-from config import get_settings
+from config import get_settings, get_config
 from repositories.chunk_repository import ChunkRepository
 
 logger = logging.getLogger(__name__)
@@ -94,5 +94,5 @@ class ContextService:
 
 def get_context_service() -> ContextService:
     """Factory function for ContextService."""
-    settings = get_settings()
-    return ContextService(max_history_turns=settings.max_history_turns)
+    config = get_config()
+    return ContextService(max_history_turns=config.llm.chat_history_limit)

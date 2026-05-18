@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from typing import List, Dict, Any, Tuple
 
-from config import get_settings
+from config import get_settings, get_config
 from llm.client import LLMClient, get_llm_client
 from chat.prompts import GROUNDEDNESS_EVALUATION_PROMPT
 from chat.utils import parse_json_from_llm
@@ -104,9 +104,9 @@ class GroundingService:
 
 def get_grounding_service(llm_client: LLMClient = Depends(get_llm_client)) -> GroundingService:
     """Factory function for GroundingService."""
-    settings = get_settings()
+    config = get_config()
     return GroundingService(
         llm_client=llm_client,
-        min_similarity_threshold=settings.min_similarity_threshold,
-        min_results_count=settings.min_results_count,
+        min_similarity_threshold=config.safety.min_similarity_threshold,
+        min_results_count=config.safety.min_results_count,
     )
