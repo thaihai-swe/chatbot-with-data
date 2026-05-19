@@ -394,20 +394,8 @@ Query decomposition should be used for:
 
 Examples:
 
-```text
-User query: Compare X and Y.
-Sub-question 1: What is X?
-Sub-question 2: What is Y?
-Sub-question 3: How do X and Y differ?
-```
-
-```text
-User query: How did policy A affect metric B in Q1 and Q2?
-Sub-question 1: What does the knowledge base say about policy A?
-Sub-question 2: What evidence exists for metric B in Q1?
-Sub-question 3: What evidence exists for metric B in Q2?
-Sub-question 4: What relationship is supported between policy A and metric B?
-```
+* User query: "Compare X and Y" → Sub-questions: "What is X?", "What is Y?", "How do X and Y differ?"
+* User query: "How did policy A affect metric B in Q1 and Q2?" → Sub-questions: "What does the knowledge base say about policy A?", "What evidence exists for metric B in Q1?", "What evidence exists for metric B in Q2?", "What relationship is supported between policy A and metric B?"
 
 The system must:
 
@@ -505,15 +493,7 @@ Synonym expansion may use:
 * spelling variants
 * plural/singular variants
 
-Examples:
-
-```text
-auth → authentication
-login → sign in
-docs → documentation
-db → database
-config → configuration
-```
+Examples: auth → authentication, login → sign in, docs → documentation, db → database, config → configuration
 
 The system must:
 
@@ -1133,18 +1113,7 @@ The answerability decision must be:
 * visible in the debug view
 * included in evaluation output
 
-Suggested refusal categories:
-
-```text
-NO_RELEVANT_EVIDENCE
-LOW_RETRIEVAL_CONFIDENCE
-INSUFFICIENT_SUPPORT
-CONFLICTING_EVIDENCE
-OUT_OF_DOMAIN
-PROMPT_INJECTION_DETECTED
-ROUTING_CONFIDENCE_TOO_LOW
-COLLECTION_CONFIDENCE_TOO_LOW
-```
+Suggested refusal categories: NO_RELEVANT_EVIDENCE, LOW_RETRIEVAL_CONFIDENCE, INSUFFICIENT_SUPPORT, CONFLICTING_EVIDENCE, OUT_OF_DOMAIN, PROMPT_INJECTION_DETECTED, ROUTING_CONFIDENCE_TOO_LOW, COLLECTION_CONFIDENCE_TOO_LOW
 
 ---
 
@@ -1568,6 +1537,408 @@ The Settings screen should allow users to save named configurations for experime
 
 ---
 
+## 7.16 Query Tracing & Performance Profiling
+
+The system must support comprehensive query tracing to enable debugging, performance optimization, and audit compliance.
+
+### Query Tracing Requirements
+
+The system must trace all pipeline stages:
+
+* Intent classification
+* Query rewriting
+* Query expansion
+* Query decomposition
+* HyDE generation
+* Synonym expansion
+* Dynamic routing decision
+* Retrieval (semantic, keyword, hybrid)
+* Reranking
+* Context windowing
+* Answer generation
+* Safety checks
+* Citation generation
+
+### Trace Data Structure
+
+Each trace must include:
+
+* Query metadata (ID, text, timestamp, session_id)
+* Intent classification (method, intent, confidence, signals)
+* Retrieval strategy (selected mode, rationale, threshold)
+* Retrieval stages (semantic scores, keyword scores, reranking scores)
+* Multi-hop execution (hops, queries, termination reason)
+* Generation (confidence, claims extracted)
+* Safety checks (hallucination detection, claims validated)
+* Per-stage latency (milliseconds)
+* Resource usage (API calls, tokens, memory)
+* Cost calculation (if available)
+
+### Trace Storage
+
+The system must:
+
+* Store traces in JSON Lines format
+* Support querying by date range, performance threshold, session_id
+* Enable export for external analysis
+* Support configurable retention period (default 30 days)
+* Archive old traces automatically
+
+### Trace Visualization
+
+The system must provide:
+
+* Tree-format console display with box-drawing characters
+* Color-coded performance indicators (green/yellow/red)
+* Emoji indicators for quick scanning (🔍, ✅, ❌, ⚠️)
+* Confidence shown as percentage
+* RAG terminology in output (BM25, cosine similarity, cross-encoder)
+
+### Performance Profiling
+
+The system must measure:
+
+* Per-stage latency
+* Bottleneck identification
+* Token usage per stage
+* API call count per stage
+* Memory usage per query
+* Cost per query
+* Embedding cache hit rate
+
+### Observability Requirements
+
+The system must expose:
+
+* `--trace` flag in CLI to display full query pipeline
+* Trace API endpoint for programmatic access
+* Trace viewer in debug UI
+* Performance metrics dashboard
+* Bottleneck alerts when latency exceeds threshold
+
+---
+
+## 7.17 RAGAS Evaluation Framework
+
+The system must support RAGAS (Retrieval-Augmented Generation Assessment) metrics to measure system quality.
+
+### Core RAGAS Metrics
+
+The system must implement:
+
+1. **Faithfulness** (0.0-1.0)
+   - How grounded is the answer in retrieved context?
+   - Measures hallucination risk
+   - Calculated by: (supported claims / total claims)
+
+2. **Answer Relevancy** (0.0-1.0)
+   - How relevant is the answer to the query?
+   - Measures answer quality
+   - Calculated by: semantic similarity between query and answer
+
+3. **Context Precision** (0.0-1.0)
+   - How precise are the retrieved chunks?
+   - Measures retrieval quality
+   - Calculated by: (relevant chunks in top-k / k)
+
+4. **Context Recall** (0.0-1.0)
+   - Did we retrieve all relevant chunks?
+   - Measures retrieval coverage
+   - Calculated by: (retrieved relevant chunks / total relevant chunks)
+
+### Evaluation Storage
+
+The system must:
+
+* Store evaluation results in SQLite
+* Track historical metrics over time
+* Support regression detection
+* Enable comparison across experiments
+* Store evaluation configuration with results
+
+### Evaluation API
+
+The system must expose:
+
+* `/api/evaluation/run` - Run evaluation on dataset
+* `/api/evaluation/results` - Query historical results
+* `/api/evaluation/compare` - Compare two evaluation runs
+* `/api/evaluation/metrics` - Get metric definitions
+
+### Evaluation Dataset Format
+
+Evaluation datasets must include: test ID, question, expected document ID, expected answer content, expected chunks, and test category (e.g., factual_lookup, multi-hop, comparative).
+
+### Automatic Evaluation
+
+The system should support:
+
+* Automatic evaluation on each query (optional)
+* Evaluation triggered by configuration changes
+* Evaluation triggered by reindexing
+* Evaluation triggered by model changes
+
+### Evaluation Dashboard
+
+The evaluation dashboard must show:
+
+* Metric trends over time (line charts)
+* Metric distribution (histograms)
+* Failed test cases with details
+* Regression alerts
+* Comparison views (before/after)
+
+---
+
+## 7.18 Provider Abstraction Layer
+
+The system must support multiple LLM and embedding providers through an abstraction layer.
+
+### LLM Provider Abstraction
+
+The system must support:
+
+* **OpenAI** (GPT-4o, GPT-4-turbo, GPT-3.5-turbo)
+* **Anthropic** (Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku)
+* **Ollama** (local LLMs: Llama 3, Mistral, Phi-3)
+* **Custom providers** via plugin interface
+
+### Embedding Provider Abstraction
+
+The system must support:
+
+* **OpenAI** (text-embedding-3-small, text-embedding-3-large)
+* **Local** (sentence-transformers, runs locally)
+* **HuggingFace** (Inference API)
+* **Custom providers** via plugin interface
+
+### Provider Interface
+
+Each provider must implement:
+
+* LLM Provider methods: generate_completion, generate_streaming, count_tokens, get_model_info
+* Embedding Provider methods: embed_text, embed_batch, get_dimension, get_model_info
+
+### Provider Configuration
+
+The system must support:
+
+* Provider selection via environment variable or config
+* Per-provider API keys and endpoints
+* Model selection per provider
+* Timeout and retry configuration
+* Fallback provider when primary fails
+
+### Provider Factory
+
+The system must use factory pattern to instantiate providers based on configuration (provider name, model, API key).
+
+### Cost Optimization
+
+The system should support:
+
+* Using cheaper models for non-critical tasks
+* Local models for development/testing
+* Provider switching based on cost
+* Usage tracking and alerts
+
+---
+
+## 7.19 Comprehensive Audit Logging
+
+The system must maintain a comprehensive audit log for compliance, security, and debugging.
+
+### Audit Log Schema
+
+Each audit event must include:
+
+* `timestamp` (ISO 8601 UTC)
+* `event_type` (QUERY_REJECTED, DOCUMENT_REJECTED, PII_DETECTED, etc.)
+* `status` (PASSED, FAILED, WARNING)
+* `severity` (LOW, MEDIUM, HIGH, CRITICAL)
+* `reason` (human-readable explanation)
+* `input_summary` (first 100 chars for context)
+* `details` (event-specific metadata as JSON)
+* `user_id` (if available)
+* `session_id` (if available)
+* `request_id` (for tracing)
+
+### Event Types
+
+The system must log:
+
+* `QUERY_REJECTED` - Query failed validation
+* `DOCUMENT_REJECTED` - Document failed validation
+* `PII_DETECTED` - PII found in document
+* `PII_FORCE_INGEST` - User override of PII warning
+* `INJECTION_DETECTED` - Prompt injection attempt detected
+* `CONFIG_INVALID` - Configuration validation failed
+* `VALIDATION_PASSED` - Validation succeeded (optional)
+* `REINDEX_STARTED` - Collection reindexing started
+* `REINDEX_COMPLETED` - Collection reindexing completed
+* `COLLECTION_CREATED` - New collection created
+* `COLLECTION_DELETED` - Collection deleted
+* `DOCUMENT_UPSERTED` - Document updated
+* `EVALUATION_RUN` - Evaluation executed
+
+### Audit Log Format
+
+The system must use JSON Lines format with one event per line. Each line contains timestamp, event_type, status, severity, reason, input_summary, and details fields.
+
+### Audit Log Storage
+
+The system must:
+
+* Store audit logs in `logs/audit.jsonl`
+* Rotate logs daily
+* Retain logs for configurable period (default 90 days)
+* Archive old logs to secure storage
+* Restrict file permissions (600 mode)
+
+### Audit Log Analysis
+
+The system must provide CLI commands:
+
+* `view-audit --event-type QUERY_REJECTED` - Filter by event type
+* `view-audit --severity HIGH` - Filter by severity
+* `view-audit --date-range 2026-05-01:2026-05-19` - Filter by date
+* `export-audit --format csv` - Export to CSV
+* `audit-summary` - Generate summary report
+
+### Compliance Reporting
+
+The system must support:
+
+* GDPR compliance check (PII handling audit)
+* HIPAA compliance check (security event audit)
+* PCI-DSS compliance check (data protection audit)
+* Generate compliance reports with evidence
+* Export audit logs for external review
+
+---
+
+## 7.20 Unified Error Handling
+
+The system must implement a unified error handling system with standardized error messages and recovery guidance.
+
+### Error Class Hierarchy
+
+The system must define:
+
+* `RAGError` (base class)
+  * `ValidationError` - Input validation failed
+  * `InjectionDetectedError` - Prompt injection attempt
+  * `SizeLimitExceededError` - Document/query too large
+  * `EncodingError` - Invalid UTF-8 encoding
+  * `ConfigurationError` - Config invalid
+  * `FileNotFoundError_` - File not found
+  * `URLUnreachableError` - URL not accessible
+  * `PDFParseError` - PDF parsing failed
+  * `StorageError` - Database error
+  * `GenerationError` - LLM generation failed
+  * `QueryExecutionError` - Query execution failed
+
+### Error Message Format
+
+Each error must include 4 elements:
+
+1. **Problem** - What was invalid
+2. **Context** - Actual vs. expected values
+3. **Why** - Security/reliability concept being protected
+4. **Recovery** - Actionable steps to fix
+
+Example: A query exceeding maximum length should report the actual length (12,500 characters), the maximum allowed (10,000 characters), explain that long queries cause memory exhaustion, and suggest shortening the query or splitting it into multiple questions.
+
+### Error Severity Levels
+
+The system must classify errors:
+
+* **LOW** - Whitespace, format issues (retry with corrected input)
+* **MEDIUM** - Size limits, PII, encoding (modify source or config)
+* **HIGH** - Injection, suspicious patterns (investigate, don't retry)
+* **CRITICAL** - Config invalid, system misconfiguration (fix config, restart)
+
+### Error Logging
+
+The system must:
+
+* Log all errors with severity and category
+* Enable pattern detection (repeated errors = attacks)
+* Support compliance reporting
+* Track error frequency by type
+* Alert on error rate spikes
+
+### User-Facing Error Messages
+
+The system must provide:
+
+* Clear problem description
+* Context snippet (sanitized)
+* Explanation of why it matters
+* Remediation steps
+* Link to relevant documentation
+
+---
+
+## 7.21 Performance Profiling Dashboard
+
+The system must provide a performance profiling dashboard to identify bottlenecks and optimize the pipeline.
+
+### Dashboard Metrics
+
+The dashboard must display:
+
+* **Query Latency Distribution** (histogram)
+* **Per-Stage Latency** (stacked bar chart)
+* **Bottleneck Identification** (highlight slowest stages)
+* **Token Usage Trends** (line chart)
+* **API Call Count** (bar chart)
+* **Cost per Query** (line chart)
+* **Embedding Cache Hit Rate** (percentage)
+* **Memory Usage** (line chart)
+
+### Performance Alerts
+
+The system must alert when:
+
+* Query latency exceeds threshold (default 5 seconds)
+* Stage latency exceeds threshold (configurable per stage)
+* Token usage exceeds budget
+* API call rate exceeds limit
+* Memory usage exceeds threshold
+* Cost per query exceeds budget
+
+### Bottleneck Analysis
+
+The dashboard must:
+
+* Identify slowest pipeline stage
+* Compare latency across queries
+* Detect performance regressions
+* Suggest optimization strategies
+* Show before/after comparisons
+
+### Metrics Storage
+
+The system must:
+
+* Store metrics in SQLite
+* Support configurable retention (default 30 days)
+* Archive old metrics
+* Enable long-term trend analysis
+
+### Dashboard API
+
+The system must expose:
+
+* `/api/metrics/latency` - Query latency metrics
+* `/api/metrics/stages` - Per-stage latency
+* `/api/metrics/bottlenecks` - Bottleneck analysis
+* `/api/metrics/cost` - Cost analysis
+* `/api/metrics/trends` - Trend analysis
+
+---
+
 ## 8. Non-Functional Requirements
 
 The system must support:
@@ -1598,6 +1969,12 @@ Core components:
 * safety
 * prompt-injection detection
 * evaluation
+* query tracing
+* performance profiling
+* RAGAS metrics
+* provider abstraction
+* audit logging
+* error handling
 * UI/API
 * configuration
 * observability
@@ -1695,25 +2072,9 @@ The system must include feature toggles for:
 * automatic collection detection
 * streaming UI
 
-The system should include a visual pipeline:
+The system should include a visual pipeline showing the sequence: question → pre-retrieval intelligence → classify → rewrite → expand/decompose → route → retrieve → rerank → select context → answer → cite → evaluate
 
-```text
-question → pre-retrieval intelligence → classify → rewrite → expand/decompose → route → retrieve → rerank → select context → answer → cite → evaluate
-```
-
-The visual pipeline should show optional advanced steps when enabled:
-
-```text
-query expansion
-query decomposition
-HyDE generation
-synonym expansion
-dynamic routing
-automatic collection detection
-parent-child expansion
-semantic chunking
-advanced prompt-injection detection
-```
+The visual pipeline should show optional advanced steps when enabled: query expansion, query decomposition, HyDE generation, synonym expansion, dynamic routing, automatic collection detection, parent-child expansion, semantic chunking, advanced prompt-injection detection
 
 Portfolio-facing artifacts should include:
 
