@@ -8,7 +8,8 @@ import re
 from typing import Optional, List, Tuple, Dict, Any
 
 from indexing.base import VectorStore
-from embeddings.openai_client import OpenAIEmbeddingClient
+from providers.base import BaseEmbeddingProvider
+from providers.factory import get_embedding_provider
 from config import get_settings, get_config
 from repositories.chunk_repository import ChunkRepository
 from schemas.chat import AdvancedRetrievalConfig, RerankingTrace, RetrievalTrace, RetrievalRunTrace
@@ -22,22 +23,22 @@ from chat.prompts import (
 )
 from repositories.core import Repository
 from fastapi import Depends
+from providers.base import BaseLLMProvider
+from providers.factory import get_llm_provider
 from chat.utils import parse_json_from_llm
-
-from llm.client import LLMClient, get_llm_client
 
 logger = logging.getLogger(__name__)
 
 
 class QueryIntelligenceService:
     """Service for LLM-powered query intelligence and transformation."""
-    def __init__(self, llm_client: LLMClient):
-        self.llm_client = llm_client
+    def __init__(self, llm_provider: BaseLLMProvider):
+        self.llm_provider = llm_provider
 
     def _call_llm(self, prompt: str) -> str:
-        # LLMClient handles temperature 0.0 internally or via parameters if supported
+        # LLMProvider handles temperature 0.0 internally or via parameters if supported
         # For simplicity, we pass messages and temperature=0.0
-        result = self.llm_client.generate_completion(
+        result = self.llm_provider.generate_completion(
             messages=[{"role": "user", "content": prompt}],
             temperature=0.0,
             stream=False
@@ -96,8 +97,8 @@ class QueryIntelligenceService:
         return {}
 
 
-def get_query_intelligence_service(llm_client: LLMClient = Depends(get_llm_client)) -> QueryIntelligenceService:
-    return QueryIntelligenceService(llm_client)
+def get_query_intelligence_service(llm_provider: BaseLLMProvider = Depends(get_llm_provider)) -> QueryIntelligenceService:
+    return QueryIntelligenceService(llm_provider)
 
 
 
@@ -146,17 +147,17 @@ class RetrievalService:
 
     def __init__(
         self,
-        embedding_client: OpenAIEmbeddingClient,
+        embedding_provider: BaseEmbeddingProvider,
         vector_store: VectorStore,
     ):
         """
         Initialize the retrieval service.
 
         Args:
-            embedding_client: Client for generating embeddings of queries
+            embedding_provider: Provider for generating embeddings of queries
             vector_store: Vector store implementation
         """
-        self.embedding_client = embedding_client
+        self.embedding_provider = embedding_provider
         self.vector_store = vector_store
 
     def retrieve_relevant_chunks(
@@ -193,7 +194,7 @@ class RetrievalService:
         logger.info(f"Retrieving {k} chunks (alpha={alpha}) for query: '{query_text}' (collections={collection_ids})")
 
         # 1. Generate embedding for the query
-        query_embedding = self.embedding_client.embed(query_text)
+        query_embedding = self.embedding_provider.embed(query_text)
 
         # 2. Query Vector Store
         raw_results = self.vector_store.query_hybrid(
@@ -227,20 +228,14 @@ class RetrievalService:
         return formatted_results
 
 
-def get_retrieval_service() -> RetrievalService:
+def get_retrieval_service(
+    embedding_provider: BaseEmbeddingProvider = Depends(get_embedding_provider)
+) -> RetrievalService:
     """Factory function for RetrievalService."""
-    from config import get_settings
     from indexing.weaviate_store import WeaviateVectorStore
 
-    settings = get_settings()
-    config = get_config()
-    embedding_client = OpenAIEmbeddingClient(
-        api_key=settings.embedding_api_key,
-        api_base=settings.embedding_api_base,
-        model=config.ingestion.embedding_model,
-    )
     vector_store = WeaviateVectorStore()
-    return RetrievalService(embedding_client, vector_store)
+    return RetrievalService(embedding_provider, vector_store)
 
 
 from schemas.chat import AdvancedRetrievalConfig, RetrievalTrace, RetrievalRunTrace

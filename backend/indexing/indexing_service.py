@@ -6,7 +6,10 @@ import uuid
 from dataclasses import dataclass
 from typing import Optional
 
-from embeddings.openai_client import OpenAIEmbeddingClient
+from fastapi import Depends
+
+from providers.base import BaseEmbeddingProvider
+from providers.factory import get_embedding_provider
 from indexing.base import VectorStore
 from models.enums import IndexGenerationStatus
 from repositories.chunk_repository import ChunkRepository
@@ -32,7 +35,7 @@ class IndexingService:
 
     def __init__(
         self,
-        embedding_client: OpenAIEmbeddingClient,
+        embedding_provider: BaseEmbeddingProvider,
         vector_store: VectorStore,
         embedding_cache: Optional[EmbeddingCache] = None,
     ):
@@ -40,11 +43,11 @@ class IndexingService:
         Initialize indexing service.
 
         Args:
-            embedding_client: OpenAI embedding client for generating vectors
+            embedding_provider: Provider for generating embeddings
             vector_store: Vector store implementation
             embedding_cache: Optional embedding cache for reusing vectors
         """
-        self.embedding_client = embedding_client
+        self.embedding_provider = embedding_provider
         self.vector_store = vector_store
         self.embedding_cache = embedding_cache or EmbeddingCache()
 
@@ -77,7 +80,7 @@ class IndexingService:
             ValueError: If document or collection doesn't exist
         """
         # Determine effective embedding model (service-configured default if not provided)
-        embedding_model = embedding_model or getattr(self.embedding_cache, "embedding_model", None) or getattr(self.embedding_client, "model", "text-embedding-3-small")
+        embedding_model = embedding_model or getattr(self.embedding_cache, "embedding_model", None) or getattr(self.embedding_provider, "model", "text-embedding-3-small")
 
         # Create generation record
         generation_id = str(uuid.uuid4())
@@ -218,8 +221,8 @@ class IndexingService:
 
         # Create embedding function for cache
         def create_embedding(t: str) -> list[float]:
-            # Embed with the OpenAI client
-            embedding = self.embedding_client.embed(t)
+            # Embed with the provider
+            embedding = self.embedding_provider.embed(t)
             return embedding
 
         # Get or create embedding
@@ -275,19 +278,14 @@ class IndexingService:
         return count + 1
 
 
-def get_indexing_service() -> IndexingService:
+def get_indexing_service(
+    embedding_provider: BaseEmbeddingProvider = Depends(get_embedding_provider)
+) -> IndexingService:
     """Factory function for IndexingService."""
-    from config import get_settings
     from indexing.weaviate_store import WeaviateVectorStore
 
-    settings = get_settings()
-    embedding_client = OpenAIEmbeddingClient(
-        api_key=settings.embedding_api_key,
-        api_base=settings.embedding_api_base,
-        model=settings.embedding_model,
-    )
     vector_store = WeaviateVectorStore()
     return IndexingService(
-        embedding_client=embedding_client,
+        embedding_provider=embedding_provider,
         vector_store=vector_store,
     )

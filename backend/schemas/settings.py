@@ -13,7 +13,7 @@ class IngestionSettings(BaseModel):
     duplicate_detection_method: str = Field(default="content_hash")
     near_duplicate_threshold: float = Field(default=0.95, ge=0.0, le=1.0)
     url_timeout_seconds: int = Field(default_factory=lambda: int(os.getenv("URL_TIMEOUT_SECONDS", "10")))
-    
+
     # Chunking
     chunk_size: int = Field(default=1000, ge=1)
     chunk_overlap: int = Field(default=200, ge=0)
@@ -21,8 +21,9 @@ class IngestionSettings(BaseModel):
     semantic_chunking_enabled: bool = False
     semantic_similarity_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
     parent_child_enabled: bool = False
-    
+
     # Embedding & Vector DB (Infrastructure usually in .env, but some here for experiment)
+    embedding_provider: str = Field(default_factory=lambda: os.getenv("EMBEDDING_PROVIDER", "openai"))
     embedding_model: str = Field(default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"))
     embedding_batch_size: int = Field(default=100, ge=1)
     vector_db_collection: str = "DocumentChunk"

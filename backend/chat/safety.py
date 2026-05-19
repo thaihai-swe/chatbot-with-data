@@ -11,8 +11,8 @@ from typing import List, Dict, Any, Optional
 
 from fastapi import Depends
 from config import get_settings, get_config
-from llm.client import LLMClient, get_llm_client
-from embeddings.openai_client import OpenAIEmbeddingClient
+from providers.base import BaseLLMProvider, BaseEmbeddingProvider
+from providers.factory import get_llm_provider, get_embedding_provider
 from schemas.chat import SafetyTrace, SafetyGroundedness, SafetyAnswerability
 from chat.prompts import SAFETY_CLASSIFICATION_PROMPT
 from chat.utils import parse_json_from_llm
@@ -36,21 +36,15 @@ class SafetyService:
         r"(?i)disable\s+citations",
     ]
 
-    def __init__(self, llm_client: LLMClient, safety_threshold: float = 0.7):
-        self.llm_client = llm_client
+    def __init__(self, llm_provider: BaseLLMProvider, embedding_provider: BaseEmbeddingProvider, safety_threshold: float = 0.7):
+        self.llm_provider = llm_provider
+        self.embedding_provider = embedding_provider
         self.safety_threshold = safety_threshold
         self.patterns = self._load_patterns_from_yaml()
-        self.embedding_client = None
         self._embedding_cache: Dict[str, List[float]] = {}
 
-    def _get_embedding_client(self) -> OpenAIEmbeddingClient:
-        """Lazy initialization of embedding client."""
-        if self.embedding_client is None:
-            self.embedding_client = OpenAIEmbeddingClient()
-        return self.embedding_client
-
     def _generate_embedding(self, text: str) -> List[float]:
-        """Generate embedding for text using OpenAI API with caching."""
+        """Generate embedding for text using embedding provider with caching."""
         # Check cache first
         if text in self._embedding_cache:
             logger.debug(f"Embedding cache hit for text: {text[:50]}...")
@@ -58,8 +52,7 @@ class SafetyService:
 
         # Generate new embedding
         try:
-            client = self._get_embedding_client()
-            embedding = client.embed(text)
+            embedding = self.embedding_provider.embed(text)
 
             # Cache the result
             self._embedding_cache[text] = embedding
@@ -243,7 +236,7 @@ class SafetyService:
         messages = [{"role": "user", "content": prompt}]
 
         try:
-            response_text = self.llm_client.generate_completion(messages)
+            response_text = self.llm_provider.generate_completion(messages)
             # Try to parse JSON from response using utility
             safety_data = parse_json_from_llm(response_text)
 
@@ -317,7 +310,10 @@ class SafetyService:
         return processed_chunks
 
 
-def get_safety_service(llm_client: LLMClient = Depends(get_llm_client)) -> SafetyService:
+def get_safety_service(
+    llm_provider: BaseLLMProvider = Depends(get_llm_provider),
+    embedding_provider: BaseEmbeddingProvider = Depends(get_embedding_provider)
+) -> SafetyService:
     """Factory function for SafetyService."""
     config = get_config()
-    return SafetyService(llm_client, safety_threshold=config.safety.injection_risk_threshold)
+    return SafetyService(llm_provider, embedding_provider, safety_threshold=config.safety.injection_risk_threshold)

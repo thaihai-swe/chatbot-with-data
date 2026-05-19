@@ -11,8 +11,11 @@ from models import DuplicateAction, DuplicateStatus, IngestionStatus, SourceType
 from repositories import Repository
 from storage import LocalStorage
 from chunking.service import get_chunking_service
-from indexing.indexing_service import get_indexing_service
-from chat.safety import get_safety_service
+from indexing.indexing_service import IndexingService
+from indexing.weaviate_store import WeaviateVectorStore
+from chat.safety import SafetyService
+from providers.factory import get_llm_provider, get_embedding_provider
+from config import get_config
 from config import get_settings, get_config, get_settings_manager
 
 logger = logging.getLogger(__name__)
@@ -25,8 +28,25 @@ class IngestionService:
         self.dispatcher = ExtractorDispatcher()
         self.detector = DuplicateDetector()
         self.chunking_service = get_chunking_service()
-        self.indexing_service = get_indexing_service()
-        self.safety_service = get_safety_service()
+
+        # Manually resolve providers (outside FastAPI context)
+        config = get_config()
+        llm_provider = get_llm_provider()
+        embedding_provider = get_embedding_provider()
+
+        # Initialize IndexingService with resolved provider
+        vector_store = WeaviateVectorStore()
+        self.indexing_service = IndexingService(
+            embedding_provider=embedding_provider,
+            vector_store=vector_store
+        )
+
+        # Initialize SafetyService with resolved providers
+        self.safety_service = SafetyService(
+            llm_provider=llm_provider,
+            embedding_provider=embedding_provider,
+            safety_threshold=config.safety.injection_risk_threshold
+        )
 
     async def submit_file_upload(
         self, *, file: UploadFile, collection_ids: list[str]
@@ -322,7 +342,7 @@ class IngestionService:
             # Step 1.5: Safety check on chunks
             from repositories.chunk_repository import ChunkRepository
             chunk_repo = ChunkRepository()
-            chunks = chunk_repo.get_chunks_by_document(document_id)
+            chunks = chunk_repo.list_chunks_by_document(document_id)
 
             # Convert chunks to format expected by safety service
             chunk_dicts = [

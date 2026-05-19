@@ -1,16 +1,16 @@
-from schemas.collections import (
+from .collections import (
     CollectionCreate,
     CollectionResponse,
     CollectionUpdate,
 )
-from schemas.documents import (
+from .documents import (
     DocumentMoveRequest,
     DocumentResponse,
     DocumentSummary,
     DuplicateDecisionRequest,
 )
-from schemas.ingestion import IngestionAttemptResponse, UrlIngestionRequest
-from schemas.chat import (
+from .ingestion import IngestionAttemptResponse, UrlIngestionRequest
+from .chat import (
     ChatSessionCreate,
     ChatSessionResponse,
     ChatTurnCreate,

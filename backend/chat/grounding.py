@@ -5,7 +5,8 @@ import logging
 from typing import List, Dict, Any, Tuple
 
 from config import get_settings, get_config
-from llm.client import LLMClient, get_llm_client
+from providers.base import BaseLLMProvider
+from providers.factory import get_llm_provider
 from chat.prompts import GROUNDEDNESS_EVALUATION_PROMPT
 from chat.utils import parse_json_from_llm
 from fastapi import Depends
@@ -18,7 +19,7 @@ class GroundingService:
 
     def __init__(
         self,
-        llm_client: LLMClient,
+        llm_provider: BaseLLMProvider,
         min_similarity_threshold: float = -0.2,
         min_results_count: int = 1,
     ):
@@ -26,11 +27,11 @@ class GroundingService:
         Initialize the grounding service.
 
         Args:
-            llm_client: Client for LLM evaluation
+            llm_provider: Provider for LLM evaluation
             min_similarity_threshold: Minimum similarity score to consider evidence relevant
             min_results_count: Minimum number of results needed to attempt an answer
         """
-        self.llm_client = llm_client
+        self.llm_provider = llm_provider
         self.min_similarity_threshold = min_similarity_threshold
         self.min_results_count = min_results_count
 
@@ -87,7 +88,7 @@ class GroundingService:
         )
 
         try:
-            response = self.llm_client.generate_completion(
+            response = self.llm_provider.generate_completion(
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.0
             )
@@ -102,11 +103,11 @@ class GroundingService:
         return 0.0, "Evaluation failed due to system error."
 
 
-def get_grounding_service(llm_client: LLMClient = Depends(get_llm_client)) -> GroundingService:
+def get_grounding_service(llm_provider: BaseLLMProvider = Depends(get_llm_provider)) -> GroundingService:
     """Factory function for GroundingService."""
     config = get_config()
     return GroundingService(
-        llm_client=llm_client,
+        llm_provider=llm_provider,
         min_similarity_threshold=config.safety.min_similarity_threshold,
         min_results_count=config.safety.min_results_count,
     )
