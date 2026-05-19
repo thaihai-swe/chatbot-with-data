@@ -550,6 +550,32 @@ Retrieval: Search children (precise)
 Context: Return parents (more context)
 ```
 
+### Query Decomposition
+Break complex multi-part queries into independent sub-queries for comprehensive retrieval.
+
+**When to use:**
+- Comparative questions: "Compare Python vs JavaScript"
+- Multi-aspect queries: "What are the pros, cons, and use cases?"
+- Sequential reasoning: "Why does X happen and what are the consequences?"
+
+**Example:**
+```
+Original: "Compare Python and JavaScript for web development"
+
+Decomposed:
+1. "Python language features and capabilities"
+2. "JavaScript language features and capabilities"
+3. "Performance comparison: Python vs JavaScript"
+4. "Use cases: Python vs JavaScript"
+
+Result: ~20 chunks across all sub-queries (more comprehensive)
+```
+
+**Detection heuristics:**
+- Conjunction keywords: "and", "vs", "versus", "compare", "contrast"
+- Complexity score threshold: if score ≥ 0.5, decompose
+- Dependent indicators: "then", "therefore", "because", "since"
+
 ### Query Routing
 Route queries to different collections or strategies based on intent.
 
@@ -566,23 +592,115 @@ def route_query(query: str) -> str:
         return "default_collection"
 ```
 
-### Reranking
-After initial retrieval, use a reranker model to improve ordering.
+### Reranking: Refining Retrieved Results
+After initial retrieval, use rule-based or ML-based reranking to improve ordering.
 
+**Reranking signals:**
+- Query term overlap: Favor chunks with exact query terms
+- Position bias: Earlier chunks in document ranked higher
+- Structure: Section headings boost score
+- Original relevance: Maintain quality from initial retrieval
+
+**Example:**
 ```python
-from sentence_transformers import CrossEncoder
+# Initial retrieval (hybrid score)
+results = [
+    (chunk_a, 0.92),  # "Overview of ML applications"
+    (chunk_b, 0.88),  # "Deep learning vs classical ML"
+    (chunk_c, 0.85),  # "Why ML matters"
+]
 
-reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+# Rerank with query "machine learning applications examples"
+reranked = [
+    (chunk_a, 0.87),  # Contains "applications", early in doc
+    (chunk_c, 0.82),  # Contains "machine learning"
+    (chunk_b, 0.79),  # No term overlap, later position
+]
+```
 
-# Initial retrieval: 20 chunks
-chunks = retrieve(query, top_k=20)
+**Reranking formula:**
+```
+rerank_score = 0.4 * term_overlap + 0.3 * relevance + 0.2 * position + 0.1 * structure
+```
 
-# Rerank
-scores = reranker.predict([(query, c.text) for c in chunks])
-reranked = sorted(zip(chunks, scores), key=lambda x: x[1], reverse=True)
+### Context Windowing: Token Budget Management
+Manage LLM context limits by selecting highest-scoring chunks within token budget.
 
-# Return top 5 after reranking
-final_chunks = [c for c, _ in reranked[:5]]
+**Problem:** LLMs have fixed context windows (Claude: 200K, GPT-4: 128K, Ollama: ~4K)
+
+**Solution:**
+```
+Retrieved: 10 chunks, 8,500 total chars
+Budget: 5,000 chars
+
+Selected (greedy):
+1. Chunk A: 800 chars (score: 0.92) ✓
+2. Chunk B: 1,200 chars (score: 0.88) ✓
+3. Chunk C: 900 chars (score: 0.85) ✓
+4. Chunk D: 1,100 chars (score: 0.79) ✓
+5. Chunk E: 1,500 chars (score: 0.75) ✗ (would exceed budget)
+
+Final: 4 chunks, 4,000 chars used (80% utilization)
+```
+
+**Configuration:**
+```bash
+RAG_ENABLE_CONTEXT_WINDOWING=true
+RAG_CONTEXT_WINDOW_CHARS=5000
+```
+
+### Entity Resolution & Pronoun Resolution
+Automatically resolve pronouns and references in multi-turn conversations.
+
+**Problem:**
+```
+Turn 1: Q: "What is machine learning?"
+Turn 2: Q: "What about that?"  ← "that" refers to what?
+```
+
+**Solution:**
+```python
+# Extract entities from prior answer
+entities = ["Machine learning", "AI", "algorithms"]
+
+# Resolve pronouns in current query
+resolved_query = "What about machine learning?"  # "that" → "machine learning"
+```
+
+**Pronoun types resolved:**
+- "it", "that", "this" → typically latest entity
+- "they", "them", "those" → plural entities
+- "these" → multi-item reference
+
+### Claim Extraction & Validation
+Extract individual claims from answers and validate confidence levels.
+
+**Confidence levels:**
+```
+HIGH: Direct assertions ("is", "are", "was", "has")
+  Example: "Machine learning is a subset of AI"
+
+MEDIUM: Tempered statements ("may", "might", "suggests", "appears")
+  Example: "Machine learning may reduce costs"
+
+LOW: Highly hedged ("possibly", "probably", "likely", "generally")
+  Example: "Machine learning might possibly reduce costs eventually"
+```
+
+**Validation strategy:**
+```python
+# Extract claims
+claims = claim_extractor.extract(answer_text)
+
+# Validate based on confidence level
+for claim in claims:
+    if claim.confidence_level == HIGH:
+        # Strict validation: must be in source chunks
+        if not fact_validator.validate(claim, chunks):
+            remove_claim(claim)
+    else:
+        # Allow some hedged claims without full support
+        pass
 ```
 
 ---
