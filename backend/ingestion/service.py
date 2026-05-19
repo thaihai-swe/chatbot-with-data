@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from fastapi import UploadFile
 
@@ -11,7 +12,10 @@ from repositories import Repository
 from storage import LocalStorage
 from chunking.service import get_chunking_service
 from indexing.indexing_service import get_indexing_service
+from chat.safety import get_safety_service
 from config import get_settings, get_config, get_settings_manager
+
+logger = logging.getLogger(__name__)
 
 
 class IngestionService:
@@ -22,6 +26,7 @@ class IngestionService:
         self.detector = DuplicateDetector()
         self.chunking_service = get_chunking_service()
         self.indexing_service = get_indexing_service()
+        self.safety_service = get_safety_service()
 
     async def submit_file_upload(
         self, *, file: UploadFile, collection_ids: list[str]
@@ -98,7 +103,7 @@ class IngestionService:
             )
 
             # Start chunking and indexing
-            self._chunk_and_index_document(document_id, attempt)
+            stats = self._chunk_and_index_document(document_id, attempt)
 
             self.repository.update_ingestion_attempt(
                 attempt_id,
@@ -106,6 +111,14 @@ class IngestionService:
                 status=IngestionStatus.COMPLETED.value,
                 completed=True,
             )
+
+            # Log safety statistics
+            if stats["blocked_chunks_count"] > 0:
+                logger.info(
+                    f"Ingestion completed for {attempt_id}: "
+                    f"{stats['blocked_chunks_count']} chunks blocked, "
+                    f"{stats['safe_chunks_count']} chunks indexed"
+                )
         except Exception as exc:
             self.repository.update_ingestion_attempt(
                 attempt_id,
@@ -143,7 +156,13 @@ class IngestionService:
 
         # Start chunking and indexing if completed
         if final_status == IngestionStatus.COMPLETED.value and document_id:
-            self._chunk_and_index_document(document_id, attempt)
+            stats = self._chunk_and_index_document(document_id, attempt)
+            if stats["blocked_chunks_count"] > 0:
+                logger.info(
+                    f"Duplicate decision ingestion for {attempt_id}: "
+                    f"{stats['blocked_chunks_count']} chunks blocked, "
+                    f"{stats['safe_chunks_count']} chunks indexed"
+                )
 
         decision = self.repository.create_duplicate_decision(
             ingestion_attempt_id=attempt_id,
@@ -242,8 +261,12 @@ class IngestionService:
         )
         return created["id"]
 
-    def _chunk_and_index_document(self, document_id: str, attempt: dict) -> None:
-        """Trigger chunking and indexing for a document."""
+    def _chunk_and_index_document(self, document_id: str, attempt: dict) -> dict:
+        """Trigger chunking and indexing for a document.
+
+        Returns:
+            dict with statistics including blocked_chunks_count
+        """
         # Get extracted text
         # Note: we use attempt instead of re-fetching document for performance if available
         text = attempt.get("extracted_text")
@@ -252,12 +275,12 @@ class IngestionService:
             text = doc["extracted_text"]
 
         if not text:
-            return
+            return {"blocked_chunks_count": 0, "total_chunks_count": 0}
 
         # Determine strategy from config or source_type
         config = get_config()
         strategy = config.ingestion.chunking_strategy
-        
+
         # Override strategy based on source type if it's "fixed" (default)
         if strategy == "fixed":
             if attempt["source_type"] == SourceType.PDF.value:
@@ -281,6 +304,9 @@ class IngestionService:
         weaviate_store = WeaviateVectorStore()
         weaviate_store.delete_by_document(document_id)
 
+        total_blocked = 0
+        total_chunks = 0
+
         for collection_id in collection_ids:
             self.chunking_service.chunk_document(
                 document_id=document_id,
@@ -293,13 +319,66 @@ class IngestionService:
                 overlap=config.ingestion.chunk_overlap,
             )
 
-            # Step 2: Indexing
+            # Step 1.5: Safety check on chunks
+            from repositories.chunk_repository import ChunkRepository
+            chunk_repo = ChunkRepository()
+            chunks = chunk_repo.get_chunks_by_document(document_id)
+
+            # Convert chunks to format expected by safety service
+            chunk_dicts = [
+                {
+                    "chunk_id": chunk["id"],
+                    "text": chunk["text"],
+                    "document_id": chunk["document_id"],
+                }
+                for chunk in chunks
+            ]
+
+            # Run safety checks
+            checked_chunks = self.safety_service.check_chunks(chunk_dicts)
+
+            # Filter out high-risk chunks
+            safe_chunk_ids = [
+                c["chunk_id"] for c in checked_chunks if c.get("safety_risk") != "high"
+            ]
+            high_risk_chunks = [
+                c for c in checked_chunks if c.get("safety_risk") == "high"
+            ]
+
+            # Delete high-risk chunks from database
+            for chunk in high_risk_chunks:
+                chunk_repo.delete_chunk(chunk["chunk_id"])
+                logger.warning(
+                    f"Blocked chunk {chunk['chunk_id']} from document {document_id}: "
+                    f"matched_patterns={chunk.get('safety_matched_patterns', [])}, "
+                    f"fuzzy_similarity={chunk.get('safety_fuzzy_similarity', 0.0):.3f}"
+                )
+
+            # Log results
+            high_risk_count = len(high_risk_chunks)
+            safe_count = len(safe_chunk_ids)
+            total_blocked += high_risk_count
+            total_chunks += len(chunk_dicts)
+
+            if high_risk_count > 0:
+                logger.warning(
+                    f"Filtered {high_risk_count} high-risk chunks from document {document_id}. "
+                    f"{safe_count} safe chunks will be indexed."
+                )
+
+            # Step 2: Indexing (only safe chunks will be indexed)
             self.indexing_service.index_document(
                 document_id=document_id,
                 collection_id=collection_id,
                 embedding_model=config.ingestion.embedding_model,
                 strategy=strategy,
             )
+
+        return {
+            "blocked_chunks_count": total_blocked,
+            "total_chunks_count": total_chunks,
+            "safe_chunks_count": total_chunks - total_blocked,
+        }
 
 
 

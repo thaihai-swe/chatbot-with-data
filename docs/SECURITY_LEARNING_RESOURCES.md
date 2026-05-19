@@ -6,6 +6,19 @@ This guide curates reputable learning resources to help you understand security 
 
 Prompt injection is when users manipulate language models through specially crafted input.
 
+### System Implementation
+
+- **[Prompt Injection Detection System](./PROMPT_INJECTION_DETECTION.md)** (This System)
+  - What: Complete documentation of our implemented detection system
+  - Why useful: Understand how this system protects against prompt injection
+  - Features: 49 patterns, fuzzy detection, 3 safety modes, ingestion-time filtering
+  - Time: 30 minutes
+
+- **[Prompt Injection Testing Guide](./PROMPT_INJECTION_TESTING_GUIDE.md)** (This System)
+  - What: Test cases and procedures for validating detection
+  - Why useful: Verify system security through practical testing
+  - Time: 20 minutes
+
 ### Articles & Guides
 
 - **[Prompt Injection Attacks Explained](https://owasp.org/www-community/attacks/Prompt_Injection)** (OWASP)
@@ -291,6 +304,6 @@ These resources are provided for educational purposes. Security is an evolving f
 
 ---
 
-Last updated: April 2026
+Last updated: May 2026
 
 For questions or corrections, please open an issue on the project repository.

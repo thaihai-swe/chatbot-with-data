@@ -1,0 +1,205 @@
+injection_patterns:
+  sql:
+  - pattern: SQL OR-based injection
+    regex: (?i)('\s+OR\s+'1'\s*=\s*'1)
+    severity: high
+    description: Detects SQL OR 1=1 style injection attempts
+  - pattern: SQL UNION SELECT injection
+    regex: (?i)UNION\s+SELECT
+    severity: high
+    description: Detects SQL UNION SELECT injection attempts
+  - pattern: SQL DROP TABLE injection
+    regex: (?i)DROP\s+TABLE
+    severity: high
+    description: Detects SQL DROP TABLE injection attempts
+  - pattern: SQL INSERT INTO injection
+    regex: (?i)INSERT\s+INTO
+    severity: high
+    description: Detects SQL INSERT INTO injection attempts
+  - pattern: SQL UPDATE SET injection
+    regex: (?i)UPDATE\s+.+\s+SET
+    severity: high
+    description: Detects SQL UPDATE SET injection attempts
+  - pattern: SQL DELETE FROM injection
+    regex: (?i)DELETE\s+FROM
+    severity: high
+    description: Detects SQL DELETE FROM injection attempts
+  nosql:
+  - pattern: NoSQL $ne operator
+    regex: (?i)\$ne
+    severity: high
+    description: Detects NoSQL $ne (not equal) operator injection
+  - pattern: NoSQL $gt operator
+    regex: (?i)\$gt
+    severity: high
+    description: Detects NoSQL $gt (greater than) operator injection
+  - pattern: NoSQL $lt operator
+    regex: (?i)\$lt
+    severity: high
+    description: Detects NoSQL $lt (less than) operator injection
+  - pattern: NoSQL $where operator
+    regex: (?i)\$where
+    severity: high
+    description: Detects NoSQL $where operator injection
+  - pattern: NoSQL regex injection
+    regex: '(?i)\{\s*"\$regex"\s*:'
+    severity: high
+    description: Detects NoSQL regex operator injection
+  ldap:
+  - pattern: LDAP wildcard injection
+    regex: (?i)\*\)\(uid=\*
+    severity: high
+    description: Detects LDAP wildcard injection attempts
+  - pattern: LDAP admin wildcard
+    regex: (?i)admin\*
+    severity: medium
+    description: Detects LDAP admin wildcard injection
+  - pattern: LDAP OR injection
+    regex: (?i)\*\)\)\(&
+    severity: high
+    description: Detects LDAP OR-based injection
+  - pattern: LDAP uid wildcard
+    regex: (?i)\*\)\(\|\(uid=\*
+    severity: high
+    description: Detects LDAP uid wildcard injection
+  xss:
+  - pattern: XSS script tag
+    regex: (?i)<script[^>]*>
+    severity: high
+    description: Detects XSS script tag injection
+  - pattern: XSS javascript protocol
+    regex: '(?i)javascript:'
+    severity: high
+    description: 'Detects XSS javascript: protocol injection'
+  - pattern: XSS onerror handler
+    regex: (?i)onerror\s*=
+    severity: high
+    description: Detects XSS onerror event handler injection
+  - pattern: XSS onload handler
+    regex: (?i)onload\s*=
+    severity: high
+    description: Detects XSS onload event handler injection
+  - pattern: XSS iframe tag
+    regex: (?i)<iframe[^>]*>
+    severity: high
+    description: Detects XSS iframe tag injection
+  - pattern: XSS img src injection
+    regex: (?i)<img[^>]+src\s*=
+    severity: medium
+    description: Detects XSS img src injection
+  command:
+  - pattern: Command injection semicolon rm
+    regex: (?i);\s*rm\s+-rf
+    severity: high
+    description: Detects command injection with rm -rf
+  - pattern: Command injection pipe cat
+    regex: (?i)\|\s*cat
+    severity: high
+    description: Detects command injection with pipe to cat
+  - pattern: Command injection dollar parenthesis
+    regex: (?i)\$\(whoami\)
+    severity: high
+    description: Detects command injection with $(whoami)
+  - pattern: Command injection backticks
+    regex: (?i)`whoami`
+    severity: high
+    description: Detects command injection with backticks
+  - pattern: Command injection AND rm
+    regex: (?i)&&\s*rm
+    severity: high
+    description: Detects command injection with && rm
+  - pattern: Command injection OR cat
+    regex: (?i)\|\|\s*cat
+    severity: high
+    description: Detects command injection with || cat
+  - pattern: Command injection redirect null
+    regex: (?i)>\s*/dev/null
+    severity: medium
+    description: Detects command injection with redirect to /dev/null
+  - pattern: Command injection read passwd
+    regex: (?i)<\s*/etc/passwd
+    severity: high
+    description: Detects command injection reading /etc/passwd
+  path:
+  - pattern: Path traversal unix
+    regex: (?i)\.\./\.\./\.\./etc/passwd
+    severity: high
+    description: Detects Unix path traversal to /etc/passwd
+  - pattern: Path traversal windows
+    regex: (?i)\.\.\\\.\.\\\.\\\\windows
+    severity: high
+    description: Detects Windows path traversal
+  - pattern: Path traversal URL encoded
+    regex: (?i)%2e%2e%2f
+    severity: high
+    description: Detects URL-encoded path traversal
+  - pattern: Path traversal double encoding
+    regex: (?i)\.\.\.//\.\.\.//\.\.\./
+    severity: high
+    description: Detects double-encoded path traversal
+  code:
+  - pattern: Python eval injection
+    regex: (?i)eval\(
+    severity: high
+    description: Detects Python eval() injection
+  - pattern: Python exec injection
+    regex: (?i)exec\(
+    severity: high
+    description: Detects Python exec() injection
+  - pattern: Python import injection
+    regex: (?i)__import__
+    severity: high
+    description: Detects Python __import__ injection
+  - pattern: Python subprocess injection
+    regex: (?i)subprocess\.call
+    severity: high
+    description: Detects Python subprocess.call injection
+  - pattern: Python os.system injection
+    regex: (?i)os\.system
+    severity: high
+    description: Detects Python os.system injection
+  - pattern: Python pickle injection
+    regex: (?i)pickle\.loads
+    severity: high
+    description: Detects Python pickle.loads injection
+  - pattern: Python compile injection
+    regex: (?i)compile\(
+    severity: high
+    description: Detects Python compile() injection
+  prompt_override:
+  - pattern: Ignore previous instructions
+    regex: (?i)ignore\s+previous\s+instructions
+    severity: high
+    description: Detects attempts to ignore previous instructions
+  - pattern: Disregard all previous
+    regex: (?i)disregard\s+all\s+previous
+    severity: high
+    description: Detects attempts to disregard previous instructions
+  - pattern: Reveal system prompt
+    regex: (?i)reveal\s+your\s+system\s+prompt
+    severity: high
+    description: Detects attempts to reveal system prompt
+  - pattern: System instructions
+    regex: (?i)system\s+instructions
+    severity: medium
+    description: Detects references to system instructions
+  - pattern: You are now a
+    regex: (?i)you\s+are\s+now\s+a
+    severity: high
+    description: Detects role override attempts
+  - pattern: New rule
+    regex: '(?i)new\s+rule:'
+    severity: high
+    description: Detects attempts to add new rules
+  - pattern: Instead of answering
+    regex: (?i)instead\s+of\s+answering
+    severity: high
+    description: Detects attempts to change behavior
+  - pattern: Do not cite sources
+    regex: (?i)do\s+not\s+cite\s+sources
+    severity: medium
+    description: Detects attempts to disable citations
+  - pattern: Disable citations
+    regex: (?i)disable\s+citations
+    severity: medium
+    description: Detects attempts to disable citations

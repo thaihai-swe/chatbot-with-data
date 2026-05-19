@@ -167,7 +167,10 @@ graph TB
 | | Deduplication | DedupCheck (similarity-based) | ✅ Complete |
 | | Backup/restore | SQLite dump/restore | ✅ Complete |
 | | Reindexing | Weaviate re-index | ✅ Complete |
-| **Input Validation & Security** | Query injection detection | InjectionDetect (40+ patterns) | ✅ Complete |
+| **Input Validation & Security** | Query injection detection | InjectionDetect (49 patterns, 8 categories) | ✅ Complete |
+| | Fuzzy injection detection | Embedding-based similarity (70% threshold) | ✅ Complete |
+| | Safety modes | Strict/Moderate/Lenient (0.5/0.7/0.9) | ✅ Complete |
+| | Ingestion-time safety | Chunk-level filtering during upload | ✅ Complete |
 | | PII scanning | PIIDetect (email, phone, SSN, card) | ✅ Complete |
 | | PII suppression | Redaction before ingestion | ✅ Complete |
 | | Security audit trail | AuditLog (JSONL format) | ✅ Complete |
@@ -292,7 +295,10 @@ sequenceDiagram
 - **Context Window**: Selects highest-scoring chunks within token budget
 
 ### Safety & Validation
-- **Query Validator**: Detects injection patterns (SQL, NoSQL, XSS, command)
+- **Query Validator**: Detects injection patterns (49 patterns across 8 categories: SQL, NoSQL, LDAP, XSS, command, path traversal, code execution, prompt override)
+- **Fuzzy Injection Detector**: Embedding-based similarity detection (70% threshold) catches typo variants and obfuscated attacks
+- **Safety Modes**: Configurable strict/moderate/lenient modes (0.5/0.7/0.9 thresholds)
+- **Ingestion Safety**: Chunk-level filtering during document upload to prevent malicious content indexing
 - **PII Detector**: Identifies sensitive data (email, phone, SSN, card)
 - **Claim Extractor**: Parses claims with confidence levels
 - **Fact Validator**: Verifies claims against source chunks

@@ -317,13 +317,51 @@ curl -X POST http://localhost:8000/ingestion/file-upload \
 
 ---
 
+## Security Features
+
+The system includes comprehensive security features to protect against attacks and ensure compliance:
+
+### Prompt Injection Detection
+
+The system automatically detects and blocks malicious queries using:
+- **49 patterns** across 8 attack categories (SQL, NoSQL, LDAP, XSS, command injection, path traversal, code execution, prompt override)
+- **Fuzzy detection** using embeddings to catch typo variants and obfuscated attacks
+- **Three safety modes**: strict (0.5), moderate (0.7), lenient (0.9) thresholds
+- **Ingestion-time filtering** to prevent malicious content from being indexed
+
+**Configuration:**
+```bash
+# In .env file
+SAFETY_MODE=moderate  # Options: strict, moderate, lenient
+EMBEDDING_API_KEY=sk-...  # Required for fuzzy detection
+```
+
+**Documentation:**
+- See [`PROMPT_INJECTION_DETECTION.md`](./PROMPT_INJECTION_DETECTION.md) for complete feature documentation
+- See [`PROMPT_INJECTION_TESTING_GUIDE.md`](./PROMPT_INJECTION_TESTING_GUIDE.md) for testing procedures
+
+### Testing Security Features
+
+```bash
+# Run security tests
+cd backend
+pytest tests/test_safety.py -v
+
+# Check blocked queries in logs
+grep "Malicious pattern detected" logs/app.log
+grep "Blocked chunk" logs/app.log
+```
+
+---
+
 ## Next Steps
 
-1. **Read the Architecture Overview**: See [`architecture-overview.md`](./architecture-overview.md) to understand system components and how they interact
+1. **Read the Architecture Overview**: See [`system-architecture.md`](./system-architecture.md) to understand system components and how they interact
 2. **Explore API Flows**: Check [`api-flows.md`](./api-flows.md) for detailed endpoint documentation with request/response examples
 3. **Learn RAG Concepts**: Review [`ai-learning.md`](./ai-learning.md) for ingestion pipeline, embeddings, hybrid search, grounding, and safety filters
 4. **Check Database Schema**: See [`database-schema.md`](./database-schema.md) for data model details, table definitions, and access patterns
 5. **Review System Flow**: Look at [`diagrams/system-flow.md`](./diagrams/system-flow.md) for end-to-end flow diagrams and sequence charts
+6. **Understand Security**: Review [`PROMPT_INJECTION_DETECTION.md`](./PROMPT_INJECTION_DETECTION.md) for security features and [`SECURITY_LEARNING_RESOURCES.md`](./SECURITY_LEARNING_RESOURCES.md) for learning resources
 
 ---
 

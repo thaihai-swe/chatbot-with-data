@@ -8,11 +8,16 @@ A production-ready Retrieval-Augmented Generation (RAG) system with hybrid searc
 
 ### Core Documentation
 - **[Onboarding Guide](docs/onboarding.md)** - Environment setup, installation, and verification steps
-- **[Architecture Overview](docs/architecture-overview.md)** - System components and interaction flow
+- **[System Architecture](docs/system-architecture.md)** - System components and interaction flow
 - **[AI Learning Guide](docs/ai-learning.md)** - RAG concepts, embeddings, hybrid search, and grounding
 - **[API Flows](docs/api-flows.md)** - Detailed endpoint documentation with examples
 - **[Database Schema](docs/database-schema.md)** - Data models and storage architecture
 - **[System Flow Diagrams](docs/diagrams/system-flow.md)** - Visual end-to-end workflows
+
+### Security Documentation
+- **[Prompt Injection Detection](docs/PROMPT_INJECTION_DETECTION.md)** - Advanced security with 49 patterns, fuzzy detection, 3 safety modes
+- **[Prompt Injection Testing Guide](docs/PROMPT_INJECTION_TESTING_GUIDE.md)** - Test cases and validation procedures
+- **[Security Learning Resources](docs/SECURITY_LEARNING_RESOURCES.md)** - Educational resources for security concepts
 
 ---
 

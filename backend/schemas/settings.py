@@ -51,9 +51,16 @@ class LLMSettings(BaseModel):
     chat_history_limit: int = Field(default_factory=lambda: int(os.getenv("MAX_HISTORY_TURNS", "10")))
     streaming_enabled: bool = True
 
+class SafetyMode(str, Enum):
+    """Safety mode configuration for prompt injection detection."""
+    STRICT = "strict"
+    MODERATE = "moderate"
+    LENIENT = "lenient"
+
 class SafetySettings(BaseModel):
     groundedness_check_enabled: bool = True
     prompt_injection_detection_enabled: bool = True
+    safety_mode: SafetyMode = Field(default_factory=lambda: SafetyMode(os.getenv("SAFETY_MODE", "moderate")))
     injection_risk_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
     refusal_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
     min_similarity_threshold: float = Field(default_factory=lambda: float(os.getenv("MIN_SIMILARITY_THRESHOLD", "0.1")))
