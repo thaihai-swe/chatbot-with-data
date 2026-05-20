@@ -35,6 +35,12 @@ class AdvancedRetrievalConfig(BaseModel):
     reranker_model: Optional[str] = Field(None, description="Model to use for reranking")
     reranker_top_k: Optional[int] = Field(None, description="Final number of chunks to return after reranking")
     enable_parent_child: bool = Field(True, description="Enable parent-child chunk retrieval")
+    enable_collection_routing: bool = Field(False, description="Enable automatic collection routing")
+    collection_routing_threshold: float = Field(0.7, description="Confidence threshold for collection routing")
+    collection_routing_max_collections: int = Field(3, description="Max collections to route to")
+    enable_multi_hop: bool = Field(False, description="Enable multi-hop reasoning for complex queries")
+    max_hops: int = Field(3, description="Maximum number of reasoning hops (1-5)")
+    multi_hop_timeout_ms: int = Field(30000, description="Timeout for multi-hop queries in milliseconds")
 
 
 class ChatTurnCreate(BaseModel):
@@ -79,6 +85,31 @@ class RerankingTrace(BaseModel):
     latency_ms: Optional[int] = None
 
 
+class CollectionRoutingTrace(BaseModel):
+    routing_decision: List[str] = Field(default_factory=list, description="Collection IDs selected by routing")
+    confidence: Optional[float] = Field(None, description="Confidence score for routing decision (0.0-1.0)")
+    reasoning: Optional[str] = Field(None, description="LLM reasoning for collection selection")
+    fallback_reason: Optional[str] = Field(None, description="Reason for fallback to all collections")
+    latency_ms: Optional[int] = Field(None, description="Latency of routing decision in milliseconds")
+
+
+class ReasoningStep(BaseModel):
+    hop_number: int = Field(..., description="Sequential hop number (1-indexed)")
+    sub_question: str = Field(..., description="Sub-question for this hop")
+    retrieved_chunk_ids: List[str] = Field(default_factory=list, description="Chunk IDs retrieved for this hop")
+    intermediate_answer: Optional[str] = Field(None, description="Generated intermediate answer for this hop")
+    latency_ms: Optional[int] = Field(None, description="Latency for this hop in milliseconds")
+    failure: Optional[str] = Field(None, description="Failure reason if hop failed")
+
+
+class ReasoningChainTrace(BaseModel):
+    hops: List[ReasoningStep] = Field(default_factory=list, description="List of reasoning hops")
+    total_hops: int = Field(0, description="Total number of hops executed")
+    fallback_triggered: bool = Field(False, description="Whether fallback to original query was triggered")
+    fallback_reason: Optional[str] = Field(None, description="Reason for fallback if triggered")
+    total_latency_ms: Optional[int] = Field(None, description="Total latency for multi-hop reasoning in milliseconds")
+
+
 class RetrievalTrace(BaseModel):
     original_query: str
     classification: Optional[str] = None
@@ -87,6 +118,8 @@ class RetrievalTrace(BaseModel):
     retrieval_runs: List[RetrievalRunTrace] = Field(default_factory=list)
     merged_candidates_count: int = 0
     reranking: Optional[RerankingTrace] = None
+    collection_routing: Optional[CollectionRoutingTrace] = None
+    reasoning_chain: Optional[ReasoningChainTrace] = None
     parent_child_expansions_count: int = 0
     execution_time_ms: dict[str, int] = Field(default_factory=dict)
 

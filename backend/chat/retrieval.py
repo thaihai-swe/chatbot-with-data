@@ -13,6 +13,7 @@ from providers.factory import get_embedding_provider
 from config import get_settings, get_config
 from repositories.chunk_repository import ChunkRepository
 from schemas.chat import AdvancedRetrievalConfig, RerankingTrace, RetrievalTrace, RetrievalRunTrace
+from chat.multi_hop import MultiHopRetrievalOrchestrator
 from chat.prompts import (
     QUERY_CLASSIFICATION_PROMPT,
     QUERY_EXPANSION_PROMPT,
@@ -355,6 +356,34 @@ class AdvancedRetrievalService:
             t0 = time.time()
             trace.transformations.sub_questions = self.query_intelligence_service.decompose_query(query_text)
             trace.execution_time_ms["decomposition"] = int((time.time() - t0) * 1000)
+
+        # Multi-hop reasoning integration
+        if config.enable_multi_hop and trace.transformations.sub_questions and len(trace.transformations.sub_questions) > 1:
+            logger.info("Multi-hop enabled with multiple sub-questions, using MultiHopRetrievalOrchestrator")
+            try:
+                orchestrator = MultiHopRetrievalOrchestrator(
+                    retrieval_service=self,
+                    llm_client=self.query_intelligence_service.llm_provider.generate
+                )
+                chunks, reasoning_chain = orchestrator.execute_multi_hop(
+                    query=query_text,
+                    sub_questions=trace.transformations.sub_questions,
+                    config=config,
+                    collection_ids=collection_ids or []
+                )
+                trace.reasoning_chain = reasoning_chain
+                trace.merged_candidates_count = len(chunks)
+
+                # Apply reranking if enabled
+                if config.enable_reranking and chunks:
+                    top_k_rerank = config.reranker_top_k or k
+                    chunks, rerank_trace = self.reranking_service.rerank(query_text, chunks, top_k_rerank)
+                    trace.reranking = rerank_trace
+
+                return chunks, trace
+            except Exception as e:
+                logger.error(f"Multi-hop execution failed: {e}, falling back to parallel retrieval")
+                # Continue with parallel retrieval on failure
 
         if config.enable_hyde:
             t0 = time.time()

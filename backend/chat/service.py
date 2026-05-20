@@ -9,6 +9,7 @@ from typing import Optional
 from fastapi import Depends
 
 from chat.retrieval import AdvancedRetrievalService, get_advanced_retrieval_service
+from chat.collection_routing import CollectionRoutingService
 from chat.context import ContextService, get_context_service
 from chat.generation import GenerationService, get_generation_service
 from chat.citations import CitationService, get_citation_service
@@ -98,12 +99,34 @@ class ChatService:
         # 3. Retrieve chunks
         if advanced_config is None:
             advanced_config = AdvancedRetrievalConfig()
-            
+
+        # 3.1 Collection routing (if enabled)
+        collection_ids = session.collection_ids
+        routing_trace = None
+        if advanced_config.enable_collection_routing and not collection_ids:
+            # Only route if session has no pre-selected collections
+            try:
+                routing_service = CollectionRoutingService()
+                routed_ids, routing_trace = routing_service.route_to_collections(
+                    query_text,
+                    confidence_threshold=getattr(advanced_config, 'collection_routing_threshold', 0.7),
+                    max_collections=getattr(advanced_config, 'collection_routing_max_collections', 3)
+                )
+                # Use routed collections if routing succeeded, else keep empty (fallback to all)
+                collection_ids = routed_ids if routed_ids else []
+            except Exception as e:
+                logger.error(f"Collection routing failed: {e}, falling back to all collections")
+                collection_ids = []
+
         retrieved_chunks, trace = self.advanced_retrieval_service.retrieve(
             query_text=query_text,
             config=advanced_config,
-            collection_ids=session.collection_ids,
+            collection_ids=collection_ids,
         )
+
+        # Attach routing trace to retrieval trace if available
+        if routing_trace and trace:
+            trace.collection_routing = routing_trace
 
         # 4. Chunk safety check
         checked_chunks = self.safety_service.check_chunks(retrieved_chunks)
