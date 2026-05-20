@@ -1939,7 +1939,276 @@ The system must expose:
 
 ---
 
-## 8. Non-Functional Requirements
+## 7.22 Hybrid Search Optimization (BM25 + Dense)
+
+The system must optimize hybrid search by learning the best balance between keyword (BM25) and semantic (vector) search per query type.
+
+**Acceptance Criteria:**
+- Entity queries (product names, IDs, dates) use keyword-heavy search (alpha < 0.3)
+- Conceptual queries use semantic search (alpha > 0.7)
+- Retrieval precision improves by 15-20% compared to fixed alpha
+- Per-collection hybrid weight configuration supported
+- A/B testing framework for hybrid strategies
+
+---
+
+## 7.23 Semantic Caching with Embedding Similarity
+
+The system must cache query results based on semantic similarity, not exact matches.
+
+**Acceptance Criteria:**
+- Semantically similar queries hit cache (cosine similarity > 0.95)
+- 50-70% latency reduction for cached queries
+- Cache hit rate > 30% after warmup
+- TTL-based invalidation working
+- Distributed cache support (Redis)
+
+---
+
+## 7.24 Retrieval Fallback Strategies & Graceful Degradation
+
+The system must have fallback strategies to ensure it never returns empty results.
+
+**Acceptance Criteria:**
+- Fallback chain working (Primary → Secondary → Tertiary → Last resort)
+- Timeout-based fallback triggered
+- Confidence-based fallback triggered
+- Fallback metrics tracked
+- User notified when fallback used
+- System never returns empty results
+
+---
+
+## 7.25 Budget Management & Cost Control
+
+The system must manage costs and prevent budget overruns.
+
+**Acceptance Criteria:**
+- Budget limits enforced (per-user, per-collection, global)
+- Real-time cost tracking
+- Alerts triggered
+- Rate limiting working
+- Dashboard shows trends
+- Cost optimization recommendations
+
+---
+
+## 7.26 A/B Testing Framework for Retrieval Strategies
+
+The system must support A/B testing to safely experiment with new strategies.
+
+**Acceptance Criteria:**
+- Experiments can be defined
+- Traffic splitting working
+- Metrics collected
+- Statistical testing functional
+- Dashboard shows results
+- Automatic winner selection working
+
+---
+
+## 7.27 Document-Level Access Control & Row-Level Security
+
+The system must support fine-grained access control for multi-tenant enterprise use.
+
+**Acceptance Criteria:**
+- Document-level permissions enforced
+- User roles and groups working
+- Retrieval filtered by permissions
+- Audit logging functional
+- Permission caching working
+- Identity provider integration working
+
+---
+
+## 7.28 Contextual Chunk Retrieval (Parent-Child)
+
+The system must retrieve chunks with surrounding context to provide complete answers.
+
+**Acceptance Criteria:**
+- All chunks have parent-child relationships (document → section → chunk)
+- Retrieved chunks include parent context
+- "Expand context" option fetches surrounding chunks
+- Document metadata visible in chunks (title, section, page number)
+- Context window managed correctly
+
+---
+
+## 7.29 Adaptive Retrieval Strategy (Query Routing)
+
+The system must route queries to appropriate retrieval strategies based on query complexity.
+
+**Acceptance Criteria:**
+- Simple queries routed to fast path (<1s latency)
+- Complex queries routed to full pipeline
+- Entity queries use keyword-heavy search
+- Comparison queries use multi-hop reasoning
+- User feedback improves routing accuracy
+- 40-60% latency reduction for simple queries
+
+---
+
+## 7.30 Query Preprocessing Pipeline
+
+The system must preprocess queries to handle typos, abbreviations, and informal language.
+
+**Acceptance Criteria:**
+- Typos corrected automatically
+- Abbreviations expanded using domain-specific dictionary
+- Domain terms mapped correctly (e.g., "auth" → "authentication")
+- Preprocessing trace visible in debug mode
+- Improved retrieval recall
+
+---
+
+## 7.31 Chunk Metadata Enrichment
+
+The system must extract and store structured metadata for each chunk.
+
+**Acceptance Criteria:**
+- Entities extracted from all chunks (NER: people, organizations, products, dates)
+- Topics/categories assigned
+- Dates extracted and normalized
+- Document types classified
+- Metadata filtering improves precision
+- Metadata search API functional
+
+---
+
+## 7.32 Query Intent Classification
+
+The system must classify queries by intent and route to specialized pipelines.
+
+**Acceptance Criteria:**
+- Intents classified with >90% accuracy (Factual, Comparison, How-to, Troubleshooting, Exploratory)
+- Specialized pipelines per intent
+- How-to queries return step-by-step answers
+- Comparison queries use structured comparison
+- Troubleshooting queries prioritize error logs
+
+---
+
+## 7.33 Retrieval Confidence Scoring
+
+The system must score confidence of retrieval results and trigger fallbacks when uncertain.
+
+**Acceptance Criteria:**
+- Confidence scores accurate (correlate with answer quality)
+- Low confidence (<0.5) triggers clarification request
+- Medium confidence (0.5-0.8) adds disclaimer
+- High confidence (>0.8) proceeds normally
+- Confidence visible in UI
+
+---
+
+## 7.34 Document Freshness & Versioning
+
+The system must track document versions and prioritize recent content.
+
+**Acceptance Criteria:**
+- All documents have timestamps and versions
+- Recent documents boosted in retrieval
+- Version comparison API functional
+- Old versions deprecated
+- Freshness filtering works (e.g., "last 30 days")
+
+---
+
+## 7.35 Retrieval Result Explanation & Transparency
+
+The system must explain why chunks were retrieved and how decisions were made.
+
+**Acceptance Criteria:**
+- Each chunk has explanation of why it was retrieved
+- Decision tree shows retrieval strategy
+- Matching terms highlighted
+- Alternative chunks shown
+- Reranking decisions explained
+- Multi-hop chain explained
+- Explanations user-friendly
+
+---
+
+## 7.36 Retrieval Augmentation with External APIs
+
+The system must support fetching real-time data from external APIs.
+
+**Acceptance Criteria:**
+- External APIs integrated (REST, GraphQL, gRPC)
+- Real-time data fetched during retrieval
+- Results merged with internal chunks
+- Caching working
+- Rate limiting enforced
+- Health monitoring functional
+
+---
+
+## 7.37 Conversational Context Compression
+
+The system must compress long conversation histories to reduce token usage.
+
+**Acceptance Criteria:**
+- Old turns summarized
+- Key facts extracted
+- Context compressed
+- Compression ratio configurable
+- Compression trace visible
+- Token usage reduced by 30-50%
+
+---
+
+## 7.38 Query Suggestion & Intelligent Autocomplete
+
+The system must suggest queries to help users formulate better questions.
+
+**Acceptance Criteria:**
+- Real-time suggestions (<50ms latency)
+- Autocomplete working
+- "Did you mean?" functional
+- Related queries shown
+- Trending queries visible
+- 30-40% reduction in failed queries
+
+---
+
+## 7.39 Graph-Based Retrieval & Knowledge Graph Integration
+
+The system must support relationship-based retrieval using knowledge graphs.
+
+**Acceptance Criteria:**
+- Entities extracted and linked
+- Relationships extracted
+- Graph built and queryable
+- Graph-based retrieval working
+- Hybrid retrieval functional
+- Graph visualization working
+
+---
+
+## 7.40 Entity Resolution & Multi-turn Enhancement
+
+The system must preserve context across multi-turn conversations.
+
+**Acceptance Criteria:**
+- Multi-turn conversations preserve context
+- Pronouns resolved correctly
+- Ambiguity handled gracefully
+- Coreference chains working
+
+---
+
+## 7.41 Secure Ingestion Workflow
+
+The system must validate and secure all ingested documents.
+
+**Acceptance Criteria:**
+- All validation checks working
+- PII detection with sensitivity levels
+- Collection-level policies enforced
+- Path traversal attacks prevented
+- Size validation working
+
+---
 
 The system must support:
 
