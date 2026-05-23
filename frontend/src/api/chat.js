@@ -57,7 +57,7 @@ export async function runSanityCheck() {
  * @param {string} queryText 
  * @param {Object} callbacks - { onStatus, onToken, onCitations, onError, onDone }
  */
-export function streamChatTurn(sessionId, queryText, advancedConfig, { 
+export function streamChatTurn(sessionId, queryText, { 
   onStatus, 
   onToken, 
   onCitations,
@@ -70,7 +70,7 @@ export function streamChatTurn(sessionId, queryText, advancedConfig, {
   fetch(`${API_BASE_URL}/chat/sessions/${sessionId}/turns/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query_text: queryText, advanced_config: advancedConfig }),
+    body: JSON.stringify({ query_text: queryText }),
     signal: controller.signal,
   }).then(async (response) => {
     if (!response.ok) {

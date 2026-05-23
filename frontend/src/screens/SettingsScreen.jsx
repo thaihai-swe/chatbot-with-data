@@ -135,6 +135,51 @@ const SettingsScreen = () => {
                 <option value="hybrid">Hybrid</option>
               </select>
             </SettingsField>
+
+            <h3 style={{ margin: "24px 0 16px", fontSize: "14px", borderBottom: "1px solid var(--border)", paddingBottom: "8px" }}>Advanced Retrieval</h3>
+            
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <SettingsField label="Intelligence (LLM Routing)" description="Enable LLM to classify and process queries.">
+                <input type="checkbox" checked={settings.retrieval.intelligence_enabled} onChange={(e) => handleUpdate('retrieval', 'intelligence_enabled', e.target.checked)} />
+              </SettingsField>
+              
+              <SettingsField label="Dynamic Routing" description="Route queries to different strategies based on classification.">
+                <input type="checkbox" checked={settings.retrieval.dynamic_routing_enabled} onChange={(e) => handleUpdate('retrieval', 'dynamic_routing_enabled', e.target.checked)} />
+              </SettingsField>
+
+              <SettingsField label="Query Expansion" description="Generate variations of the query.">
+                <input type="checkbox" checked={settings.retrieval.query_expansion_enabled} onChange={(e) => handleUpdate('retrieval', 'query_expansion_enabled', e.target.checked)} />
+              </SettingsField>
+
+              <SettingsField label="Query Decomposition" description="Break complex queries into sub-questions.">
+                <input type="checkbox" checked={settings.retrieval.query_decomposition_enabled} onChange={(e) => handleUpdate('retrieval', 'query_decomposition_enabled', e.target.checked)} />
+              </SettingsField>
+
+              <SettingsField label="HyDE" description="Hypothetical Document Embeddings for better semantic matching.">
+                <input type="checkbox" checked={settings.retrieval.hyde_enabled} onChange={(e) => handleUpdate('retrieval', 'hyde_enabled', e.target.checked)} />
+              </SettingsField>
+
+              <SettingsField label="Synonym Expansion" description="Identify and expand domain-specific synonyms.">
+                <input type="checkbox" checked={settings.retrieval.synonym_expansion_enabled} onChange={(e) => handleUpdate('retrieval', 'synonym_expansion_enabled', e.target.checked)} />
+              </SettingsField>
+
+              <SettingsField label="Reranking" description="Use a cross-encoder to rerank retrieved chunks.">
+                <input type="checkbox" checked={settings.retrieval.reranker_enabled} onChange={(e) => handleUpdate('retrieval', 'reranker_enabled', e.target.checked)} />
+              </SettingsField>
+
+              <SettingsField label="Parent-Child Retrieval" description="Retrieve larger parent context when a child chunk is found.">
+                <input type="checkbox" checked={settings.retrieval.parent_child_enabled} onChange={(e) => handleUpdate('retrieval', 'parent_child_enabled', e.target.checked)} />
+              </SettingsField>
+
+              <SettingsField label="Multi-Hop Reasoning" description="Enable iterative reasoning across multiple documents.">
+                <input type="checkbox" checked={settings.retrieval.multi_hop_enabled} onChange={(e) => handleUpdate('retrieval', 'multi_hop_enabled', e.target.checked)} />
+              </SettingsField>
+
+              <SettingsField label="Collection Routing" description="Dynamically route queries to specific collections.">
+                <input type="checkbox" checked={settings.retrieval.collection_routing_enabled} onChange={(e) => handleUpdate('retrieval', 'collection_routing_enabled', e.target.checked)} />
+              </SettingsField>
+            </div>
+
           </div>
         </section>
 
@@ -152,6 +197,16 @@ const SettingsScreen = () => {
                 step="100"
                 value={settings.ingestion.chunk_size} 
                 onChange={(e) => handleUpdate('ingestion', 'chunk_size', parseInt(e.target.value))}
+              />
+            </SettingsField>
+            <SettingsField 
+              label="Embedding Model" 
+              description="The model to use for vector embeddings."
+            >
+              <input 
+                type="text" 
+                value={settings.ingestion.embedding_model} 
+                onChange={(e) => handleUpdate('ingestion', 'embedding_model', e.target.value)}
               />
             </SettingsField>
             <SettingsField 
@@ -179,6 +234,16 @@ const SettingsScreen = () => {
                 type="checkbox" 
                 checked={settings.safety.groundedness_check_enabled} 
                 onChange={(e) => handleUpdate('safety', 'groundedness_check_enabled', e.target.checked)}
+              />
+            </SettingsField>
+            <SettingsField 
+              label="Fuzzy Matching Detection" 
+              description="Use embeddings to detect semantic prompt injections."
+            >
+              <input 
+                type="checkbox" 
+                checked={settings.safety.fuzzy_matching_enabled} 
+                onChange={(e) => handleUpdate('safety', 'fuzzy_matching_enabled', e.target.checked)}
               />
             </SettingsField>
             <SettingsField 

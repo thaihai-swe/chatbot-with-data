@@ -28,7 +28,7 @@ class Settings:
     uploads_dir: Path = field(default_factory=lambda: get_env_path("UPLOADS_DIR", "data/knowledge_ingestion/uploads"))
     snapshots_dir: Path = field(default_factory=lambda: get_env_path("SNAPSHOTS_DIR", "data/knowledge_ingestion/snapshots"))
     run_artifacts_dir: Path = field(default_factory=lambda: get_env_path("RUN_ARTIFACTS_DIR", "data/knowledge_ingestion/runs"))
-    settings_file: Path = field(default_factory=lambda: get_env_path("SETTINGS_FILE", "data/knowledge_ingestion/settings.json"))
+    settings_file: Path = field(default_factory=lambda: get_env_path("SETTINGS_FILE", "config/settings.json"))
 
     cors_origins: tuple[str, ...] = field(default_factory=lambda: tuple(
         origin.strip()
@@ -46,8 +46,6 @@ class Settings:
     openai_api_base: Optional[str] = field(default_factory=lambda: os.getenv("OPENAI_API_BASE"))
     embedding_api_key: Optional[str] = field(default_factory=lambda: os.getenv("EMBEDDING_API_KEY", os.getenv("OPENAI_API_KEY")))
     embedding_api_base: Optional[str] = field(default_factory=lambda: os.getenv("EMBEDDING_API_BASE", os.getenv("OPENAI_API_BASE")))
-    chat_model: str = field(default_factory=lambda: os.getenv("CHAT_MODEL", "gpt-4o"))
-    embedding_model: str = field(default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"))
 
     # Vector Store Settings
     vector_store_provider: str = field(default_factory=lambda: os.getenv("VECTOR_STORE_PROVIDER", "weaviate"))
@@ -56,14 +54,6 @@ class Settings:
     weaviate_url: str = field(default_factory=lambda: os.getenv("WEAVIATE_URL", "http://localhost:8080"))
     weaviate_api_key: Optional[str] = field(default_factory=lambda: os.getenv("WEAVIATE_API_KEY"))
     weaviate_collection_name: str = field(default_factory=lambda: os.getenv("WEAVIATE_COLLECTION_NAME", "DocumentChunk"))
-
-    # RAG Settings
-    context_window_size: int = field(default_factory=lambda: int(os.getenv("CONTEXT_WINDOW_SIZE", "128000")))
-    max_history_turns: int = field(default_factory=lambda: int(os.getenv("MAX_HISTORY_TURNS", "10")))
-    retrieval_k: int = field(default_factory=lambda: int(os.getenv("RETRIEVAL_K", "10")))
-    min_similarity_threshold: float = field(default_factory=lambda: float(os.getenv("MIN_SIMILARITY_THRESHOLD", "0.1")))
-    min_results_count: int = field(default_factory=lambda: int(os.getenv("MIN_RESULTS_COUNT", "1")))
-    safety_risk_threshold: float = field(default_factory=lambda: float(os.getenv("SAFETY_RISK_THRESHOLD", "0.7")))
 
     # Logging Settings
     log_level: str = field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO"))

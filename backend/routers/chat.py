@@ -147,8 +147,7 @@ def submit_turn(
     try:
         return chat_service.process_turn(
             session_id,
-            payload.query_text,
-            advanced_config=payload.advanced_config
+            payload.query_text
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -166,8 +165,7 @@ async def submit_turn_stream(
     return StreamingResponse(
         orchestrator.stream_turn(
             session_id,
-            payload.query_text,
-            advanced_config=payload.advanced_config,
+            payload.query_text
         ),
         media_type="text/event-stream",
     )

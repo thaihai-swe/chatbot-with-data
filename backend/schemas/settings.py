@@ -12,7 +12,7 @@ class IngestionSettings(BaseModel):
     duplicate_detection_enabled: bool = True
     duplicate_detection_method: str = Field(default="content_hash")
     near_duplicate_threshold: float = Field(default=0.95, ge=0.0, le=1.0)
-    url_timeout_seconds: int = Field(default_factory=lambda: int(os.getenv("URL_TIMEOUT_SECONDS", "10")))
+    url_timeout_seconds: int = Field(default=10)
 
     # Chunking
     chunk_size: int = Field(default=1000, ge=1)
@@ -23,8 +23,8 @@ class IngestionSettings(BaseModel):
     parent_child_enabled: bool = False
 
     # Embedding & Vector DB (Infrastructure usually in .env, but some here for experiment)
-    embedding_provider: str = Field(default_factory=lambda: os.getenv("EMBEDDING_PROVIDER", "openai"))
-    embedding_model: str = Field(default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"))
+    embedding_provider: str = Field(default="openai")
+    embedding_model: str = Field(default="text-embedding-3-small")
     embedding_batch_size: int = Field(default=100, ge=1)
     vector_db_collection: str = "DocumentChunk"
 
@@ -41,15 +41,23 @@ class RetrievalSettings(BaseModel):
     reranker_enabled: bool = False
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     reranker_top_n: int = Field(default=3, ge=1)
+    intelligence_enabled: bool = True
+    parent_child_enabled: bool = True
+    collection_routing_enabled: bool = False
+    collection_routing_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+    collection_routing_max_collections: int = Field(default=3, ge=1)
+    multi_hop_enabled: bool = False
+    max_hops: int = Field(default=3, ge=1, le=5)
+    multi_hop_timeout_ms: int = Field(default=30000, ge=1000)
 
 class LLMSettings(BaseModel):
     provider: str = "openai"
-    model: str = Field(default_factory=lambda: os.getenv("CHAT_MODEL", "gpt-4o"))
+    model: str = Field(default="gpt-4o")
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
     max_tokens: int = Field(default=1000, ge=1)
-    context_window_size: int = Field(default_factory=lambda: int(os.getenv("CONTEXT_WINDOW_SIZE", "128000")))
+    context_window_size: int = Field(default=128000)
     system_prompt_template: Optional[str] = None
-    chat_history_limit: int = Field(default_factory=lambda: int(os.getenv("MAX_HISTORY_TURNS", "10")))
+    chat_history_limit: int = Field(default=10)
     streaming_enabled: bool = True
 
 class SafetyMode(str, Enum):
@@ -61,11 +69,12 @@ class SafetyMode(str, Enum):
 class SafetySettings(BaseModel):
     groundedness_check_enabled: bool = True
     prompt_injection_detection_enabled: bool = True
-    safety_mode: SafetyMode = Field(default_factory=lambda: SafetyMode(os.getenv("SAFETY_MODE", "moderate")))
+    fuzzy_matching_enabled: bool = True
+    safety_mode: SafetyMode = Field(default=SafetyMode.MODERATE)
     injection_risk_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
     refusal_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
-    min_similarity_threshold: float = Field(default_factory=lambda: float(os.getenv("MIN_SIMILARITY_THRESHOLD", "0.1")))
-    min_results_count: int = Field(default_factory=lambda: int(os.getenv("MIN_RESULTS_COUNT", "1")))
+    min_similarity_threshold: float = Field(default=0.1)
+    min_results_count: int = Field(default=1)
 
 class EvaluationSettings(BaseModel):
     enabled_metrics: List[str] = Field(default=["faithfulness", "answer_relevance"])

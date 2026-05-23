@@ -62,7 +62,9 @@ class OpenAILLMProvider(BaseLLMProvider):
         self, messages: List[Dict[str, str]], temperature: Optional[float]
     ) -> str:
         """Generate non-streaming completion."""
-        kwargs = {"model": self.model, "messages": messages}
+        from config import get_config
+        model = get_config().llm.model
+        kwargs = {"model": model, "messages": messages}
         if temperature is not None:
             kwargs["temperature"] = temperature
 
@@ -74,7 +76,9 @@ class OpenAILLMProvider(BaseLLMProvider):
         self, messages: List[Dict[str, str]], temperature: Optional[float]
     ) -> Iterator[str]:
         """Generate streaming completion."""
-        kwargs = {"model": self.model, "messages": messages, "stream": True}
+        from config import get_config
+        model = get_config().llm.model
+        kwargs = {"model": model, "messages": messages, "stream": True}
         if temperature is not None:
             kwargs["temperature"] = temperature
 
@@ -127,7 +131,8 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
             raise ValueError("No API key provided and EMBEDDING_API_KEY/OPENAI_API_KEY not set")
 
         self.api_base = api_base or os.getenv("EMBEDDING_API_BASE") or os.getenv("OPENAI_API_BASE")
-        self.model = model or os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+        from config import get_config
+        self.model = model or get_config().ingestion.embedding_model
         self.max_retries = max_retries
         self.timeout = timeout
 
@@ -159,7 +164,9 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
             raise ValueError("Text cannot be empty")
 
         try:
-            response = self.client.embeddings.create(input=[text], model=self.model)
+            from config import get_config
+            model = get_config().ingestion.embedding_model
+            response = self.client.embeddings.create(input=[text], model=model)
             embedding = response.data[0].embedding
 
             # Track usage
@@ -200,7 +207,9 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
             batch = texts[i : i + batch_size]
 
             try:
-                response = self.client.embeddings.create(input=batch, model=self.model)
+                from config import get_config
+                model = get_config().ingestion.embedding_model
+                response = self.client.embeddings.create(input=batch, model=model)
 
                 # Extract embeddings in order
                 batch_embeddings = [item.embedding for item in response.data]
@@ -236,7 +245,9 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
         Returns:
             Cost in dollars
         """
-        price_per_million = self.PRICING.get(self.model, 0.0)
+        from config import get_config
+        model = get_config().ingestion.embedding_model
+        price_per_million = self.PRICING.get(model, 0.0)
         return (tokens / 1_000_000) * price_per_million
 
     def get_stats(self) -> dict:
@@ -245,12 +256,13 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
         Returns:
             Dictionary with api_calls, failed_calls, total_tokens, total_cost, model
         """
+        from config import get_config
         return {
             "api_calls": self.api_calls,
             "failed_calls": self.failed_calls,
             "total_tokens": self.total_tokens,
             "total_cost": self.total_cost,
-            "model": self.model,
+            "model": get_config().ingestion.embedding_model,
         }
 
     def reset_stats(self):

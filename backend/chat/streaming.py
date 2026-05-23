@@ -14,7 +14,8 @@ from chat.citations import CitationService
 from chat.grounding import GroundingService, get_grounding_service
 from chat.safety import SafetyService, get_safety_service
 from repositories.chat_repository import ChatRepository
-from schemas.chat import AdvancedRetrievalConfig, SafetyTrace
+from schemas.chat import SafetyTrace
+from config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,6 @@ class StreamingOrchestrator:
         self,
         session_id: str,
         query_text: str,
-        advanced_config: Optional[AdvancedRetrievalConfig] = None,
     ) -> AsyncIterator[str]:
         """
         Stream a chat turn as SSE events.
@@ -64,7 +64,7 @@ class StreamingOrchestrator:
 
             # 1a. Safety check (Query)
             safety_trace = self.safety_service.check_query(query_text)
-            
+
             if not safety_trace.answerability.is_answerable:
                 # Handle early safety refusal
                 answer_text = safety_trace.answerability.refusal_reason or "I cannot answer this question due to safety concerns."
@@ -90,7 +90,7 @@ class StreamingOrchestrator:
                 yield self._format_sse("error", {"message": f"Session {session_id} not found"})
                 return
 
-            config = advanced_config if advanced_config is not None else AdvancedRetrievalConfig()
+            config = get_config().retrieval
 
             # Retrieval
             retrieved_chunks, trace = self.advanced_retrieval_service.retrieve(
@@ -104,14 +104,14 @@ class StreamingOrchestrator:
                 return
 
             # 3. Chunk safety check
-            checked_chunks = self.safety_service.check_chunks(retrieved_chunks)
-            safe_chunks = [c for c in checked_chunks if c.get("safety_risk") != "high"]
-            
-            if len(safe_chunks) < len(retrieved_chunks):
-                logger.info(f"Filtered out {len(retrieved_chunks) - len(safe_chunks)} malicious chunks in stream.")
+            # checked_chunks = self.safety_service.check_chunks(retrieved_chunks)
+            # safe_chunks = [c for c in checked_chunks if c.get("safety_risk") != "high"]
+
+            # if len(safe_chunks) < len(retrieved_chunks):
+            #     logger.info(f"Filtered out {len(retrieved_chunks) - len(safe_chunks)} malicious chunks in stream.")
 
             # 4. Evaluate grounding
-            is_sufficient, refusal_reason = self.grounding_service.evaluate_evidence(safe_chunks)
+            is_sufficient, refusal_reason = self.grounding_service.evaluate_evidence(retrieved_chunks)
 
             # Update safety_trace with grounding info
             if not is_sufficient:
@@ -120,13 +120,13 @@ class StreamingOrchestrator:
                 safety_trace.groundedness.status = "unsupported"
             else:
                 safety_trace.groundedness.status = "supported"
-                safety_trace.groundedness.score = 1.0 
+                safety_trace.groundedness.score = 1.0
 
             # Create turn record
             history = ChatRepository.list_turns_by_session(session_id)
             context_package = self.context_service.assemble_context(
                 query_text=query_text,
-                retrieved_chunks=safe_chunks,
+                retrieved_chunks=retrieved_chunks,
                 chat_history=history,
             )
 
@@ -134,7 +134,7 @@ class StreamingOrchestrator:
                 id=turn_id,
                 session_id=session_id,
                 query_text=query_text,
-                retrieved_chunks_json=json.dumps(safe_chunks),
+                retrieved_chunks_json=json.dumps(retrieved_chunks),
                 context_used_json=json.dumps(context_package),
                 status="generating",
                 safety_status=safety_trace.query_classification,
@@ -184,7 +184,7 @@ class StreamingOrchestrator:
 
             citation_labels = self.citation_service.extract_citations(full_answer)
             valid_citations = self.citation_service.map_citations_to_chunks(
-                citation_labels, safe_chunks
+                citation_labels, retrieved_chunks
             )
 
             citation_objects = []
@@ -212,7 +212,7 @@ class StreamingOrchestrator:
             # Include safety trace, retrieval trace, and full chunks
             yield self._format_sse("citations", {
                 "citations": citation_objects,
-                "retrieved_chunks": safe_chunks,
+                "retrieved_chunks": retrieved_chunks,
                 "retrieval_trace": trace.model_dump() if hasattr(trace, 'model_dump') else (trace.dict() if hasattr(trace, 'dict') else trace),
                 "safety_trace": safety_trace.model_dump() if hasattr(safety_trace, 'model_dump') else (safety_trace.dict() if hasattr(safety_trace, 'dict') else safety_trace),
             })

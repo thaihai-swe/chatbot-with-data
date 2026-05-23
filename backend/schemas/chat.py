@@ -20,32 +20,8 @@ class ChatSessionResponse(BaseModel):
     updated_at: str
 
 
-class AdvancedRetrievalConfig(BaseModel):
-    retrieval_mode: Optional[str] = Field(None, description="Override global search mode (semantic, keyword, hybrid)")
-    hybrid_weight: Optional[float] = Field(None, description="Override global hybrid weight (0.0 to 1.0)")
-    enable_intelligence: bool = Field(True, description="Enable query classification and pre-retrieval intelligence")
-    enable_rewriting: bool = Field(True, description="Enable query normalization (Rewriting)")
-    enable_expansion: bool = Field(True, description="Enable LLM-based query expansion")
-    expansion_count: int = Field(3, description="Number of expanded queries to generate")
-    enable_decomposition: bool = Field(True, description="Enable decomposition of complex multi-hop queries")
-    enable_hyde: bool = Field(True, description="Enable Hypothetical Document Embeddings (HyDE)")
-    enable_synonym_expansion: bool = Field(True, description="Enable synonym mapping")
-    enable_dynamic_routing: bool = Field(True, description="Enable dynamic routing based on query classification")
-    enable_reranking: bool = Field(True, description="Enable post-retrieval reranking")
-    reranker_model: Optional[str] = Field(None, description="Model to use for reranking")
-    reranker_top_k: Optional[int] = Field(None, description="Final number of chunks to return after reranking")
-    enable_parent_child: bool = Field(True, description="Enable parent-child chunk retrieval")
-    enable_collection_routing: bool = Field(False, description="Enable automatic collection routing")
-    collection_routing_threshold: float = Field(0.7, description="Confidence threshold for collection routing")
-    collection_routing_max_collections: int = Field(3, description="Max collections to route to")
-    enable_multi_hop: bool = Field(False, description="Enable multi-hop reasoning for complex queries")
-    max_hops: int = Field(3, description="Maximum number of reasoning hops (1-5)")
-    multi_hop_timeout_ms: int = Field(30000, description="Timeout for multi-hop queries in milliseconds")
-
-
 class ChatTurnCreate(BaseModel):
     query_text: str = Field(..., min_length=1)
-    advanced_config: Optional[AdvancedRetrievalConfig] = Field(default_factory=AdvancedRetrievalConfig)
 
 
 class CitationResponse(BaseModel):

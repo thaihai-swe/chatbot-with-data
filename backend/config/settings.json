@@ -1,0 +1,76 @@
+{
+    "ingestion": {
+        "allowed_file_types": [
+            "pdf",
+            "txt",
+            "md"
+        ],
+        "max_file_size_mb": 50,
+        "url_ingestion_enabled": true,
+        "reingest_behavior": "skip",
+        "duplicate_handling": "detect",
+        "duplicate_detection_enabled": true,
+        "duplicate_detection_method": "content_hash",
+        "near_duplicate_threshold": 0.95,
+        "url_timeout_seconds": 10,
+        "chunk_size": 1000,
+        "chunk_overlap": 200,
+        "chunking_strategy": "fixed",
+        "semantic_chunking_enabled": false,
+        "semantic_similarity_threshold": 0.1,
+        "parent_child_enabled": true,
+        "embedding_provider": "openai",
+        "embedding_model": "openrouter/openai/text-embedding-3-small",
+        "embedding_batch_size": 100,
+        "vector_db_collection": "DocumentChunk"
+    },
+    "retrieval": {
+        "retrieval_mode": "hybrid",
+        "top_k": 20,
+        "hybrid_weight": 0.5,
+        "query_expansion_enabled": true,
+        "query_expansion_count": 3,
+        "query_decomposition_enabled": false,
+        "hyde_enabled": false,
+        "synonym_expansion_enabled": true,
+        "dynamic_routing_enabled": true,
+        "reranker_enabled": true,
+        "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+        "reranker_top_n": 5,
+        "intelligence_enabled": true,
+        "parent_child_enabled": true,
+        "collection_routing_enabled": false,
+        "collection_routing_threshold": 0.7,
+        "collection_routing_max_collections": 3,
+        "multi_hop_enabled": true,
+        "max_hops": 3,
+        "multi_hop_timeout_ms": 30000
+    },
+    "llm": {
+        "provider": "openai",
+        "model": "rag-combo",
+        "temperature": 0.0,
+        "max_tokens": 1000,
+        "context_window_size": 128000,
+        "system_prompt_template": null,
+        "chat_history_limit": 10,
+        "streaming_enabled": true
+    },
+    "safety": {
+        "groundedness_check_enabled": true,
+        "prompt_injection_detection_enabled": true,
+        "safety_mode": "moderate",
+        "injection_risk_threshold": 0.7,
+        "refusal_threshold": 0.5,
+        "min_similarity_threshold": 0.3,
+        "min_results_count": 1
+    },
+    "evaluation": {
+        "enabled_metrics": [
+            "faithfulness",
+            "answer_relevance"
+        ],
+        "latency_tracking_enabled": true,
+        "token_usage_tracking_enabled": true
+    }
+}

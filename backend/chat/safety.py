@@ -7,7 +7,7 @@ import json
 import yaml
 import math
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 from fastapi import Depends
 from config import get_settings, get_config
@@ -20,146 +20,21 @@ from chat.utils import parse_json_from_llm
 logger = logging.getLogger(__name__)
 
 
-class SafetyService:
-    """Service for query classification and prompt-injection detection."""
+class HeuristicScanner:
+    """Handles heuristic (regex-based) pattern matching for safety checks."""
 
-    # Common prompt-injection patterns
-    INJECTION_PATTERNS = [
-        r"(?i)ignore\s+previous\s+instructions",
-        r"(?i)disregard\s+all\s+previous",
-        r"(?i)reveal\s+your\s+system\s+prompt",
-        r"(?i)system\s+instructions",
-        r"(?i)you\s+are\s+now\s+a",
-        r"(?i)new\s+rule:",
-        r"(?i)instead\s+of\s+answering",
-        r"(?i)do\s+not\s+cite\s+sources",
-        r"(?i)disable\s+citations",
-    ]
-
-    def __init__(self, llm_provider: BaseLLMProvider, embedding_provider: BaseEmbeddingProvider, safety_threshold: float = 0.7):
-        self.llm_provider = llm_provider
-        self.embedding_provider = embedding_provider
-        self.safety_threshold = safety_threshold
+    def __init__(self):
         self.patterns = self._load_patterns_from_yaml()
-        self._embedding_cache: Dict[str, List[float]] = {}
-
-    def _generate_embedding(self, text: str) -> List[float]:
-        """Generate embedding for text using embedding provider with caching."""
-        # Check cache first
-        if text in self._embedding_cache:
-            logger.debug(f"Embedding cache hit for text: {text[:50]}...")
-            return self._embedding_cache[text]
-
-        # Generate new embedding
-        try:
-            embedding = self.embedding_provider.embed(text)
-
-            # Cache the result
-            self._embedding_cache[text] = embedding
-            logger.debug(f"Embedding cached for text: {text[:50]}...")
-
-            return embedding
-        except Exception as e:
-            logger.error(f"Failed to generate embedding: {str(e)}")
-            return []
-
-    def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
-        """Calculate cosine similarity between two vectors."""
-        if not vec1 or not vec2:
-            return 0.0
-
-        if len(vec1) != len(vec2):
-            logger.warning(f"Vector dimension mismatch: {len(vec1)} vs {len(vec2)}")
-            return 0.0
-
-        # Calculate dot product
-        dot_product = sum(a * b for a, b in zip(vec1, vec2))
-
-        # Calculate magnitudes
-        magnitude1 = math.sqrt(sum(a * a for a in vec1))
-        magnitude2 = math.sqrt(sum(b * b for b in vec2))
-
-        # Avoid division by zero
-        if magnitude1 == 0.0 or magnitude2 == 0.0:
-            return 0.0
-
-        # Calculate cosine similarity
-        similarity = dot_product / (magnitude1 * magnitude2)
-
-        return similarity
-
-    def _check_fuzzy(self, query: str, similarity_threshold: float = 0.70) -> float:
-        """
-        Check query against injection corpus using fuzzy matching.
-
-        Args:
-            query: Query text to check
-            similarity_threshold: Minimum similarity to consider a match
-
-        Returns:
-            Maximum similarity score found (0.0 to 1.0)
-        """
-        # Load corpus
-        corpus_path = Path(__file__).parent.parent / "config" / "injection_corpus.json"
-        try:
-            with open(corpus_path, "r") as f:
-                corpus_data = json.load(f)
-            corpus_examples = corpus_data.get("examples", [])
-        except Exception as e:
-            logger.error(f"Failed to load injection corpus: {str(e)}")
-            logger.info("Falling back to regex-only detection (no fuzzy matching)")
-            return 0.0
-
-        # Generate embedding for query
-        query_embedding = self._generate_embedding(query)
-        if not query_embedding:
-            logger.warning("Failed to generate query embedding for fuzzy check")
-            logger.info("Falling back to regex-only detection (no fuzzy matching)")
-            return 0.0
-
-        # Calculate similarity with each corpus example
-        max_similarity = 0.0
-        try:
-            for example in corpus_examples:
-                example_embedding = self._generate_embedding(example)
-                if not example_embedding:
-                    continue
-
-                similarity = self._cosine_similarity(query_embedding, example_embedding)
-                if similarity > max_similarity:
-                    max_similarity = similarity
-
-                # Early exit if we found a strong match
-                if similarity >= similarity_threshold:
-                    logger.warning(f"Fuzzy match detected: query='{query}' similar to '{example}' (score={similarity:.3f})")
-                    break
-        except Exception as e:
-            logger.error(f"Error during fuzzy similarity calculation: {str(e)}")
-            logger.info("Falling back to regex-only detection (no fuzzy matching)")
-            return 0.0
-
-        return max_similarity
-
-    def _get_threshold_for_mode(self, mode: str) -> float:
-        """Get the risk threshold for a given safety mode."""
-        threshold_map = {
-            "strict": 0.5,
-            "moderate": 0.7,
-            "lenient": 0.9
-        }
-        return threshold_map.get(mode, 0.7)
 
     def _validate_pattern(self, pattern_entry: Dict[str, Any], category: str) -> bool:
         """Validate a single pattern entry from YAML."""
         required_fields = ["pattern", "regex", "severity", "description"]
 
-        # Check required fields
         for field in required_fields:
             if field not in pattern_entry:
                 logger.warning(f"Pattern in category '{category}' missing required field '{field}'")
                 return False
 
-        # Validate regex
         regex = pattern_entry.get("regex")
         try:
             re.compile(regex)
@@ -167,7 +42,6 @@ class SafetyService:
             logger.warning(f"Invalid regex in category '{category}': {regex} - {str(e)}")
             return False
 
-        # Validate severity
         severity = pattern_entry.get("severity")
         if severity not in ["high", "medium", "low"]:
             logger.warning(f"Invalid severity '{severity}' in category '{category}'. Must be high, medium, or low")
@@ -198,62 +72,194 @@ class SafetyService:
 
         except Exception as e:
             logger.error(f"Failed to load patterns from YAML: {str(e)}")
-            logger.warning("Falling back to hardcoded INJECTION_PATTERNS")
-            return self.INJECTION_PATTERNS
+            logger.warning("Returning empty pattern list since YAML failed to load")
+            return []
 
-    def _check_heuristics(self, text: str) -> List[str]:
-        """Check text against heuristic patterns."""
+    def scan(self, text: str) -> List[str]:
+        """Check text against heuristic patterns and return matched ones."""
         matched = []
         for pattern in self.patterns:
             if re.search(pattern, text):
                 matched.append(pattern)
         return matched
 
-    def check_query(self, query: str, safety_mode: str = "moderate") -> SafetyTrace:
+
+# Global cache for the injection corpus embeddings to avoid re-computing on every request
+_GLOBAL_CORPUS_EMBEDDINGS: List[List[float]] = []
+_CORPUS_LOADED: bool = False
+
+class FuzzyScanner:
+    """Handles semantic embedding-based fuzzy matching for safety checks."""
+
+    def __init__(self, embedding_provider: BaseEmbeddingProvider):
+        self.embedding_provider = embedding_provider
+        self._embedding_cache: Dict[str, List[float]] = {}
+        self._ensure_corpus_loaded()
+
+    def _ensure_corpus_loaded(self):
+        """Load and embed corpus only once globally."""
+        global _GLOBAL_CORPUS_EMBEDDINGS, _CORPUS_LOADED
+        if _CORPUS_LOADED:
+            return
+
+        corpus_path = Path(__file__).parent.parent / "config" / "injection_corpus.json"
+        cache_path = Path(__file__).parent.parent / "config" / "injection_corpus_embeddings.json"
+        
+        try:
+            # Check if we have a valid pre-computed cache file that is newer than the source corpus
+            if cache_path.exists() and cache_path.stat().st_mtime > corpus_path.stat().st_mtime:
+                with open(cache_path, "r") as f:
+                    cache_data = json.load(f)
+                _GLOBAL_CORPUS_EMBEDDINGS = cache_data.get("embeddings", [])
+                logger.info(f"Loaded {len(_GLOBAL_CORPUS_EMBEDDINGS)} pre-computed injection corpus embeddings from disk cache.")
+            else:
+                with open(corpus_path, "r") as f:
+                    corpus_data = json.load(f)
+                corpus_examples = corpus_data.get("examples", [])
+                
+                # Pre-compute all embeddings for the corpus
+                if corpus_examples:
+                    logger.info(f"Pre-computing embeddings for {len(corpus_examples)} fuzzy injection examples...")
+                    _GLOBAL_CORPUS_EMBEDDINGS = self.embedding_provider.embed_batch(corpus_examples)
+                    
+                    # Save to disk cache to avoid re-computation on next server restart
+                    with open(cache_path, "w") as f:
+                        json.dump({
+                            "embeddings": _GLOBAL_CORPUS_EMBEDDINGS
+                        }, f)
+                    logger.info("Saved pre-computed embeddings to disk cache.")
+            
+            _CORPUS_LOADED = True
+        except Exception as e:
+            logger.error(f"Failed to load or embed injection corpus: {str(e)}")
+            logger.info("Falling back to regex-only detection (no fuzzy matching)")
+
+    def _generate_embedding(self, text: str) -> List[float]:
+        """Generate embedding for text using embedding provider with caching."""
+        if text in self._embedding_cache:
+            return self._embedding_cache[text]
+
+        try:
+            embedding = self.embedding_provider.embed(text)
+            self._embedding_cache[text] = embedding
+            return embedding
+        except Exception as e:
+            logger.error(f"Failed to generate embedding: {str(e)}")
+            return []
+
+    def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
+        """Calculate cosine similarity between two vectors."""
+        if not vec1 or not vec2:
+            return 0.0
+
+        if len(vec1) != len(vec2):
+            return 0.0
+
+        dot_product = sum(a * b for a, b in zip(vec1, vec2))
+        magnitude1 = math.sqrt(sum(a * a for a in vec1))
+        magnitude2 = math.sqrt(sum(b * b for b in vec2))
+
+        if magnitude1 == 0.0 or magnitude2 == 0.0:
+            return 0.0
+
+        return dot_product / (magnitude1 * magnitude2)
+
+    def scan(self, text: str, similarity_threshold: float = 0.70) -> float:
+        """Check query against injection corpus using fuzzy matching."""
+        if not get_config().safety.fuzzy_matching_enabled:
+            return 0.0
+
+        if not _GLOBAL_CORPUS_EMBEDDINGS:
+            return 0.0
+
+        text_embedding = self._generate_embedding(text)
+        if not text_embedding:
+            return 0.0
+
+        max_similarity = 0.0
+        try:
+            for example_embedding in _GLOBAL_CORPUS_EMBEDDINGS:
+                similarity = self._cosine_similarity(text_embedding, example_embedding)
+                if similarity > max_similarity:
+                    max_similarity = similarity
+
+                if similarity >= similarity_threshold:
+                    logger.warning(f"Fuzzy match detected: text='{text}' matched an injection pattern (score={similarity:.3f})")
+                    break
+        except Exception as e:
+            logger.error(f"Error during fuzzy similarity calculation: {str(e)}")
+            return 0.0
+
+        return max_similarity
+
+
+class LLMScanner:
+    """Handles LLM-based safety classification."""
+
+    def __init__(self, llm_provider: BaseLLMProvider):
+        self.llm_provider = llm_provider
+
+    def scan(self, text: str) -> Tuple[str, float, str]:
         """
-        Check a user query for safety and classification.
-
-        Args:
-            query: User input query string.
-            safety_mode: Safety mode (strict, moderate, lenient).
-
-        Returns:
-            SafetyTrace containing classification and risk assessment.
+        Evaluate text safety using the LLM.
+        Returns: (classification, risk_score, reason)
         """
-        # Get threshold for the specified mode
-        mode_threshold = self._get_threshold_for_mode(safety_mode)
-
-        # 1. Heuristic check
-        matched_patterns = self._check_heuristics(query)
-        heuristic_risk = "high" if matched_patterns else "low"
-
-        # 2. Fuzzy detection check
-        fuzzy_similarity = self._check_fuzzy(query, similarity_threshold=0.70)
-        fuzzy_risk = "high" if fuzzy_similarity >= 0.70 else "low"
-
-        # 3. LLM check
-        prompt = SAFETY_CLASSIFICATION_PROMPT.format(query_text=query)
+        prompt = SAFETY_CLASSIFICATION_PROMPT.format(query_text=text)
         messages = [{"role": "user", "content": prompt}]
 
         try:
             response_text = self.llm_provider.generate_completion(messages)
-            # Try to parse JSON from response using utility
             safety_data = parse_json_from_llm(response_text)
 
             if isinstance(safety_data, dict):
                 classification = safety_data.get("classification", "safe")
-                llm_risk_score = safety_data.get("risk_score", 0.0)
+                risk_score = safety_data.get("risk_score", 0.0)
                 reason = safety_data.get("reason", "LLM check completed.")
+                return classification, risk_score, reason
             else:
                 logger.warning(f"Failed to parse safety LLM response: {response_text}")
-                classification = "safe"
-                llm_risk_score = 0.5 if matched_patterns else 0.0
-                reason = "Failed to parse LLM response."
+                return "safe", 0.0, "Failed to parse LLM response."
         except Exception as e:
             logger.error(f"Error in safety LLM call: {str(e)}")
-            classification = "safe"
-            llm_risk_score = 1.0 if matched_patterns else 0.0
-            reason = f"Safety check failed: {str(e)}"
+            return "safe", 0.0, f"Safety check failed: {str(e)}"
+
+
+class SafetyService:
+    """Service for query classification and prompt-injection detection. Acts as Orchestrator."""
+
+    def __init__(self, llm_provider: BaseLLMProvider, embedding_provider: BaseEmbeddingProvider, safety_threshold: float = 0.7):
+        self.safety_threshold = safety_threshold
+        self.heuristic_scanner = HeuristicScanner()
+        self.fuzzy_scanner = FuzzyScanner(embedding_provider)
+        self.llm_scanner = LLMScanner(llm_provider)
+
+    def _get_threshold_for_mode(self, mode: str) -> float:
+        """Get the risk threshold for a given safety mode."""
+        threshold_map = {
+            "strict": 0.5,
+            "moderate": 0.7,
+            "lenient": 0.9
+        }
+        return threshold_map.get(mode, 0.7)
+
+    def check_query(self, query: str, safety_mode: str = "moderate") -> SafetyTrace:
+        """Check a user query for safety and classification."""
+        mode_threshold = self._get_threshold_for_mode(safety_mode)
+
+        # 1. Heuristic check
+        matched_patterns = self.heuristic_scanner.scan(query)
+        heuristic_risk = "high" if matched_patterns else "low"
+
+        # 2. Fuzzy detection check
+        fuzzy_similarity = self.fuzzy_scanner.scan(query, similarity_threshold=0.70)
+        fuzzy_risk = "high" if fuzzy_similarity >= 0.70 else "low"
+
+        # 3. LLM check
+        classification, llm_risk_score, reason = self.llm_scanner.scan(query)
+
+        # Adjust LLM risk fallback if heuristics matched but LLM failed to catch it
+        if matched_patterns and llm_risk_score == 0.0:
+            llm_risk_score = 1.0
 
         # Combine risks: heuristic, fuzzy, and LLM
         final_risk = "high" if (
@@ -273,24 +279,16 @@ class SafetyService:
         )
 
     def check_chunks(self, chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Check retrieved chunks for potential prompt-injection or safety risks.
-
-        Args:
-            chunks: List of retrieved chunks.
-
-        Returns:
-            List of chunks, with risk metadata added.
-        """
+        """Check retrieved chunks for potential prompt-injection or safety risks."""
         processed_chunks = []
         for chunk in chunks:
             chunk_text = chunk.get("text", "")
 
             # 1. Heuristic pattern matching
-            matched_patterns = self._check_heuristics(chunk_text)
+            matched_patterns = self.heuristic_scanner.scan(chunk_text)
 
             # 2. Fuzzy detection
-            fuzzy_similarity = self._check_fuzzy(chunk_text, similarity_threshold=0.70)
+            fuzzy_similarity = self.fuzzy_scanner.scan(chunk_text, similarity_threshold=0.70)
             fuzzy_risk = "high" if fuzzy_similarity >= 0.70 else "low"
 
             # Add safety metadata to the chunk

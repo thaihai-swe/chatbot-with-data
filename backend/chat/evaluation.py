@@ -10,7 +10,7 @@ from typing import List, Optional, Dict, Any
 
 from fastapi import Depends
 from chat.service import ChatService, get_chat_service
-from schemas.chat import EvalResult, SanityCheckResponse, AdvancedRetrievalConfig, ChatTurnCreate
+from schemas.chat import EvalResult, SanityCheckResponse, ChatTurnCreate
 from config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -111,8 +111,7 @@ class EvaluationService:
                 None,
                 self.chat_service.process_turn,
                 "eval",
-                question,
-                AdvancedRetrievalConfig()
+                question
             )
 
             # 1. Recall Check

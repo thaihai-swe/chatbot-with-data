@@ -69,7 +69,8 @@ class OpenAIEmbeddingClient:
         self.api_base = api_base or os.getenv("EMBEDDING_API_BASE") or os.getenv("OPENAI_API_BASE")
         self.client = OpenAI(api_key=self.api_key, base_url=self.api_base)
         
-        self.model = model or os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+        from config import get_config
+        self.model = model or get_config().ingestion.embedding_model
         self.max_retries = max_retries
         self.timeout = timeout
 
@@ -102,9 +103,11 @@ class OpenAIEmbeddingClient:
             raise ValueError("Text cannot be empty after stripping whitespace")
 
         try:
+            from config import get_config
+            model = get_config().ingestion.embedding_model
             response = self.client.embeddings.create(
                 input=text,
-                model=self.model,
+                model=model,
                 timeout=self.timeout,
             )
 
@@ -121,7 +124,7 @@ class OpenAIEmbeddingClient:
             self.total_cost += cost
 
             logger.info(
-                f"Embedding generated: model={self.model}, tokens={tokens_used}, "
+                f"Embedding generated: model={model}, tokens={tokens_used}, "
                 f"cost=${cost:.6f}, total_cost=${self.total_cost:.6f}"
             )
 
@@ -167,9 +170,11 @@ class OpenAIEmbeddingClient:
             batch = texts[i : i + batch_size]
 
             try:
+                from config import get_config
+                model = get_config().ingestion.embedding_model
                 response = self.client.embeddings.create(
                     input=batch,
-                    model=self.model,
+                    model=model,
                     timeout=self.timeout,
                 )
 
@@ -208,21 +213,24 @@ class OpenAIEmbeddingClient:
 
     def _calculate_cost(self, tokens: int) -> float:
         """Calculate cost for tokens used."""
-        if self.model not in self.EMBEDDING_COSTS:
-            logger.warning(f"Unknown model {self.model}, unable to calculate cost")
+        from config import get_config
+        model = get_config().ingestion.embedding_model
+        if model not in self.EMBEDDING_COSTS:
+            logger.warning(f"Unknown model {model}, unable to calculate cost")
             return 0.0
 
-        cost_per_token = self.EMBEDDING_COSTS[self.model]
+        cost_per_token = self.EMBEDDING_COSTS[model]
         return (tokens / 1000) * cost_per_token
 
     def get_stats(self) -> dict:
         """Get embedding statistics."""
+        from config import get_config
         return {
             "api_calls": self.api_calls,
             "failed_calls": self.failed_calls,
             "total_tokens": self.total_tokens,
             "total_cost": self.total_cost,
-            "model": self.model,
+            "model": get_config().ingestion.embedding_model,
         }
 
     def reset_stats(self):

@@ -25,10 +25,12 @@ def get_llm_provider() -> BaseLLMProvider:
 
     logger.info(f"Initializing LLM provider: {provider_type}")
 
+    from config import get_config
+    
     if provider_type in ("openai", "openai-compatible"):
         api_key = os.getenv("OPENAI_API_KEY")
         api_base = os.getenv("OPENAI_API_BASE") if provider_type == "openai-compatible" else None
-        model = os.getenv("CHAT_MODEL", "gpt-4o")
+        model = get_config().llm.model
         timeout = 60
 
         return OpenAILLMProvider(
@@ -56,10 +58,12 @@ def get_embedding_provider() -> BaseEmbeddingProvider:
 
     logger.info(f"Initializing embedding provider: {provider_type}")
 
+    from config import get_config
+    
     if provider_type in ("openai", "openai-compatible"):
         api_key = os.getenv("EMBEDDING_API_KEY") or os.getenv("OPENAI_API_KEY")
         api_base = os.getenv("EMBEDDING_API_BASE") if provider_type == "openai-compatible" else None
-        model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+        model = get_config().ingestion.embedding_model
         max_retries = 3
         timeout = 30
 

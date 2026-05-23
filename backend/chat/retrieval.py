@@ -12,7 +12,7 @@ from providers.base import BaseEmbeddingProvider
 from providers.factory import get_embedding_provider
 from config import get_settings, get_config
 from repositories.chunk_repository import ChunkRepository
-from schemas.chat import AdvancedRetrievalConfig, RerankingTrace, RetrievalTrace, RetrievalRunTrace
+from schemas.chat import RerankingTrace, RetrievalTrace, RetrievalRunTrace
 from chat.multi_hop import MultiHopRetrievalOrchestrator
 from chat.prompts import (
     QUERY_CLASSIFICATION_PROMPT,
@@ -239,7 +239,8 @@ def get_retrieval_service(
     return RetrievalService(embedding_provider, vector_store)
 
 
-from schemas.chat import AdvancedRetrievalConfig, RetrievalTrace, RetrievalRunTrace
+from schemas.chat import RetrievalTrace, RetrievalRunTrace
+from schemas.settings import RetrievalSettings
 from fastapi import Depends
 
 class RerankingService:
@@ -282,7 +283,7 @@ class AdvancedRetrievalService:
     def retrieve(
         self,
         query_text: str,
-        config: AdvancedRetrievalConfig,
+        config: RetrievalSettings,
         collection_ids: Optional[list[str]] = None,
         k: int | None = None,
     ) -> Tuple[List[Dict[str, Any]], RetrievalTrace]:
@@ -295,47 +296,47 @@ class AdvancedRetrievalService:
         
         trace = RetrievalTrace(original_query=query_text)
 
-        if config.enable_intelligence:
+        if config.intelligence_enabled:
             t0 = time.time()
             trace.classification = self.query_intelligence_service.classify_query(query_text)
             trace.execution_time_ms["classification"] = int((time.time() - t0) * 1000)
 
-            if config.enable_dynamic_routing and trace.classification:
+            if config.dynamic_routing_enabled and trace.classification:
                 if trace.classification == "simple":
-                    config.enable_expansion = False
-                    config.enable_decomposition = False
-                    config.enable_hyde = False
-                    config.enable_synonym_expansion = False
+                    config.query_expansion_enabled = False
+                    config.query_decomposition_enabled = False
+                    config.hyde_enabled = False
+                    config.synonym_expansion_enabled = False
                     trace.routing.selected_strategy = "baseline"
                     trace.routing.reason = "Simple query: skipping complex expansions (HyDE, Synonyms, etc.)."
                 elif trace.classification == "multi_hop":
-                    config.enable_decomposition = True
-                    config.enable_expansion = False
+                    config.query_decomposition_enabled = True
+                    config.query_expansion_enabled = False
                     trace.routing.selected_strategy = "decomposition"
                     trace.routing.reason = "Multi-hop query: enabling decomposition."
                 elif trace.classification in ["out_of_domain", "conversational"]:
-                    config.enable_expansion = False
-                    config.enable_decomposition = False
-                    config.enable_hyde = False
-                    config.enable_synonym_expansion = False
+                    config.query_expansion_enabled = False
+                    config.query_decomposition_enabled = False
+                    config.hyde_enabled = False
+                    config.synonym_expansion_enabled = False
                     trace.routing.selected_strategy = "baseline"
                     trace.routing.reason = f"Classification is {trace.classification}. Skipping expansion."
                 else:
                     trace.routing.selected_strategy = "expansion"
-                    config.enable_expansion = True
+                    config.query_expansion_enabled = True
                     trace.routing.reason = f"Classification is {trace.classification}. Enabling expansion."
             else:
                 trace.routing.selected_strategy = "manual"
                 trace.routing.reason = "Dynamic routing disabled or no classification available."
 
-        if config.enable_rewriting:
+        if config.intelligence_enabled:
             t0 = time.time()
             rewritten = self.query_intelligence_service.rewrite_query(query_text)
             trace.transformations.rewritten_query = rewritten
             trace.execution_time_ms["rewriting"] = int((time.time() - t0) * 1000)
 
         queries_to_run = [query_text]
-        if config.enable_rewriting and trace.transformations.rewritten_query:
+        if config.intelligence_enabled and trace.transformations.rewritten_query:
             if trace.transformations.rewritten_query != query_text:
                 queries_to_run.append(trace.transformations.rewritten_query)
 
@@ -343,22 +344,22 @@ class AdvancedRetrievalService:
         all_variations = []
         
         for q in queries_to_run:
-            if config.enable_expansion:
+            if config.query_expansion_enabled:
                 t0 = time.time()
-                vars = self.query_intelligence_service.expand_query(q, config.expansion_count)
+                vars = self.query_intelligence_service.expand_query(q, config.query_expansion_count)
                 all_variations.extend(vars)
                 trace.execution_time_ms["expansion"] = trace.execution_time_ms.get("expansion", 0) + int((time.time() - t0) * 1000)
 
-        if config.enable_expansion:
+        if config.query_expansion_enabled:
             trace.transformations.expanded_queries = list(set(all_variations))
 
-        if config.enable_decomposition:
+        if config.query_decomposition_enabled:
             t0 = time.time()
             trace.transformations.sub_questions = self.query_intelligence_service.decompose_query(query_text)
             trace.execution_time_ms["decomposition"] = int((time.time() - t0) * 1000)
 
         # Multi-hop reasoning integration
-        if config.enable_multi_hop and trace.transformations.sub_questions and len(trace.transformations.sub_questions) > 1:
+        if config.multi_hop_enabled and trace.transformations.sub_questions and len(trace.transformations.sub_questions) > 1:
             logger.info("Multi-hop enabled with multiple sub-questions, using MultiHopRetrievalOrchestrator")
             try:
                 orchestrator = MultiHopRetrievalOrchestrator(
@@ -375,8 +376,8 @@ class AdvancedRetrievalService:
                 trace.merged_candidates_count = len(chunks)
 
                 # Apply reranking if enabled
-                if config.enable_reranking and chunks:
-                    top_k_rerank = config.reranker_top_k or k
+                if config.reranker_enabled and chunks:
+                    top_k_rerank = config.reranker_top_n or k
                     chunks, rerank_trace = self.reranking_service.rerank(query_text, chunks, top_k_rerank)
                     trace.reranking = rerank_trace
 
@@ -385,25 +386,25 @@ class AdvancedRetrievalService:
                 logger.error(f"Multi-hop execution failed: {e}, falling back to parallel retrieval")
                 # Continue with parallel retrieval on failure
 
-        if config.enable_hyde:
+        if config.hyde_enabled:
             t0 = time.time()
             trace.transformations.hyde_doc = self.query_intelligence_service.generate_hyde(query_text)
             trace.execution_time_ms["hyde"] = int((time.time() - t0) * 1000)
 
-        if config.enable_synonym_expansion:
+        if config.synonym_expansion_enabled:
             t0 = time.time()
             trace.transformations.synonym_expansions = self.query_intelligence_service.expand_synonyms(query_text)
             trace.execution_time_ms["synonym_expansion"] = int((time.time() - t0) * 1000)
 
         # Final collection of unique queries to execute
         unique_queries = list(set(queries_to_run))
-        if config.enable_expansion and trace.transformations.expanded_queries:
+        if config.query_expansion_enabled and trace.transformations.expanded_queries:
             unique_queries.extend(trace.transformations.expanded_queries)
 
-        if config.enable_decomposition and trace.transformations.sub_questions:
+        if config.query_decomposition_enabled and trace.transformations.sub_questions:
             unique_queries.extend(trace.transformations.sub_questions)
 
-        if config.enable_hyde and trace.transformations.hyde_doc:
+        if config.hyde_enabled and trace.transformations.hyde_doc:
             unique_queries.append(trace.transformations.hyde_doc)
 
         unique_queries = list(dict.fromkeys(unique_queries)) # Deduplicate preserve order
@@ -421,7 +422,7 @@ class AdvancedRetrievalService:
         all_results = []
         for q in unique_queries:
             search_query = q
-            if config.enable_synonym_expansion and trace.transformations.synonym_expansions:
+            if config.synonym_expansion_enabled and trace.transformations.synonym_expansions:
                 for old, new in trace.transformations.synonym_expansions.items():
                     if isinstance(new, list):
                         new = " ".join(map(str, new))
@@ -452,14 +453,14 @@ class AdvancedRetrievalService:
 
         trace.merged_candidates_count = len(final_chunks)
 
-        if config.enable_reranking:
-            top_k_rerank = config.reranker_top_k or k
+        if config.reranker_enabled:
+            top_k_rerank = config.reranker_top_n or k
             t0 = time.time()
             final_chunks, rerank_trace = self.reranking_service.rerank(query_text, final_chunks, top_k_rerank)
             trace.reranking = rerank_trace
             trace.execution_time_ms["reranking"] = int((time.time() - t0) * 1000)
 
-        if config.enable_parent_child:
+        if config.parent_child_enabled:
             t0 = time.time()
             expanded_chunks = []
             seen_parent_ids = set()
@@ -493,13 +494,13 @@ class AdvancedRetrievalService:
         query_text: str,
         collection_ids: Optional[list[str]] = None,
         k: int | None = None,
-        config: Optional[AdvancedRetrievalConfig] = None,
+        config: Optional[RetrievalSettings] = None,
     ) -> List[Dict[str, Any]]:
         """
         Compatibility wrapper for callers that still expect the baseline
         retrieval interface.
         """
-        effective_config = config if config is not None else AdvancedRetrievalConfig()
+        effective_config = config if config is not None else get_config().retrieval
         chunks, _ = self.retrieve(
             query_text=query_text,
             config=effective_config,

@@ -3,7 +3,8 @@
 from typing import List, Tuple, Optional
 import logging
 
-from schemas.chat import ReasoningChainTrace, ReasoningStep, AdvancedRetrievalConfig
+from schemas.chat import ReasoningChainTrace, ReasoningStep
+from schemas.settings import RetrievalSettings
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,7 @@ Answer:"""
         self,
         query: str,
         remaining_sub_questions: List[str],
-        config: AdvancedRetrievalConfig,
+        config: RetrievalSettings,
         collection_ids: List[str]
     ) -> List[dict]:
         """Handle failure by falling back to original query + remaining sub-questions.
@@ -113,7 +114,7 @@ Answer:"""
     def _execute_sequential_retrieval(
         self,
         sub_questions: List[str],
-        config: AdvancedRetrievalConfig,
+        config: RetrievalSettings,
         collection_ids: List[str],
         max_hops: int,
         timeout_ms: int = 30000
@@ -209,7 +210,7 @@ Answer:"""
         self,
         query: str,
         sub_questions: List[str],
-        config: AdvancedRetrievalConfig,
+        config: RetrievalSettings,
         collection_ids: List[str]
     ) -> Tuple[List[dict], ReasoningChainTrace]:
         """Execute multi-hop reasoning with sequential sub-question retrieval.

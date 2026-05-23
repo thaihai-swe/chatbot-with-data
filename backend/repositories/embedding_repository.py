@@ -290,8 +290,8 @@ class EmbeddingCache:
         Args:
             embedding_model: Default embedding model to use (defaults to EMBEDDING_MODEL env var or text-embedding-3-small)
         """
-        import os
-        self.embedding_model = embedding_model or os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+        from config import get_config
+        self.embedding_model = embedding_model or get_config().ingestion.embedding_model
         self.repository = EmbeddingRepository()
 
     def get_or_create(

@@ -16,7 +16,7 @@ from chat.citations import CitationService, get_citation_service
 from chat.grounding import GroundingService, get_grounding_service
 from chat.safety import SafetyService, get_safety_service
 from repositories.chat_repository import ChatRepository
-from schemas.chat import ChatTurnResponse, CitationResponse, AdvancedRetrievalConfig, SafetyTrace
+from schemas.chat import ChatTurnResponse, CitationResponse, SafetyTrace
 from config import get_config, get_settings_manager
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,6 @@ class ChatService:
         self,
         session_id: str,
         query_text: str,
-        advanced_config: Optional[AdvancedRetrievalConfig] = None,
     ) -> ChatTurnResponse:
         """
         Process a chat turn: retrieve, evaluate, generate, and persist.
@@ -97,13 +96,12 @@ class ChatService:
             )
 
         # 3. Retrieve chunks
-        if advanced_config is None:
-            advanced_config = AdvancedRetrievalConfig()
+        advanced_config = get_config().retrieval
 
         # 3.1 Collection routing (if enabled)
         collection_ids = session.collection_ids
         routing_trace = None
-        if advanced_config.enable_collection_routing and not collection_ids:
+        if advanced_config.collection_routing_enabled and not collection_ids:
             # Only route if session has no pre-selected collections
             try:
                 routing_service = CollectionRoutingService()

@@ -27,19 +27,6 @@ export default function ChatScreen() {
 
   const [showSettings, setShowSettings] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
-  const [advancedConfig, setAdvancedConfig] = useState({
-    enable_intelligence: true,
-    enable_rewriting: true,
-    enable_expansion: true,
-    expansion_count: 3,
-    enable_decomposition: true,
-    enable_hyde: true,
-    enable_synonym_expansion: true,
-    enable_dynamic_routing: true,
-    enable_reranking: true,
-    enable_parent_child: true,
-    });
-
   const [debugTrace, setDebugTrace] = useState(null);
   const [activeCitation, setActiveCitation] = useState(null);
   const [activeChunk, setActiveChunk] = useState(null);
@@ -142,7 +129,7 @@ export default function ChatScreen() {
     // Add placeholder for assistant
     setMessages(prev => [...prev, { role: "assistant", content: "", isStreaming: true }]);
 
-    const cleanup = streamChatTurn(sid, text, advancedConfig, {
+    const cleanup = streamChatTurn(sid, text, {
       onStatus: (data) => {
         setStatusMessage(data.message);
         if (data.turn_id) setActiveTurnId(data.turn_id);
@@ -227,10 +214,6 @@ export default function ChatScreen() {
     }
   };
 
-  const toggleConfig = (key) => {
-    setAdvancedConfig(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
   const handleCitationClick = (citation, chunks) => {
     const chunk = chunks.find(c => c.chunk_id === citation.chunk_id);
     if (chunk) {
@@ -262,29 +245,7 @@ export default function ChatScreen() {
           
           {showSettings && (
             <div className="surface-card" style={{ marginBottom: "16px", padding: "12px", borderRadius: "var(--radius-md)" }}>
-              <h4 style={{ margin: "0 0 12px 0", fontSize: "12px", textTransform: "uppercase", color: "var(--text-muted)" }}>Retrieval Config</h4>
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                <label className="config-toggle">
-                  <input type="checkbox" checked={advancedConfig.enable_intelligence} onChange={() => toggleConfig("enable_intelligence")} /> Intelligence
-                </label>
-                <label className="config-toggle">
-                  <input type="checkbox" checked={advancedConfig.enable_rewriting} onChange={() => toggleConfig("enable_rewriting")} /> Intent Rewriting
-                </label>
-                <label className="config-toggle">
-                  <input type="checkbox" checked={advancedConfig.enable_dynamic_routing} onChange={() => toggleConfig("enable_dynamic_routing")} /> Dynamic Routing
-                </label>
-                <label className="config-toggle">
-                  <input type="checkbox" checked={advancedConfig.enable_expansion} onChange={() => toggleConfig("enable_expansion")} /> Query Expansion
-                </label>
-                <label className="config-toggle">
-                  <input type="checkbox" checked={advancedConfig.enable_reranking} onChange={() => toggleConfig("enable_reranking")} /> Reranking
-                </label>
-                <label className="config-toggle">
-                  <input type="checkbox" checked={advancedConfig.enable_parent_child} onChange={() => toggleConfig("enable_parent_child")} /> Parent-Child
-                </label>
-              </div>
-
-              <h4 style={{ margin: "16px 0 12px 0", fontSize: "12px", textTransform: "uppercase", color: "var(--text-muted)", borderTop: "1px solid var(--border)", paddingTop: "12px" }}>Scope</h4>
+              <h4 style={{ margin: "0 0 12px 0", fontSize: "12px", textTransform: "uppercase", color: "var(--text-muted)", paddingTop: "4px" }}>Scope</h4>
               <div style={{ maxHeight: "120px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px" }}>
                 {availableCollections.length === 0 && <div style={{ opacity: 0.5, fontSize: "11px" }}>No collections</div>}
                 {availableCollections.map(c => (

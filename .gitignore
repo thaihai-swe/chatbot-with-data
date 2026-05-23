@@ -6,10 +6,10 @@
 .claude/*
 # Editors
 .idea/
-
+*/.antigravitycli/
 # Logs
 *.log
-
+.antigravitycli
 # Environment files
 .agents
 .env
