@@ -54,11 +54,11 @@ const SettingsScreen = () => {
 
   return (
     <div className="page-shell">
-      <div className="hero">
+      <div className="dashboard-header">
         <div>
           <span className="eyebrow">Settings</span>
           <h1>System Configuration</h1>
-          <p className="hero-copy">Control the behavioral defaults for ingestion, retrieval, and generation.</p>
+          <p>Control the behavioral defaults for ingestion, retrieval, and generation.</p>
         </div>
       </div>
 
@@ -267,7 +267,7 @@ const SettingsScreen = () => {
         </section>
       </div>
 
-      <div style={{ marginTop: "40px", display: "flex", justifyContent: "flex-end" }}>
+      <div className="settings-action-region">
         <button 
           className="button button-primary" 
           onClick={handleSave} 

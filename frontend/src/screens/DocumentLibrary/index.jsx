@@ -93,13 +93,11 @@ function DocumentLibraryScreen() {
 
   return (
     <div className="page-shell">
-      <div className="hero">
-        <div className="hero-header">
-          <div>
-            <span className="eyebrow">Document Intelligence</span>
-            <h1>Knowledge Library</h1>
-            <p className="hero-copy">Upload, manage, and inspect your source documents. Keep your knowledge base clean and context-ready.</p>
-          </div>
+      <div className="dashboard-header">
+        <div>
+          <span className="eyebrow">Document Intelligence</span>
+          <h1>Knowledge Library</h1>
+          <p>Upload, manage, and inspect your source documents. Keep your knowledge base clean and context-ready.</p>
         </div>
       </div>
 
@@ -115,40 +113,32 @@ function DocumentLibraryScreen() {
         onSubmitUrl={handleSubmitUrl}
       />
 
-      <section className="panel" style={{ border: "1px solid var(--border-strong)" }}>
-        <div className="panel-heading">
-          <div>
-            <h3>Inventory Filters</h3>
-            <p>Narrow your view by collection or search for specific document titles.</p>
-          </div>
+      <div className="filter-row">
+        <div className="field">
+          <label htmlFor="collection-filter" className="sr-only" style={{ display: "none" }}>Scope by Collection</label>
+          <select
+            id="collection-filter"
+            value={selectedCollection}
+            onChange={(event) => setSelectedCollection(event.target.value)}
+          >
+            <option value="">All indexed collections</option>
+            {collections.map((collection) => (
+              <option key={collection.id} value={collection.id}>
+                {collection.name}
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "24px" }}>
-          <div className="field">
-            <label htmlFor="collection-filter">Scope by Collection</label>
-            <select
-              id="collection-filter"
-              value={selectedCollection}
-              onChange={(event) => setSelectedCollection(event.target.value)}
-            >
-              <option value="">All indexed collections</option>
-              {collections.map((collection) => (
-                <option key={collection.id} value={collection.id}>
-                  {collection.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="search-input">Semantic Search</label>
-            <input
-              id="search-input"
-              placeholder="Filter by title or metadata..."
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </div>
+        <div className="field">
+          <label htmlFor="search-input" className="sr-only" style={{ display: "none" }}>Semantic Search</label>
+          <input
+            id="search-input"
+            placeholder="Filter by title or metadata..."
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
         </div>
-      </section>
+      </div>
 
       <DuplicateDecisionScreen attempts={pendingAttempts} onDecide={handleDuplicateDecision} />
 

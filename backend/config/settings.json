@@ -62,7 +62,7 @@
         "safety_mode": "moderate",
         "injection_risk_threshold": 0.7,
         "refusal_threshold": 0.5,
-        "min_similarity_threshold": 0.3,
+        "min_similarity_threshold": -0.02,
         "min_results_count": 1
     },
     "evaluation": {

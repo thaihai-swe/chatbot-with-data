@@ -70,11 +70,11 @@ function CollectionsScreen() {
 
   return (
     <div className="page-shell">
-      <div className="hero">
+      <div className="dashboard-header">
         <div>
           <span className="eyebrow">Knowledge Architecture</span>
           <h1>Document Collections</h1>
-          <p className="hero-copy">Organize your document library into logical groups for targeted retrieval and context management.</p>
+          <p>Organize your document library into logical groups for targeted retrieval and context management.</p>
         </div>
       </div>
 

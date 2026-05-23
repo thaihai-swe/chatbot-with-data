@@ -52,6 +52,14 @@
   --shadow-lg: 0 24px 80px rgba(0,0,0,.16);
   --shadow-glow: 0 0 48px rgba(99,91,255,.24);
 
+  /* AI Status Colors */
+  --ai-thinking: #D8C6FF;
+  --ai-searching: #BDEBFF;
+  --ai-reading: #C7E9D0;
+  --ai-running: #FFE3B0;
+  --ai-writing: #FFD0E1;
+  --ai-done: #DCFCE7;
+
   /* Motion */
   --motion-fast: 100ms;
   --motion-base: 160ms;
@@ -134,9 +142,22 @@ textarea {
 }
 
 .app-shell {
-  padding: 40px 24px 80px;
+  padding: 0;
   max-width: 1440px;
   margin: 0 auto;
+}
+
+.top-header {
+  height: 64px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .hero {
@@ -216,6 +237,7 @@ textarea {
 .page-shell {
   display: grid;
   gap: 40px;
+  padding: 40px 24px 80px;
 }
 
 .panel,
@@ -232,8 +254,49 @@ textarea {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
   gap: 24px;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.dashboard-header h1 {
+  margin: 0;
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  color: var(--text-primary);
+}
+
+.dashboard-header p {
+  margin: 8px 0 0;
+  font-size: 16px;
+  color: var(--text-secondary);
+}
+
+.filter-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  background: var(--surface-muted);
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+
+.filter-row .field {
+  margin-bottom: 0;
+  flex: 1;
+}
+
+.filter-row input, .filter-row select {
+  height: 40px;
 }
 
 .panel-heading h2, 
@@ -436,7 +499,7 @@ tr:hover td {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: var(--surface);
+  background: var(--background);
   min-width: 0;
 }
 
@@ -451,32 +514,68 @@ tr:hover td {
 
 .message-bubble {
   max-width: 85%;
-  padding: 16px 20px;
-  border-radius: var(--radius-xl);
   font-size: 16px;
   line-height: 1.6;
 }
 
 .message-user {
   align-self: flex-end;
-  background: var(--primary);
-  color: var(--text-inverse);
-  border-bottom-right-radius: var(--radius-xs);
-  box-shadow: var(--shadow-sm);
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  box-shadow: var(--shadow-xs);
+  font-weight: 500;
 }
 
 .message-assistant {
   align-self: flex-start;
-  background: var(--surface-muted);
   color: var(--text-primary);
-  border-bottom-left-radius: var(--radius-xs);
-  border: 1px solid var(--border);
+  padding: 8px 0;
+  max-width: 100%;
+  width: 100%;
 }
 
 .chat-input-form {
-  padding: 32px 40px;
-  border-top: 1px solid var(--border);
+  padding: 24px 40px;
+  background: var(--background);
+  position: relative;
+}
+
+.composer-container {
+  display: flex;
+  gap: 12px;
+  max-width: 840px;
+  margin: 0 auto;
+  width: 100%;
   background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  padding: 8px;
+  box-shadow: var(--shadow-md);
+  transition: border-color var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard);
+}
+
+.composer-container:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-md);
+}
+
+.composer-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 8px 16px;
+  font-size: 16px;
+  resize: none;
+}
+
+.composer-input:focus {
+  outline: none;
+  border: none;
+  box-shadow: none;
 }
 
 .session-item {
@@ -602,6 +701,7 @@ tr:hover td {
 /* Settings Screen Specific */
 .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 32px; }
 .settings-section { display: flex; flex-direction: column; gap: 24px; }
+.settings-action-region { padding: 24px 32px; margin-top: 40px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 16px; background: var(--surface-muted); border-radius: var(--radius-lg); }
 
 .spinner {
   width: 40px;

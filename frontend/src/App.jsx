@@ -24,7 +24,7 @@ function App() {
   return (
     <ErrorBoundary>
       <div className="app-shell">
-        <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "48px" }}>
+        <header className="top-header">
           <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
             <div style={{ width: "32px", height: "32px", background: "var(--gradient-primary)", borderRadius: "var(--radius-sm)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: "900", fontSize: "20px" }}>K</div>
             <span style={{ fontWeight: "750", fontSize: "20px", letterSpacing: "-0.02em" }}>KnowledgeBase<span style={{ color: "var(--accent)" }}>Lab</span></span>

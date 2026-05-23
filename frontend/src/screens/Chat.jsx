@@ -59,7 +59,10 @@ export default function ChatScreen() {
               formatted.push({ 
                 role: "assistant", 
                 content: turn.answer_text,
-                citations: turn.citations,
+                citations: turn.citations ? turn.citations.map(c => ({
+                  ...c,
+                  metadata: c.metadata_json ? JSON.parse(c.metadata_json) : null
+                })) : [],
                 chunks: turn.retrieved_chunks_json ? JSON.parse(turn.retrieved_chunks_json) : [],
                 trace: {
                   retrieval: turn.retrieval_trace,
@@ -309,22 +312,26 @@ export default function ChatScreen() {
                 <div className="citations-list">
                   <div style={{ fontSize: "12px", fontWeight: "600", marginBottom: "8px", color: "var(--text-muted)" }}>SOURCES</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                    {msg.citations.map((c, ci) => (
-                      <span 
-                        key={ci} 
-                        className="citation-tag"
-                        onClick={() => handleCitationClick(c, msg.chunks || [])}
-                      >
-                        {c.metadata?.title ? (c.metadata.title.length > 24 ? c.metadata.title.slice(0, 24) + '...' : c.metadata.title) : `Source ${c.chunk_id.slice(0,4)}`}
-                      </span>
-                    ))}
+                    {msg.citations.map((c, ci) => {
+                      const displayName = c.metadata?.title || c.document_id || `Source ${c.chunk_id.slice(0,4)}`;
+                      return (
+                        <span 
+                          key={ci} 
+                          className="citation-tag"
+                          onClick={() => handleCitationClick(c, msg.chunks || [])}
+                          title={displayName}
+                        >
+                          {displayName.length > 24 ? displayName.slice(0, 24) + '...' : displayName}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}
             </div>
           ))}
           {statusMessage && (
-            <div className="status-badge" style={{ alignSelf: "center", height: "28px" }}>
+            <div className="status-badge" style={{ alignSelf: "flex-start", height: "28px", background: "var(--ai-thinking)", color: "var(--accent-strong)", border: "none" }}>
               {statusMessage}...
             </div>
           )}
@@ -332,21 +339,21 @@ export default function ChatScreen() {
         </div>
 
         <form onSubmit={handleSendMessage} className="chat-input-form">
-          <div style={{ display: "flex", gap: "12px", maxWidth: "800px", margin: "0 auto", width: "100%" }}>
+          <div className="composer-container">
             <input 
               type="text" 
-              placeholder="Ask a question..." 
+              className="composer-input"
+              placeholder="Ask about your documents, data, or collections..." 
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               disabled={isGenerating}
-              style={{ flex: 1, height: "44px", borderRadius: "var(--radius-lg)" }}
             />
             {isGenerating ? (
-              <button type="button" onClick={handleCancel} className="button button-danger" style={{ height: "44px" }}>
+              <button type="button" onClick={handleCancel} className="button button-ghost" style={{ color: "var(--danger)" }}>
                 Cancel
               </button>
             ) : (
-              <button type="submit" className="button button-primary" style={{ height: "44px", padding: "0 24px" }}>
+              <button type="submit" className="button button-primary" style={{ borderRadius: "var(--radius-lg)" }}>
                 Send
               </button>
             )}

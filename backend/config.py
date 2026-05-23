@@ -39,7 +39,6 @@ class Settings:
         if origin.strip()
     ))
     request_id_header: str = "X-Request-ID"
-    url_timeout_seconds: int = field(default_factory=lambda: int(os.getenv("URL_TIMEOUT_SECONDS", "10")))
 
     # LLM Settings
     openai_api_key: Optional[str] = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
