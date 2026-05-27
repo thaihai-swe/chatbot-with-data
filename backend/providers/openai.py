@@ -70,7 +70,10 @@ class OpenAILLMProvider(BaseLLMProvider):
 
         response = self.client.chat.completions.create(**kwargs)
         content = response.choices[0].message.content
-        return content.strip() if content else ""
+        if isinstance(content, dict):
+            import json
+            content = json.dumps(content)
+        return str(content).strip() if content else ""
 
     def _generate_stream(
         self, messages: List[Dict[str, str]], temperature: Optional[float]

@@ -52,7 +52,7 @@ class MultiHopRetrievalOrchestrator:
             return f"No relevant information found for: {sub_question}"
 
         # Build context from chunks
-        chunk_texts = [c.get("content", "") for c in chunks[:5]]  # Use top 5 chunks
+        chunk_texts = [c.get("text", c.get("content", "")) for c in chunks[:5]]  # Use top 5 chunks
         context = "\n".join(chunk_texts)
 
         # Build prompt for intermediate answer generation
@@ -67,7 +67,7 @@ Answer:"""
 
         try:
             # Call LLM to generate intermediate answer
-            answer = self.llm_client(prompt)
+            answer = self.llm_client.generate_completion([{"role": "user", "content": prompt}], stream=False)
             return answer.strip()
         except Exception as e:
             logger.error(f"Failed to generate intermediate answer: {e}")
@@ -100,7 +100,7 @@ Answer:"""
                 fallback_query += "\n\nAdditional context: " + " ".join(remaining_sub_questions)
 
             # Execute retrieval with fallback query
-            chunks = self.retrieval_service.retrieve(
+            chunks, _ = self.retrieval_service.retrieve(
                 query_text=fallback_query,
                 config=config,
                 collection_ids=collection_ids
@@ -167,7 +167,7 @@ Answer:"""
 
             try:
                 # Execute retrieval for this sub-question
-                chunks = self.retrieval_service.retrieve(
+                chunks, _ = self.retrieval_service.retrieve(
                     query_text=contextualized_question,
                     config=config,
                     collection_ids=collection_ids

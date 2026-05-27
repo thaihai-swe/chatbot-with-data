@@ -1,0 +1,44 @@
+
+  ### 1. Factual Intent (Triggers Baseline Retrieval)
+
+  │ "What are the two main database engines in the ACME Platform?"
+
+  ### 2. Comparison Intent (Triggers Query Decomposition)
+
+  │ "Compare the differences between DataStore and FastDB."
+
+  ### 3. How-To Intent (Triggers HyDE - Hypothetical Document Expansion)
+
+  │ "How do I configure the chatbot to use strict safety mode?"
+
+  ### 4. Troubleshooting Intent (Triggers Synonym Expansion)
+
+  │ "Why am I getting a timeout error when uploading a large PDF?"
+
+  ### 5. Exploratory Intent (Triggers Standard Query Expansion)
+
+  │ "Tell me broadly about the ACME platform."
+
+  ### 6. Fallback (Tests the < 0.6 Confidence Threshold)
+
+  │ "Apple banana umbrella shoe." (This should yield a low confidence score and fall back to the "Factual" baseline
+  │ routing)
+
+# ACME Corporation Software Guide
+
+## Platform Overview
+The ACME Platform consists of two main database engines: DataStore and FastDB.
+- DataStore is designed for heavy, persistent data warehousing. It uses traditional magnetic storage and takes about 5 minutes to start up.
+- FastDB is an in-memory database built for real-time analytics. It boots instantly but loses data on reboot if not backed up.
+
+## Configuration Instructions
+To configure your ACME chatbot for strict safety mode, follow these steps:
+1. Navigate to the Admin Dashboard.
+2. Click on "Security Settings" in the left sidebar.
+3. Toggle the switch labeled "Strict Safety Mode" to ON.
+4. Save the configuration and restart the chat service.
+
+## Troubleshooting
+If you encounter a "Timeout Error" when uploading a large PDF document (over 50MB):
+- **Root Cause**: The default upload stream timer is set to 30 seconds. Large files exceed this limit on slower connections.
+- **Solution**: Increase the `MAX_UPLOAD_TIMEOUT` parameter in your `config.yaml` file from 30 to 120, then restart the application server. Ensure your network connection is stable.

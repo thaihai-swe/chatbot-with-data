@@ -301,12 +301,14 @@ class IngestionService:
         config = get_config()
         strategy = config.ingestion.chunking_strategy
 
-        # Override strategy based on source type if it's "fixed" (default)
-        if strategy == "fixed":
+        # Override strategy based on source type if it's "fixed" or "fixed_size" (default)
+        if strategy in ("fixed", "fixed_size"):
             if attempt["source_type"] == SourceType.PDF.value:
                 strategy = "page_aware"
             elif attempt["source_type"] == SourceType.MARKDOWN.value:
                 strategy = "heading_aware"
+            else:
+                strategy = "fixed_size"
 
         # Step 1: Chunking
         collection_ids = attempt["collection_ids"]

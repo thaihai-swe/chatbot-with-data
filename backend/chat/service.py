@@ -180,7 +180,8 @@ class ChatService:
                 valid_citations = []
             else:
                 # 5. Generate answer - force stream=False for non-streaming response
-                answer_text = self.generation_service.generate_answer(context_package, stream=False)
+                intent = trace.classification if trace else None
+                answer_text = self.generation_service.generate_answer(context_package, stream=False, intent=intent)
 
                 # 5.1 Calculate real groundedness for observability
                 score, reason = self.grounding_service.calculate_groundedness(

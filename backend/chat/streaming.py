@@ -166,7 +166,8 @@ class StreamingOrchestrator:
 
             full_answer = ""
             # Generation stream
-            for token in self.generation_service.generate_answer(context_package, stream=True):
+            intent = trace.classification if trace else None
+            for token in self.generation_service.generate_answer(context_package, stream=True, intent=intent):
                 if is_cancelled(turn_id):
                     ChatRepository.update_turn_status(turn_id, "cancelled")
                     yield self._format_sse("status", {"stage": "cancelled", "message": "Cancelled."})

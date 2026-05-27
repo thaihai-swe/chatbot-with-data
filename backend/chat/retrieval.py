@@ -51,9 +51,19 @@ class QueryIntelligenceService:
             result = re.sub(r"\(Note:.*?\)", "", result, flags=re.IGNORECASE | re.DOTALL).strip()
         return result
 
-    def classify_query(self, query_text: str) -> str:
+    def classify_query(self, query_text: str) -> Tuple[str, float]:
         prompt = QUERY_CLASSIFICATION_PROMPT.format(query_text=query_text)
-        return self._call_llm(prompt)
+        result = self._call_llm(prompt)
+        parsed = parse_json_from_llm(result)
+        if isinstance(parsed, dict):
+            intent = parsed.get("intent", "factual")
+            confidence = parsed.get("confidence_score", 0.0)
+            try:
+                confidence = float(confidence)
+            except (ValueError, TypeError):
+                confidence = 0.0
+            return str(intent), confidence
+        return "factual", 0.0
 
     def expand_query(self, query_text: str, count: int) -> List[str]:
         prompt = QUERY_EXPANSION_PROMPT.format(query_text=query_text, count=count)
@@ -182,7 +192,7 @@ class RetrievalService:
         """
         config = get_config()
         k = k or config.retrieval.top_k
-        
+
         if alpha is None:
             search_mode = config.retrieval.retrieval_mode
             if search_mode == "keyword":
@@ -191,7 +201,7 @@ class RetrievalService:
                 alpha = 1.0
             else:
                 alpha = config.retrieval.hybrid_weight
-        
+
         logger.info(f"Retrieving {k} chunks (alpha={alpha}) for query: '{query_text}' (collections={collection_ids})")
 
         # 1. Generate embedding for the query
@@ -293,38 +303,48 @@ class AdvancedRetrievalService:
         """
         global_config = get_config()
         k = k or global_config.retrieval.top_k
-        
+
         trace = RetrievalTrace(original_query=query_text)
 
         if config.intelligence_enabled:
             t0 = time.time()
-            trace.classification = self.query_intelligence_service.classify_query(query_text)
+            intent, confidence = self.query_intelligence_service.classify_query(query_text)
+            if confidence < 0.6:
+                intent = "factual"
+
+            trace.classification = intent
+            trace.classification_confidence = confidence
             trace.execution_time_ms["classification"] = int((time.time() - t0) * 1000)
 
             if config.dynamic_routing_enabled and trace.classification:
-                if trace.classification == "simple":
-                    config.query_expansion_enabled = False
-                    config.query_decomposition_enabled = False
-                    config.hyde_enabled = False
-                    config.synonym_expansion_enabled = False
+                # Reset defaults
+                config.query_expansion_enabled = False
+                config.query_decomposition_enabled = False
+                config.hyde_enabled = False
+                config.synonym_expansion_enabled = False
+
+                if trace.classification == "factual":
                     trace.routing.selected_strategy = "baseline"
-                    trace.routing.reason = "Simple query: skipping complex expansions (HyDE, Synonyms, etc.)."
-                elif trace.classification == "multi_hop":
+                    trace.routing.reason = "Factual query: skipping complex expansions."
+                elif trace.classification == "comparison":
                     config.query_decomposition_enabled = True
-                    config.query_expansion_enabled = False
                     trace.routing.selected_strategy = "decomposition"
-                    trace.routing.reason = "Multi-hop query: enabling decomposition."
-                elif trace.classification in ["out_of_domain", "conversational"]:
-                    config.query_expansion_enabled = False
-                    config.query_decomposition_enabled = False
-                    config.hyde_enabled = False
-                    config.synonym_expansion_enabled = False
-                    trace.routing.selected_strategy = "baseline"
-                    trace.routing.reason = f"Classification is {trace.classification}. Skipping expansion."
-                else:
-                    trace.routing.selected_strategy = "expansion"
+                    trace.routing.reason = "Comparison query: enabling decomposition."
+                elif trace.classification == "how_to":
+                    config.hyde_enabled = True
+                    trace.routing.selected_strategy = "hyde"
+                    trace.routing.reason = "How-to query: enabling HyDE."
+                elif trace.classification == "troubleshooting":
+                    config.synonym_expansion_enabled = True
+                    trace.routing.selected_strategy = "synonym_expansion"
+                    trace.routing.reason = "Troubleshooting query: enabling synonym expansion."
+                elif trace.classification == "exploratory":
                     config.query_expansion_enabled = True
-                    trace.routing.reason = f"Classification is {trace.classification}. Enabling expansion."
+                    trace.routing.selected_strategy = "expansion"
+                    trace.routing.reason = "Exploratory query: enabling query expansion."
+                else:
+                    trace.routing.selected_strategy = "baseline"
+                    trace.routing.reason = f"Classification {trace.classification} unmapped. Defaulting to baseline."
             else:
                 trace.routing.selected_strategy = "manual"
                 trace.routing.reason = "Dynamic routing disabled or no classification available."
@@ -342,7 +362,7 @@ class AdvancedRetrievalService:
 
         # Build final query list with transformations
         all_variations = []
-        
+
         for q in queries_to_run:
             if config.query_expansion_enabled:
                 t0 = time.time()
@@ -364,7 +384,7 @@ class AdvancedRetrievalService:
             try:
                 orchestrator = MultiHopRetrievalOrchestrator(
                     retrieval_service=self,
-                    llm_client=self.query_intelligence_service.llm_provider.generate
+                    llm_client=self.query_intelligence_service.llm_provider
                 )
                 chunks, reasoning_chain = orchestrator.execute_multi_hop(
                     query=query_text,
@@ -410,7 +430,7 @@ class AdvancedRetrievalService:
         unique_queries = list(dict.fromkeys(unique_queries)) # Deduplicate preserve order
 
         search_mode = config.retrieval_mode or global_config.retrieval.retrieval_mode
-        
+
         # Map search_mode to effective alpha
         if search_mode == "keyword":
             effective_alpha = 0.0

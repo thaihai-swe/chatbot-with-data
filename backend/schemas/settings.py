@@ -17,7 +17,7 @@ class IngestionSettings(BaseModel):
     # Chunking
     chunk_size: int = Field(default=1000, ge=1)
     chunk_overlap: int = Field(default=200, ge=0)
-    chunking_strategy: str = Field(default="fixed") # fixed, semantic, recursive
+    chunking_strategy: str = Field(default="fixed_size") # fixed_size, semantic, recursive
     semantic_chunking_enabled: bool = False
     semantic_similarity_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
     parent_child_enabled: bool = False

@@ -89,6 +89,7 @@ class ReasoningChainTrace(BaseModel):
 class RetrievalTrace(BaseModel):
     original_query: str
     classification: Optional[str] = None
+    classification_confidence: Optional[float] = None
     transformations: RetrievalTransformations = Field(default_factory=RetrievalTransformations)
     routing: RetrievalRouting = Field(default_factory=RetrievalRouting)
     retrieval_runs: List[RetrievalRunTrace] = Field(default_factory=list)
