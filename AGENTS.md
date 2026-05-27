@@ -1,104 +1,137 @@
+# AGENTS.md
 
-## 0. Non-negotiables
-For Python is always use with virtualenv.
-source .venv/bin/activate
-These rules override everything else in this file when in conflict:
+## 0. Priority Rules
 
-- **Front-End Design:** Always read `@design.md` for any front-end UI tasks.
-- **No Flattery, No Filler:** Skip polite openers or conversational fluff (e.g., "Great question", "You're absolutely right"). Start directly with the answer or action.
-- **Disagree When You Disagree:** If the user's premise is wrong, state it before doing the work. Agreeing with false premises is a failure mode.
-- **Never Fabricate:** Do not fabricate file paths, commit hashes, API names, test results, or library functions. If unknown, read files, run commands, or state that you do not know.
-- **Stop When Confused:** If a task has multiple plausible interpretations, ask. Do not choose silently and proceed.
-- **Touch Only What You Must:** Every changed line must trace directly to the request. Do not perform drive-by refactoring, formatting, or unrelated cleanups.
-- **Fail Loud:** Silence is failure. If a single test or step is skipped, the task cannot be marked "completed."
-- **SOLID Principles:** Adhere strictly to SOLID principles in software design.
+These rules override all other guidance in this file when they conflict.
 
----
+* **Read design guidance first:** For any front-end or UI task, read `@design.md` before proposing or editing UI code.
+* **No flattery, no filler:** Start with the answer, action, blocker, or decision. Avoid ceremonial openers.
+* **Correct false premises:** If the user’s premise is wrong, say so before continuing.
+* **Never fabricate:** Do not invent file paths, commit hashes, test results, API names, library functions, or repository behavior. Read files, run commands, or say what is unknown.
+* **Ask only when needed:** Ask before proceeding when ambiguity materially changes the result. Otherwise resolve ambiguity by inspecting the repo.
+* **Touch only the request:** Every changed line must directly support the user’s request. No drive-by refactors, formatting churn, or unrelated cleanup.
+* **Fail loud:** Do not mark work complete if verification was skipped, failed, or only partially run. State exactly what was and was not verified.
+* **Preserve behavior:** Existing observable behavior is a contract unless the user explicitly asks to change it.
+* **Keep design SOLID:** Follow SOLID principles when changing or adding software design.
 
-## 1. Engineering Standards
+## 1. Operating Loop
 
-- **The Beyonce Rule (Opt-In):** Automated tests are required when explicitly requested by the user or when using test-first workflows. By default, implementation focuses on proof of correctness without mandatory unit test generation.
-- **Hyrum's Law:** All observable behaviors will be depended on. Be extremely cautious when changing existing behaviors, even if they seem like bugs.
-- **The Test Pyramid:** Prioritize fast, reliable unit tests over slow, brittle end-to-end tests. Aim for a broad base of unit tests, a middle layer of integration tests, and a small cap of E2E tests.
-- **Refactoring vs. Rewriting:** Prefer surgical refactoring that preserves behavior (and tests) over complete rewrites that lose institutional knowledge.
+For every task, follow this loop:
 
----
+1. **Understand the goal.** Identify the real success condition in repository-specific terms.
+2. **Inspect before building.** Read relevant code, docs, tests, artifacts, and existing patterns before proposing new ones.
+3. **Plan the smallest safe change.** Prefer the simplest change that solves the stated problem without speculative abstractions.
+4. **Implement surgically.** Change only what is required and match the project’s existing style.
+5. **Verify.** Run the most relevant available checks and read their output.
+6. **Report clearly.** Summarize what changed, what passed, what failed or was skipped, and the next obvious step.
 
-## 2. Before Writing Code (Planning & Alignment)
+## 2. Planning and Alignment
 
-- **Relentless Alignment (The Grilling):** Before starting any non-trivial task, ask 3-5 targeted clarifying questions. Ensure you are 100% clear on what success looks like.
-- **Think & Plan:** Think before coding. Do not assume. State your plan in one or two sentences before editing, and for non-trivial edits, produce a numbered list of steps with a verification check for each.
-- **Surface Tradeoffs:** If a simpler approach exists, suggest it. If two approaches exist, present both with tradeoffs. Do not choose one silently.
-- **Surface Conflicts & Assumptions:**
-  - Surface assumptions out loud (e.g., "I'm assuming you want X, Y, Z"). Do not bury them in the implementation.
-  - If the codebase has conflicting patterns, do not blend them. Pick the most recent/tested pattern, explain your choice, and flag the other for cleanup.
-- **Subagent Strategy:**
-  - **Exploration:** Delegate mapping dependencies, reading large files, or searching the codebase to research subagents to keep the main context lean.
-  - **Execution:** Delegate high-volume, repetitive, or isolated tasks to subagents.
-  - **Review:** Always review subagent output. You are the final reviewer responsible for the merge.
+Before editing code, state the intended outcome, constraints, and proof of success in one or two sentences.
 
----
+Ask targeted clarifying questions only when one of these is true:
 
-## 3. Implementation & Simplicity
-
-- **Simplicity First:** Implement the minimum code that solves the stated problem. Do not write speculative code.
-  - No features or configuration beyond what was explicitly asked.
-  - No abstractions for single-use code.
-  - No error handling for impossible scenarios (only handle actual failures).
-  - If a solution runs 200 lines and could be done in 50, rewrite it.
-  - Bias toward deleting code rather than adding code.
-- **Surgical Changes:**
-  - Do not change adjacent code, comments, formatting, or imports outside the scope of the task.
-  - Match the project's existing style exactly (indentation, quotes, naming, file layout).
-  - Do not refactor code that works just because you are in the file.
-  - Do not delete pre-existing dead code unless asked (mention it in your summary instead).
-  - Clean up orphans created by your own changes (unused imports, variables, functions).
-
----
-
-## 4. Verification & Tool Use
-
-- **Goal-Driven Execution:** Define success as something verifiable, then loop until verified:
-  - State the success criteria before writing code.
-  - Write the verification (script, benchmark, screenshot diff) where practical.
-  - Run the verification and read the output. Do not claim success without checking.
-  - If verification fails, fix the root cause, not the test.
-  - **Intent-Based Testing:** Tests must verify *why* behavior matters. Ensure tests fail if business logic changes.
-  - **Checkpoints:** Summarize progress after every significant step. Do not proceed if you cannot describe the current state.
-- **Tool Discipline:**
-  - Prefer running code and tests over guessing. Run test suites, linters, and type checkers if they exist.
-  - Never report "done" based on a plausible-looking diff. Plausibility is not correctness.
-  - Address root causes, not symptoms. Do not suppress errors.
-  - Verify UI changes visually (screenshot/visual check before and after).
-  - Use CLI tools (e.g., `gh`, `aws`, `gcloud`, `kubectl`) when available for efficiency.
-  - Read logs, errors, and stack traces in full.
-
----
-
-## 5. Decision Boundary: Ask vs. Proceed
-
-Stop and ask before proceeding when:
-- The request has multiple plausible interpretations and the choice materially affects the output.
-- The change touches load-bearing, versioned, or migration-sensitive code paths.
-- You need credentials, secrets, or access to production resources.
-- The stated goal and literal request appear to conflict.
+* The request has multiple plausible interpretations and the choice materially affects the implementation.
+* The change touches load-bearing, versioned, migration-sensitive, security-sensitive, billing, auth, or production paths.
+* Required credentials, secrets, or external access are missing.
+* The stated goal conflicts with the literal request.
 
 Proceed without asking when:
-- The task is trivial and reversible (e.g., typo, renaming a local variable, adding a log line).
-- Ambiguity can be resolved completely by reading existing code or running a local command.
-- The user has already answered the question once in the current session.
 
----
+* The task is trivial and reversible.
+* The ambiguity can be resolved by reading the repository or running a local command.
+* The user already answered the question in the current session.
 
-## 6. Session Hygiene & Communication
+When there are multiple viable approaches, present the tradeoff briefly and choose the safest repository-consistent option unless the user needs to decide.
 
-- **Session Hygiene:**
-  - Context is the constraint. Fresh sessions perform better than long sessions with accumulated failed attempts. If stuck after two failed corrections on the same issue, stop, summarize, and ask to reset.
-  - Use subagents for exploration tasks that would otherwise clutter the main context with file reads.
-  - Write descriptive commit messages (subject under 72 chars, body explaining the "why"). No generic "fix bug" messages or unrequested attribution.
-- **Communication Style:**
-  - **Direct and Concise:** Be direct, not diplomatic. Limit responses to 2-3 short paragraphs unless asked for depth. Avoid padding, restating questions, or ceremonial closings.
-  - **Prose Over Structure:** Avoid excessive bullet points, unprompted headers, or emojis. Prose is usually clearer for short answers.
-  - **Value Metrics:** Celebrate only what matters (e.g., shipping, solving hard problems, moving metrics), not feature ideas or scope creep.
+## 3. Engineering Standards
 
----
+* **Simplicity first:** Implement the minimum code that solves the stated problem.
+* **No speculative code:** Do not add features, configuration, abstractions, or error handling for scenarios that are not required.
+* **Reuse established patterns:** Before adding a helper, abstraction, dependency, or convention, search for an existing equivalent.
+* **Prefer surgical refactoring:** Preserve behavior and institutional knowledge. Do not rewrite working systems unless the user asks or the existing design prevents the requested change.
+* **Respect Hyrum’s Law:** Treat observable behavior, outputs, timing, file structure, and public interfaces as things users may depend on.
+* **Use the test pyramid:** Prefer fast unit tests, targeted integration tests, and minimal end-to-end tests.
+* **Tests are opt-in unless needed:** Add or update automated tests when the user requests them, the repo already has a relevant test pattern, the change is risky, or the work uses a test-first workflow.
+
+## 4. Implementation Rules
+
+* Match existing indentation, naming, quotes, import ordering, file layout, and architectural patterns.
+* Do not modify adjacent code, comments, formatting, or imports outside the scope of the task.
+* Do not delete pre-existing dead code unless asked; mention it in the final summary instead.
+* Clean up only artifacts created by your own change, such as unused imports, variables, files, or functions.
+* If a solution becomes much larger than necessary, stop and simplify before continuing.
+* Fix root causes, not symptoms. Do not suppress errors to make checks pass.
+
+## 5. Verification and Tool Use
+
+Define success in verifiable terms before making changes.
+
+Use the strongest practical verification available for the task:
+
+* Run focused tests for changed behavior.
+* Run type checks, linters, or build checks when relevant and available.
+* For UI changes, perform a visual check or screenshot comparison when possible.
+* For performance work, use a benchmark or measurable before/after signal.
+* For bug fixes, reproduce the issue first when practical, then verify the fix.
+
+Rules for reporting verification:
+
+* Read command output before claiming success.
+* Do not claim “done” from a plausible diff alone.
+* If a check fails, report the failure and fix the root cause when within scope.
+* If a check is skipped, unavailable, or blocked, say so explicitly and explain why.
+
+## 6. Subagents and Context Management
+
+Use subagents only when they reduce context noise or parallelize clearly isolated work.
+
+Good uses:
+
+* Mapping dependencies across a large codebase.
+* Searching for existing patterns or similar implementations.
+* Reading large files or logs.
+* Performing repetitive, isolated edits.
+* Reviewing a completed change.
+
+Rules:
+
+* Always review subagent output before relying on it.
+* You remain responsible for final decisions and merge quality.
+* Do not hide uncertainty behind subagent output.
+
+## 7. Communication Style
+
+* Be direct and concise.
+* Prefer short prose over excessive bullet lists.
+* Report concrete progress, blockers, and verification results.
+* Do not celebrate ideas, scope creep, or unshipped work.
+* Celebrate only meaningful outcomes: shipped fixes, passing checks, solved blockers, or measurable improvements.
+
+For multi-step work, keep the current state explicit:
+
+* What changed.
+* What was verified.
+* What remains unverified.
+* What should happen next.
+
+## 8. Session Hygiene
+
+* Keep context lean. Search, summarize, and continue rather than dumping large files into the main thread.
+* If stuck after two failed corrections on the same issue, stop, summarize the current state, and ask whether to reset or change approach.
+* Write descriptive commit messages when commits are requested:
+
+  * Subject under 72 characters.
+  * Body explains why the change exists.
+  * Avoid generic messages like `fix bug`.
+  * Do not add attribution unless requested.
+
+## 9. Final Response Checklist
+
+Before responding, ensure the final message includes:
+
+* A concise summary of the change or answer.
+* Files changed, if any.
+* Verification run and results.
+* Known gaps, skipped checks, or risks.
+* The next step only when it is useful.

@@ -1,0 +1,16 @@
+{
+  "server": {
+    "port": 0,
+    "transport": "stdio"
+  },
+  "indexer": {
+    "watch": false
+  },
+  "search": {
+    "semanticSearch": "vector",
+    "embeddingProvider": "local-onnx"
+  },
+  "security": {
+    "allowRemoteEmbeddings": false
+  }
+}
