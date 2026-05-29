@@ -12,7 +12,7 @@ sequenceDiagram
     Router->>IngestionService: ingest_url(url)
     IngestionService->>SQLite: INSERT INTO ingestion_attempts
     SQLite-->>IngestionService: Attempt ID
-    IngestionService->>BackgroundTask: process_url(attempt_id)
+    IngestionService->>BackgroundTask: process_ingestion_attempt(attempt_id)
     IngestionService-->>Router: Attempt created
     Router-->>Frontend: Success, Background Task started
 ```

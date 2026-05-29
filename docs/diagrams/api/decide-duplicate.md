@@ -11,7 +11,7 @@ sequenceDiagram
     participant IndexingService
     
     Frontend->>Router: POST /ingestion/attempts/{id}/duplicate-decision (decision)
-    Router->>IngestionService: handle_duplicate_decision(id, decision)
+    Router->>IngestionService: apply_duplicate_decision(id, action)
     IngestionService->>Repository: update_attempt_decision(id, decision)
     Repository->>SQLite: UPDATE ingestion_attempts
     Note over IngestionService, IndexingService: If approved

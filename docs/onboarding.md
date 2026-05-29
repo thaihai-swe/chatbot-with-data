@@ -1,375 +1,289 @@
-# Onboarding Guide for New Developers & AI Learners
+# Onboarding Guide
 
-Welcome to the RAG Knowledge Base Lab! This guide will help you set up your development environment and understand the system architecture.
-
-## Table of Contents
-1. [Quick Start](#quick-start)
-2. [Environment Setup](#environment-setup)
-3. [Backend Setup](#backend-setup)
-4. [Frontend Setup](#frontend-setup)
-5. [Running Tests](#running-tests)
-6. [Verification Steps](#verification-steps)
-7. [Next Steps](#next-steps)
+**Status:** 🟢 Implemented  
+**Last verified:** 2026-05-29  
+**Source files:** `backend/app.py`, `backend/main.py`, `docker-compose.yml`, `requirements.txt`
 
 ---
 
-## Quick Start
+## Welcome
 
-Get the system running in 5 minutes:
+This guide walks you from a fresh clone to a working RAG system. Reading time: ~10 minutes. Active setup time: ~15 minutes if dependencies install cleanly.
 
+---
+
+## 1. Prerequisites
+
+| Requirement | Version | Why |
+|-------------|---------|-----|
+| Python | 3.10+ | Backend runtime |
+| Node.js | 18+ | Frontend dev server |
+| Docker | 20+ | Runs Weaviate locally |
+| OpenAI API key | — | LLM and embedding generation |
+
+Verify:
 ```bash
-# Terminal 1: Backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cd backend
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
-
-# Terminal 2: Frontend
-cd frontend
-npm install
-npm run dev
-
-# Terminal 3: Weaviate (if not running)
-docker run -d -p 8080:8080 -p 50051:50051 semitechnologies/weaviate:latest
+python3 --version   # 3.10+
+node --version      # v18+
+docker --version    # 20+
 ```
 
-Backend runs at `http://localhost:8000`  
-Frontend runs at `http://localhost:5173` (or similar)  
-Weaviate runs at `http://localhost:8080`
-
 ---
 
-## Environment Setup
-
-### Prerequisites
-- Python 3.9+
-- Node.js 16+
-- Docker (for Weaviate)
-- Git
-
-### 1. Clone the Repository
+## 2. Clone & Install
 
 ```bash
-git clone <repo-url>
+git clone <this-repo>
 cd chatbot-with-data
 ```
 
-### 2. Create Python Virtual Environment
-
+### Backend
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
-
-### 3. Configure Environment Variables
-
-Copy the sample environment file and update with your API keys:
-
-```bash
-cp .env.sample .env
-```
-
-Edit `.env` with:
-- `OPENAI_API_KEY`: Your OpenAI API key (for embeddings and chat)
-- `EMBEDDING_API_BASE`: OpenAI API base URL (default: https://api.openai.com/v1)
-- `EMBEDDING_API_KEY`: Embedding service API key (can be same as OPENAI_API_KEY)
-- `WEAVIATE_URL`: Weaviate instance URL (default: http://localhost:8080)
-
-Example `.env`:
-```
-OPENAI_API_KEY=sk-...
-EMBEDDING_API_BASE=https://api.openai.com/v1
-EMBEDDING_API_KEY=sk-...
-WEAVIATE_URL=http://localhost:8080
-```
-
----
-
-## Backend Setup
-
-### 1. Install Dependencies
-
-```bash
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Initialize Database
-
-The SQLite database is created automatically on first run. To reset:
-
+### Frontend
 ```bash
-rm backend/data/rag_lab.db  # Remove existing database
-# Database will be recreated on next backend start
+cd frontend
+npm install
+cd ..
 ```
 
-### 3. Start the Backend Server
+---
+
+## 3. Configuration
+
+### Required environment variables
+
+Create a `.env` file in the project root:
 
 ```bash
+# LLM and embedding API
+OPENAI_API_KEY=sk-...
+
+# Optional overrides (defaults shown)
+APP_ENV=development
+APP_NAME="Knowledge Ingestion API"
+DATABASE_PATH=data/knowledge_ingestion/app.db
+WEAVIATE_URL=http://localhost:8080
+WEAVIATE_COLLECTION_NAME=DocumentChunk
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+LOG_LEVEL=INFO
+```
+
+The full list of supported variables lives in `backend/config.py` (`Settings` class). Values you don't set use sensible defaults.
+
+### Runtime settings
+
+Beyond `.env`, a JSON config file at `config/settings.json` holds runtime-tunable settings (chunking strategy, retrieval mode, feature toggles). It is created on first run and editable via:
+- The Settings screen in the UI
+- The `PUT /settings` API endpoint
+
+See [api-flows.md](./api-flows.md#6-settings--configuration) for the schema.
+
+---
+
+## 4. Start the System
+
+You'll run three things in three terminals.
+
+### Terminal 1 — Weaviate (vector database)
+```bash
+docker-compose up -d
+```
+This starts Weaviate on `localhost:8080` (HTTP) and `localhost:50051` (gRPC). Verify:
+```bash
+curl http://localhost:8080/v1/meta
+```
+Expected: JSON with version info.
+
+### Terminal 2 — Backend
+```bash
+source .venv/bin/activate
 cd backend
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-You should see:
-```
-INFO:     Uvicorn running on http://0.0.0.0:8000
-INFO:     Application startup complete
-```
+On startup, the backend:
+1. Loads settings from `.env` and `config/settings.json`
+2. Auto-applies database migrations (`apply_migrations()` in `app.py:65`) — no manual step needed
+3. Registers routers and middleware
+4. Listens on `:8000`
 
-### 4. Verify Backend Health
-
+Verify:
 ```bash
 curl http://localhost:8000/health
-# Expected response: {"status":"ok"}
+```
+Expected:
+```json
+{"status": "ok", "app_name": "Knowledge Ingestion API", "environment": "development"}
 ```
 
----
-
-## Frontend Setup
-
-### 1. Install Dependencies
-
+### Terminal 3 — Frontend
 ```bash
 cd frontend
-npm install
-```
-
-### 2. Start Development Server
-
-```bash
 npm run dev
 ```
-
-You should see:
-```
-  VITE v... ready in ... ms
-
-  ➜  Local:   http://localhost:5173/
-```
-
-### 3. Open in Browser
-
-Navigate to `http://localhost:5173` and you should see the chat interface.
+Visit `http://localhost:5173`. The Vite dev server proxies `/api/*` to `http://localhost:8000` (see `frontend/vite.config.js`).
 
 ---
 
-## Running Tests
+## 5. End-to-End Verification
 
-### Backend Tests
+Once all three services are up, run this sanity checklist:
 
+### Step 1 — Create a collection
+UI: `Collections` screen → `New Collection` → name it `test`.
+
+Or via API:
 ```bash
-cd backend
-pytest tests/ -v
-```
-
-### Frontend Tests
-
-```bash
-cd frontend
-npm run test
-```
-
-### Integration Tests
-
-```bash
-# Ensure backend and frontend are running
-cd tests
-pytest integration/ -v
-```
-
----
-
-## Verification Steps
-
-### Step 1: Upload a Document
-
-1. Open frontend at `http://localhost:5173`
-2. Click "Upload Document"
-3. Select a PDF, TXT, or MD file
-4. Wait for processing to complete
-
-### Step 2: Query the Document
-
-1. In the chat interface, type a question about the document
-2. The system should return a grounded answer with citations
-
-### Step 3: Check Backend Logs
-
-You should see logs like:
-```
-INFO: Processing ingestion attempt: <uuid>
-INFO: Chunking document...
-INFO: Generating embeddings...
-INFO: Indexing chunks in Weaviate...
-INFO: Ingestion complete
-```
-
-### Step 4: Verify Database
-
-```bash
-sqlite3 backend/data/rag_lab.db
-sqlite> SELECT COUNT(*) FROM documents;
-sqlite> SELECT COUNT(*) FROM chunks;
-sqlite> .quit
-```
-
----
-
-## Example: Using the API with Python
-
-```python
-import requests
-import json
-
-BASE_URL = "http://localhost:8000"
-
-# 1. Create a collection
-collection_response = requests.post(
-    f"{BASE_URL}/collections",
-    json={"name": "My Knowledge Base", "description": "Test collection"}
-)
-collection_id = collection_response.json()["id"]
-print(f"Created collection: {collection_id}")
-
-# 2. Upload a document
-with open("sample.pdf", "rb") as f:
-    files = {"file": f}
-    data = {"collection_ids": [collection_id]}
-    upload_response = requests.post(
-        f"{BASE_URL}/ingestion/file-upload",
-        files=files,
-        data=data
-    )
-    attempt_id = upload_response.json()["id"]
-    print(f"Upload attempt: {attempt_id}")
-
-# 3. Check ingestion status
-status_response = requests.get(
-    f"{BASE_URL}/ingestion/attempts/{attempt_id}"
-)
-print(f"Status: {status_response.json()['status']}")
-
-# 4. Create a chat session
-session_response = requests.post(
-    f"{BASE_URL}/chat/sessions",
-    json={"collection_ids": [collection_id]}
-)
-session_id = session_response.json()["id"]
-print(f"Chat session: {session_id}")
-
-# 5. Send a query
-query_response = requests.post(
-    f"{BASE_URL}/chat/sessions/{session_id}/turns/stream",
-    json={"query": "What is the main topic?"}
-)
-print(f"Answer: {query_response.json()['answer']}")
-```
-
-### Using curl
-
-```bash
-# Health check
-curl http://localhost:8000/health
-
-# List collections
-curl http://localhost:8000/collections
-
-# Create a collection
 curl -X POST http://localhost:8000/collections \
   -H "Content-Type: application/json" \
-  -d '{"name":"My Collection","description":"Test"}'
+  -d '{"name": "test", "description": "Smoke test"}'
+```
 
-# Upload a file
+### Step 2 — Upload a document
+UI: `Document Library` → upload any small PDF or `.txt` file → assign to `test` collection.
+
+Or via API:
+```bash
 curl -X POST http://localhost:8000/ingestion/file-upload \
-  -F "file=@sample.pdf" \
-  -F "collection_ids=[\"<collection-id>\"]"
+  -F "file=@some_doc.pdf" \
+  -F "collection_ids=<collection-id-from-step-1>"
 ```
+
+The response includes an `attempt_id`. Poll:
+```bash
+curl http://localhost:8000/ingestion/attempts/<attempt_id>
+```
+Wait until `status` is `completed` (typically a few seconds for a small doc).
+
+### Step 3 — Ask a question
+UI: `Chat` screen → select the `test` collection → ask a question about your document.
+
+Or via API:
+```bash
+# Create a session
+curl -X POST http://localhost:8000/chat/sessions \
+  -H "Content-Type: application/json" \
+  -d '{"collection_ids": ["<collection-id>"]}'
+
+# Ask a question (streaming)
+curl -X POST http://localhost:8000/chat/sessions/<session-id>/turns/stream \
+  -H "Content-Type: application/json" \
+  -d '{"query_text": "What is this document about?"}' \
+  --no-buffer
+```
+
+You should see token-by-token streaming, then citations and metrics. If the question can be answered from the document, the system returns an answer with citations linking back to specific chunks.
+
+### Step 4 — Inspect the pipeline
+UI: Click the X-Ray panel on a turn to see retrieved chunks, query transformations, and grounding scores.
 
 ---
 
-## Troubleshooting
-
-### Backend won't start
-- Check Python version: `python --version` (need 3.9+)
-- Verify virtual environment is activated: `which python` should show `.venv` path
-- Check port 8000 is not in use: `lsof -i :8000`
-
-### Frontend won't start
-- Check Node version: `node --version` (need 16+)
-- Clear npm cache: `npm cache clean --force`
-- Delete `node_modules` and reinstall: `rm -rf node_modules && npm install`
-
-### Weaviate connection error
-- Ensure Docker is running: `docker ps`
-- Check Weaviate is accessible: `curl http://localhost:8080/v1/.well-known/ready`
-- Restart Weaviate: `docker restart <container-id>`
-
-### Database locked error
-- Stop all backend processes
-- Remove lock file: `rm backend/data/rag_lab.db-wal`
-- Restart backend
-
-### API returns 401 or 403
-- Verify `OPENAI_API_KEY` is set correctly in `.env`
-- Check API key has required permissions
-- Regenerate key if needed
-
----
-
-## Security Features
-
-The system includes comprehensive security features to protect against attacks and ensure compliance:
-
-### Prompt Injection Detection
-
-The system automatically detects and blocks malicious queries using:
-- **49 patterns** across 8 attack categories (SQL, NoSQL, LDAP, XSS, command injection, path traversal, code execution, prompt override)
-- **Fuzzy detection** using embeddings to catch typo variants and obfuscated attacks
-- **Three safety modes**: strict (0.5), moderate (0.7), lenient (0.9) thresholds
-- **Ingestion-time filtering** to prevent malicious content from being indexed
-
-**Configuration:**
-```bash
-# In .env file
-SAFETY_MODE=moderate  # Options: strict, moderate, lenient
-EMBEDDING_API_KEY=sk-...  # Required for fuzzy detection
-```
-
-**Documentation:**
-- See [`PROMPT_INJECTION_DETECTION.md`](./PROMPT_INJECTION_DETECTION.md) for complete feature documentation
-- See [`PROMPT_INJECTION_TESTING_GUIDE.md`](./PROMPT_INJECTION_TESTING_GUIDE.md) for testing procedures
-
-### Testing Security Features
+## 6. Running Tests
 
 ```bash
-# Run security tests
+source .venv/bin/activate
 cd backend
-pytest tests/test_safety.py -v
-
-# Check blocked queries in logs
-grep "Malicious pattern detected" logs/app.log
-grep "Blocked chunk" logs/app.log
+pytest
 ```
 
----
-
-## Next Steps
-
-1. **Read the Architecture Overview**: See [`system-architecture.md`](./system-architecture.md) to understand system components and how they interact
-2. **Explore API Flows**: Check [`api-flows.md`](./api-flows.md) for detailed endpoint documentation with request/response examples
-3. **Learn RAG Concepts**: Review [`ai-learning.md`](./ai-learning.md) for ingestion pipeline, embeddings, hybrid search, grounding, and safety filters
-4. **Check Database Schema**: See [`database-schema.md`](./database-schema.md) for data model details, table definitions, and access patterns
-5. **Review System Flow**: Look at [`diagrams/system-flow.md`](./diagrams/system-flow.md) for end-to-end flow diagrams and sequence charts
-6. **Understand Security**: Review [`PROMPT_INJECTION_DETECTION.md`](./PROMPT_INJECTION_DETECTION.md) for security features and [`SECURITY_LEARNING_RESOURCES.md`](./SECURITY_LEARNING_RESOURCES.md) for learning resources
+`pytest` and `pytest-mock` are in `requirements.txt`. Test files live alongside source under each subpackage. Use `pytest -k <pattern>` to run a subset.
 
 ---
 
-## Getting Help
+## 7. Common Issues
 
-- Check logs: `tail -f backend/logs/app.log`
-- Review error messages in browser console (F12)
-- Search existing issues in the repository
-- Ask in the team Slack channel
+### Weaviate connection refused
+- Confirm `docker-compose ps` shows the container running.
+- Check `WEAVIATE_URL` in `.env` matches the exposed port (default `8080`).
+- On macOS Docker Desktop, port forwarding can take a few seconds after `up -d`.
 
-Happy coding! 🚀
+### `OPENAI_API_KEY` missing
+- The backend will start, but ingestion (embedding generation) and chat (LLM) will fail.
+- Errors surface in the backend logs and as 500 responses.
+
+### Port already in use
+- Backend `:8000`: `lsof -i :8000` then kill the offending process.
+- Frontend `:5173`: change in `frontend/vite.config.js` or kill the process.
+- Weaviate `:8080`: stop other services or edit `docker-compose.yml`.
+
+### Migrations not applied / DB schema errors
+- The DB lives at `DATABASE_PATH` (default `data/knowledge_ingestion/app.db`).
+- Migrations run on backend startup. If the DB looks corrupt, stop the backend, delete the file, restart — migrations recreate the schema.
+- For schema details, see [database-schema.md](./database-schema.md).
+
+### Frontend shows "Network Error" on every request
+- Confirm backend is up: `curl http://localhost:8000/health`.
+- Confirm Vite proxy is hitting the right port (`vite.config.js` → `target: "http://localhost:8000"`).
+- Confirm CORS allows `http://localhost:5173` (default config does).
+
+### Chat returns "I don't know" for questions that should be answered
+- Check ingestion completed: `GET /ingestion/attempts/<id>` shows `status=completed`.
+- Check chunks were created: query SQLite at `DATABASE_PATH` for `chunks WHERE document_id = ?`.
+- Check Weaviate has the data: `curl http://localhost:8080/v1/objects?class=DocumentChunk&limit=5`.
+- Try lowering retrieval thresholds or enabling query expansion via the Settings screen.
+
+---
+
+## 8. Where to Go Next
+
+Once the smoke test passes:
+
+| Goal | Doc |
+|------|-----|
+| Understand the architecture | [system-architecture.md](./system-architecture.md) |
+| Browse all API endpoints | [api-flows.md](./api-flows.md) |
+| Read the data model | [database-schema.md](./database-schema.md) |
+| Learn how retrieval works | [RETRIEVAL_FLOW.md](./RETRIEVAL_FLOW.md) |
+| Tune chunking | [CHUNKING_STRATEGIES.md](./CHUNKING_STRATEGIES.md) |
+| Understand safety | [PROMPT_INJECTION_DETECTION.md](./PROMPT_INJECTION_DETECTION.md) |
+| Understand RAG concepts | [ai-learning.md](./ai-learning.md) |
+| See the roadmap | [enhancement-recommendations.md](./enhancement-recommendations.md) |
+
+---
+
+## 9. Project Layout (Cheat Sheet)
+
+```
+backend/
+  app.py                # FastAPI factory, middleware, startup
+  main.py               # uvicorn entry: app = create_app()
+  config.py             # Settings + SettingsManager
+  database.py           # SQLite connection
+  routers/              # FastAPI endpoints
+  chat/                 # Retrieval, generation, safety, streaming
+  chunking/             # Five chunking strategies + dispatcher
+  ingestion/            # Upload, URL fetch, ingestion orchestration
+  indexing/             # Weaviate integration
+  duplicate_detection/  # File/text/similarity duplicate checks
+  embeddings/           # OpenAI embedding client
+  llm/                  # LLM client
+  providers/            # Provider abstraction
+  repositories/         # Data access layer (SQLite)
+  schemas/              # Pydantic request/response models
+  models/               # Domain dataclasses
+  migrations/           # Schema migrations (auto-run on startup)
+  extractors/           # PDF/text/web extraction
+  error_handlers/       # Global exception handlers
+  storage/              # Local file storage helpers
+
+frontend/
+  src/
+    screens/            # Chat, Evaluation, DocumentLibrary, Collections, Settings, ...
+    components/         # XRayPanel, ExperimentComparison, CitationModal, ...
+    App.jsx, main.jsx
+  vite.config.js        # Dev server + /api proxy
+  package.json
+
+docs/                   # You are here
+config/                 # Runtime settings.json (created on first run)
+data/                   # SQLite + uploads + snapshots (created on first run)
+docker-compose.yml      # Weaviate
+requirements.txt
+README.md
+```

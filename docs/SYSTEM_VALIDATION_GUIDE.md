@@ -1,5 +1,11 @@
 # System Validation Guide
 
+**Status:** 🟡 Partial  
+**Last verified:** 2026-05-29  
+**Source files:** backend/error_handlers/, backend/routers/
+
+---
+
 This guide explains the validation and quality assurance mechanisms in the RAG Knowledge Base Lab system, covering input validation, data integrity checks, configuration validation, and system health monitoring.
 
 ## Overview
@@ -123,6 +129,10 @@ upload them separately. You can upload multiple documents and search across them
 ```
 
 ### PII Detection
+
+> ⏳ **Planned — not yet implemented.** The configuration and behavior described below is the intended design. No PII detector exists in the current codebase (`presidio-analyzer` is not installed). See [`PII_DETECTION_TUNING.md`](./PII_DETECTION_TUNING.md) for the roadmap.
+
+### PII Detection (Planned)
 
 **Purpose:** Protect user privacy by identifying sensitive data before processing.
 

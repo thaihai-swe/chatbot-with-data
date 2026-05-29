@@ -1,8 +1,8 @@
 # Prompt Injection Detection & Safety Pipeline
 
-**Version:** 1.0  
-**Last Updated:** 2026-05-19  
-**Status:** Production Ready
+**Status:** 🟢 Implemented  
+**Last verified:** 2026-05-29  
+**Source files:** `backend/chat/safety.py`, `backend/config/injection_patterns.yaml`
 
 ---
 

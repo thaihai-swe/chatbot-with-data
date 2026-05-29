@@ -1,8 +1,12 @@
 # Retrieval Flow Documentation
 
-**Version:** 3.0  
-**Last Updated:** 2026-05-20  
-**Scope:** Complete System Retrieval Architecture
+**Status:** 🟡 Partial — core retrieval is accurate; reranker section describes planned behavior  
+**Last verified:** 2026-05-29  
+**Source files:** `backend/chat/retrieval.py`, `backend/chat/service.py`, `backend/chat/multi_hop.py`
+
+> **Reranker note:** Sections describing `cross-encoder/ms-marco-MiniLM-L-6-v2` as active describe the **planned** reranker. The current implementation (`RerankingService`) is a dummy that sorts by similarity score. See `backend/chat/retrieval.py:258`. A real cross-encoder is on the roadmap.
+
+> **Retrieval modes note:** This doc references SIMPLE/EXPAND/MULTIHOP/AUTO modes. The current code uses dynamic routing based on query classification (factual/comparative/how-to/troubleshooting/exploratory) which maps to equivalent strategies. The mode labels are conceptually accurate but not literal code identifiers.
 
 ---
 

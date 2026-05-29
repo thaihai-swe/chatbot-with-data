@@ -1,5 +1,11 @@
 # Chunking Strategies
 
+**Status:** 🟢 Implemented  
+**Last verified:** 2026-05-29  
+**Source files:** backend/chunking/
+
+---
+
 This document explains the various chunking strategies implemented in the system, how they work, and when to use them.
 
 ## Overview

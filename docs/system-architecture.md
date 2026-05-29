@@ -1,367 +1,312 @@
-# System Architecture - Comprehensive Overview
+# System Architecture
 
-This document provides a detailed view of the RAG Knowledge Base Lab architecture, describing all major components, their responsibilities, interactions, and the complete feature matrix.
-
----
-
-## 1. System Components
-
-| Component | Technology | Primary Role | Status |
-|-----------|------------|--------------|--------|
-| **Backend API** | FastAPI (Python) | Exposes HTTP endpoints for ingestion, query, collection management, and chat sessions | ✅ Active |
-| **SQLite** | SQLite (file-based) | Stores relational metadata: collections, documents, chunks, ingestion attempts, embeddings cache, chat history, citations | ✅ Active |
-| **Weaviate** | Weaviate (Docker) | Hybrid vector + BM25 search index; stores chunk vectors and full text for fast semantic retrieval | ✅ Active |
-| **Embedding Service** | OpenAI API (text-embedding-3-small) | Generates embeddings for chunk text; results cached in SQLite to avoid repeated calls | ✅ Active |
-| **Safety Service** | Custom Python filters | Performs prompt injection detection, content moderation, PII detection, and grounding validation | ✅ Active |
-| **Streaming Orchestrator** | Async Python | Coordinates real-time token streaming, safety checks, retrieval, and citation stitching | ✅ Active |
-| **Query Enhancement** | Python (retrieval module) | Query rewriting, intent classification, query decomposition, and mode selection | ✅ Active |
-| **Retrieval Service** | Python (retrieval module) | Multi-strategy retrieval: SIMPLE, EXPAND, MULTIHOP, AUTO modes with hybrid search | ✅ Active |
-| **Reranking Engine** | Rule-based + ML | Refines retrieved results using term overlap, position bias, and structural signals | ✅ Active |
-| **Entity Resolver** | Python (conversation module) | Resolves pronouns and references in multi-turn conversations | ✅ Active |
-| **Claim Extractor** | Python (safety module) | Extracts individual claims from answers with confidence level classification | ✅ Active |
-| **Frontend** | Vite + React (TypeScript) | UI for document upload, chat interaction, collection management, and admin tools | ✅ Active |
-| **Docker Compose** | Docker | Orchestrates Weaviate and auxiliary services in isolated containers | ✅ Active |
+**Status:** 🟢 Implemented  
+**Last verified:** 2026-05-29  
+**Source files:** `backend/app.py`, `backend/routers/`, `backend/chat/`, `backend/chunking/`, `backend/ingestion/`, `backend/indexing/`, `backend/migrations/runner.py`
 
 ---
 
-## 2. Complete System Architecture Diagram
+## 1. System Overview
 
-```mermaid
-graph TB
-    subgraph CLI["CLI Interface (cli/app.py)"]
-        Router["Command Router"]
-        Executor["Query Execution Pipeline"]
-        Formatter["Results Formatter"]
-    end
-    
-    subgraph ConvMgmt["Conversation Management"]
-        History["Conversation History"]
-        EntityRes["Entity Resolver"]
-    end
-    
-    subgraph QueryEnhance["Query Enhancement (Feature 2)"]
-        Rewriter["Query Rewriter"]
-        IntentClass["Intent Classifier"]
-        Decomposer["Query Decomposer"]
-    end
-    
-    subgraph Security["Security Layer (Feature 4)"]
-        QueryVal["Query Validator"]
-        PIIDetect["PII Detector"]
-        InjectionDetect["Injection Detector"]
-        AuditLog["Security Audit Logger"]
-    end
-    
-    subgraph Ingestion["Ingestion Pipeline (Feature 1)"]
-        PDFLoader["PDF Loader"]
-        TextLoader["Text Loader"]
-        URLLoader["URL Loader"]
-        Chunker["Document Chunker"]
-        EmbedGen["Embedding Generator"]
-        DedupCheck["Deduplication Check"]
-        MetadataTag["Metadata Tagger"]
-    end
-    
-    subgraph Retrieval["Retrieval Pipeline (Feature 1)"]
-        SimpleRet["SIMPLE Retriever"]
-        ExpandRet["EXPAND Retriever"]
-        MultiHopRet["MULTIHOP Retriever"]
-        HybridSearch["Hybrid Search"]
-        Reranker["Reranking Engine"]
-        ContextWindow["Context Windowing"]
-    end
-    
-    subgraph Generation["Generation & Safety (Feature 1)"]
-        LLMGen["LLM Generator"]
-        ClaimExt["Claim Extractor"]
-        FactVal["Fact Validator"]
-        HallDet["Hallucination Detector"]
-        ConfScore["Confidence Scorer"]
-    end
-    
-    subgraph Tracing["Query Tracing (Feature 5)"]
-        QueryTrace["Query Trace Logger"]
-        PerfProf["Performance Profiler"]
-        TraceStore["Trace Storage (JSONL)"]
-    end
-    
-    subgraph Storage["Storage Layer"]
-        SQLiteDB["SQLite Database"]
-        WeaviateDB["Weaviate Vector DB"]
-        EmbedCache["Embedding Cache"]
-        AuditTrail["Audit Trail"]
-    end
-    
-    subgraph Config["Configuration & Error Handling"]
-        EnvConfig[".env + Environment Variables"]
-        ConfigVal["Config Validation"]
-        ErrorHandler["Error Recovery"]
-    end
-    
-    Router --> Executor
-    Executor --> Formatter
-    Executor --> History
-    History --> EntityRes
-    EntityRes --> Rewriter
-    Rewriter --> IntentClass
-    IntentClass --> Decomposer
-    Decomposer --> QueryVal
-    QueryVal --> PIIDetect
-    PIIDetect --> InjectionDetect
-    InjectionDetect --> AuditLog
-    
-    AuditLog --> SimpleRet
-    AuditLog --> ExpandRet
-    AuditLog --> MultiHopRet
-    SimpleRet --> HybridSearch
-    ExpandRet --> HybridSearch
-    MultiHopRet --> HybridSearch
-    HybridSearch --> Reranker
-    Reranker --> ContextWindow
-    ContextWindow --> LLMGen
-    
-    LLMGen --> ClaimExt
-    ClaimExt --> FactVal
-    FactVal --> HallDet
-    HallDet --> ConfScore
-    
-    ConfScore --> QueryTrace
-    QueryTrace --> PerfProf
-    PerfProf --> TraceStore
-    
-    Ingestion --> SQLiteDB
-    Ingestion --> WeaviateDB
-    Ingestion --> EmbedCache
-    
-    Retrieval --> SQLiteDB
-    Retrieval --> WeaviateDB
-    
-    AuditLog --> AuditTrail
-    
-    EnvConfig --> ConfigVal
-    ConfigVal --> ErrorHandler
+The RAG Knowledge Base Lab is a FastAPI backend + React frontend system that ingests documents, retrieves relevant chunks using hybrid search, and generates grounded answers with citations.
+
+**Core data flow:**
+```
+Document Upload → Extraction → Duplicate Detection → Chunking → Embedding → Indexing
+                                                                              ↓
+Query → Safety Check → Query Intelligence → Retrieval → Reranking → Generation → Citations
 ```
 
 ---
 
-## 3. Feature Matrix - Complete Implementation Status
+## 2. Architecture Layers
 
-| Category | Feature | Components | Status |
-|----------|---------|------------|--------|
-| **Core RAG** | PDF/Text/URL loading | PDFLoader, TextLoader, URLLoader | ✅ Complete |
-| | Document chunking | Chunker (fixed-size, semantic, page-aware) | ✅ Complete |
-| | Embedding generation | EmbedGen + OpenAI API | ✅ Complete |
-| | Embedding caching | EmbedCache (SQLite) | ✅ Complete |
-| | Hybrid search | HybridSearch (BM25 + semantic) | ✅ Complete |
-| **Query Enhancement** | Query rewriting | Rewriter (LLM-based) | ✅ Complete |
-| | Intent classification | IntentClass (LLM + heuristic) | ✅ Complete |
-| | Query decomposition | Decomposer (multi-part queries) | ✅ Complete |
-| | Mode auto-selection | AUTO mode (SIMPLE/EXPAND/MULTIHOP) | ✅ Complete |
-| **Retrieval Strategies** | SIMPLE mode | SimpleRet (fast, focused) | ✅ Complete |
-| | EXPAND mode | ExpandRet (multi-query) | ✅ Complete |
-| | MULTIHOP mode | MultiHopRet (chained reasoning) | ✅ Complete |
-| | Reranking | Reranker (rule-based + ML) | ✅ Complete |
-| | Context windowing | ContextWindow (token budget) | ✅ Complete |
-| **Collection Management** | Metadata tagging | MetadataTag (key-value pairs) | ✅ Complete |
-| | Filtering | HybridSearch filters | ✅ Complete |
-| | Deduplication | DedupCheck (similarity-based) | ✅ Complete |
-| | Backup/restore | SQLite dump/restore | ✅ Complete |
-| | Reindexing | Weaviate re-index | ✅ Complete |
-| **Input Validation & Security** | Query injection detection | InjectionDetect (49 patterns, 8 categories) | ✅ Complete |
-| | Fuzzy injection detection | Embedding-based similarity (70% threshold) | ✅ Complete |
-| | Safety modes | Strict/Moderate/Lenient (0.5/0.7/0.9) | ✅ Complete |
-| | Ingestion-time safety | Chunk-level filtering during upload | ✅ Complete |
-| | PII scanning | PIIDetect (email, phone, SSN, card) | ✅ Complete |
-| | PII suppression | Redaction before ingestion | ✅ Complete |
-| | Security audit trail | AuditLog (JSONL format) | ✅ Complete |
-| **Generation & Safety** | LLM generation | LLMGen (Ollama/OpenAI) | ✅ Complete |
-| | Claim extraction | ClaimExt (HIGH/MEDIUM/LOW confidence) | ✅ Complete |
-| | Fact validation | FactVal (token overlap check) | ✅ Complete |
-| | Hallucination detection | HallDet (unsupported claims) | ✅ Complete |
-| | Confidence scoring | ConfScore (0.0-1.0 metric) | ✅ Complete |
-| **Conversation** | Multi-turn support | History (conversation tracking) | ✅ Complete |
-| | Entity resolution | EntityRes (pronoun replacement) | ✅ Complete |
-| | Context awareness | History + EntityRes | ✅ Complete |
-| **Query Tracing & Observability** | End-to-end tracing | QueryTrace (all steps logged) | ✅ Complete |
-| | Performance profiling | PerfProf (latency, throughput) | ✅ Complete |
-| | JSON Lines persistence | TraceStore (.jsonl format) | ✅ Complete |
-| | Trace display | CLI --trace flag | ✅ Complete |
-| **CLI & UX** | Command interface | Router + Executor | ✅ Complete |
-| | Help system | Built-in documentation | ✅ Complete |
-| | Collection management | Commands for CRUD ops | ✅ Complete |
-| | Results formatting | Formatter (user-friendly output) | ✅ Complete |
+### Backend Stack
+- **Framework:** FastAPI (Python 3.10+)
+- **Metadata DB:** SQLite (file-based, 16 tables)
+- **Vector DB:** Weaviate (Docker, hybrid BM25 + semantic search)
+- **Embedding Model:** OpenAI `text-embedding-3-small` (cached in SQLite)
+- **LLM:** OpenAI GPT-4o (configurable via provider abstraction)
+- **Async Runtime:** Python asyncio
+
+### Frontend Stack
+- **Framework:** React + Vite (JavaScript, not TypeScript)
+- **Port:** 5173 (proxies `/api` to backend `:8000`)
+- **Key screens:** Chat, Evaluation, DocumentLibrary, Collections, DuplicateDecision, Settings
 
 ---
 
-## 4. Data Flow for Ingestion
+## 3. Component Map
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant Frontend
-    participant Backend
-    participant Chunker
-    participant EmbedGen
-    participant Weaviate
-    participant SQLite
-    
-    User->>Frontend: Upload PDF/TXT/URL
-    Frontend->>Backend: POST /ingestion/file-upload
-    Backend->>Backend: Extract text
-    Backend->>Backend: Compute file hash
-    Backend->>SQLite: Check for duplicates
-    
-    alt Duplicate Found
-        Backend->>User: Notify (awaiting decision)
-    else Unique
-        Backend->>Chunker: Split document
-        Chunker->>SQLite: Store chunks
-        
-        loop For each chunk
-            Backend->>EmbedGen: Generate embedding
-            EmbedGen->>SQLite: Cache embedding
-        end
-        
-        Backend->>Weaviate: Index all chunks
-        Backend->>SQLite: Update status (completed)
-        Backend->>User: Ready for queries
-    end
+| Component | Location | Responsibility |
+|-----------|----------|-----------------|
+| **API Router** | `backend/routers/` | HTTP endpoints (health, ingestion, documents, collections, chat, settings, duplicate decisions) |
+| **Chat Service** | `backend/chat/service.py` | Orchestrates retrieval, generation, streaming, citations |
+| **Query Intelligence** | `backend/chat/retrieval.py::QueryIntelligenceService` | Query classification, expansion, decomposition, HyDE, synonym expansion, dynamic routing |
+| **Retrieval Service** | `backend/chat/retrieval.py::RetrievalService` | Hybrid search (BM25 + semantic), multi-strategy retrieval |
+| **RRF Merger** | `backend/chat/retrieval.py::CandidateMerger` | Reciprocal Rank Fusion for combining multi-strategy results |
+| **Reranking** | `backend/chat/retrieval.py::RerankingService` | Post-retrieval ranking (currently dummy; sorts by similarity score) |
+| **Generation** | `backend/chat/generation.py` | LLM answer generation with streaming |
+| **Citations** | `backend/chat/citations.py` | Extract and link citations to source chunks |
+| **Grounding** | `backend/chat/grounding.py` | Evaluate evidence and calculate groundedness score |
+| **Safety** | `backend/chat/safety.py` | Three-layer prompt injection detection (heuristic, fuzzy, LLM) |
+| **Streaming** | `backend/chat/streaming.py::StreamingOrchestrator` | Coordinate streaming responses via SSE |
+| **Context Assembly** | `backend/chat/context.py` | Build LLM prompt from retrieved chunks + chat history |
+| **Multi-Hop** | `backend/chat/multi_hop.py` | Sequential retrieval for multi-part questions |
+| **Collection Routing** | `backend/chat/collection_routing.py` | Infer relevant collections from query |
+| **Ingestion** | `backend/ingestion/service.py` | File upload, URL ingestion, duplicate detection, chunking, indexing |
+| **Extractors** | `backend/extractors/` | PDF, text, web extraction (dispatcher auto-selects) |
+| **Chunking** | `backend/chunking/` | Five strategies: fixed-size, heading-aware, page-aware, semantic, parent-child |
+| **Duplicate Detection** | `backend/duplicate_detection/detector.py` | File hash, text hash, URL canonicalization, similarity-based detection |
+| **Embeddings** | `backend/embeddings/openai_client.py` | Generate and cache embeddings |
+| **Indexing** | `backend/indexing/weaviate_store.py` | Weaviate integration (hybrid search, SOLID abstraction) |
+| **LLM Provider** | `backend/llm/client.py` | OpenAI client (configurable via provider abstraction) |
+| **Repositories** | `backend/repositories/` | Data access layer (chat, chunk, embedding, index_entry, index_generation) |
+| **Database** | `backend/database.py` | SQLite connection management |
+| **Migrations** | `backend/migrations/runner.py` | Schema versioning and auto-migration on startup |
+| **Config** | `backend/config.py` | Settings management (env vars, .env file, runtime updates) |
+| **Error Handlers** | `backend/error_handlers/handlers.py` | Global error handling and recovery |
+
+---
+
+## 4. Database Schema (16 Tables)
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `schema_migrations` | Track applied migrations | `version`, `applied_at` |
+| `collections` | Document collections/categories | `id`, `name`, `description`, `routing_enabled` |
+| `documents` | Ingested documents | `id`, `title`, `source_type`, `file_hash`, `normalized_text_hash`, `version_of_document_id`, `deleted_at` |
+| `document_collections` | M:M relationship (doc ↔ collection) | `document_id`, `collection_id` |
+| `ingestion_attempts` | Track ingestion jobs | `id`, `document_id`, `status`, `duplicate_status`, `duplicate_match_document_id`, `error_message` |
+| `ingestion_attempt_collections` | M:M relationship (attempt ↔ collection) | `ingestion_attempt_id`, `collection_id` |
+| `lifecycle_events` | Audit trail for documents | `id`, `document_id`, `event_type`, `from_status`, `to_status` |
+| `duplicate_decisions` | User decisions on duplicates | `id`, `ingestion_attempt_id`, `classification`, `action`, `final_status` |
+| `chunks` | Document chunks | `id`, `document_id`, `collection_id`, `text`, `strategy`, `page_number`, `parent_chunk_id`, `semantic_score` |
+| `embeddings` | Cached embeddings | `id`, `chunk_id`, `embedding_model`, `embedding_vector` (BLOB), `input_text_hash` |
+| `index_generations` | Index versioning | `id`, `document_id`, `generation_number`, `status`, `embedding_model`, `chunk_count` |
+| `index_entries` | Index entries (chunk ↔ embedding ↔ generation) | `id`, `chunk_id`, `embedding_id`, `generation_id`, `vector_db_id` |
+| `chat_sessions` | Chat sessions | `id`, `collection_id`, `metadata_json`, `created_at` |
+| `chat_turns` | Query/answer pairs | `id`, `session_id`, `query_text`, `answer_text`, `status`, `safety_status`, `groundedness_score` |
+| `citations` | Answer citations | `id`, `turn_id`, `chunk_id`, `document_id`, `quote_text` |
+| `chat_session_collections` | M:M relationship (session ↔ collection) | `session_id`, `collection_id` |
+
+**Note:** Schema inconsistency flagged: `chat_sessions.collection_id` is singular (TEXT), but `ChatSession` model uses `collection_ids: List[str]` and `chat_session_collections` join table exists. This should be resolved in a future migration.
+
+---
+
+## 5. API Endpoints
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| `GET` | `/health` | Health check |
+| `POST` | `/ingestion/file-upload` | Upload document (async, returns attempt ID) |
+| `POST` | `/ingestion/url` | Ingest URL (async) |
+| `GET` | `/ingestion/attempts` | List ingestion attempts |
+| `GET` | `/ingestion/attempts/{attempt_id}` | Get attempt details |
+| `POST` | `/ingestion/attempts/{attempt_id}/duplicate-decision` | Decide on duplicate |
+| `GET` | `/documents` | List documents |
+| `GET` | `/documents/{document_id}` | Get document details |
+| `DELETE` | `/documents/{document_id}` | Delete document |
+| `POST` | `/documents/{document_id}/move` | Move document to collection |
+| `POST` | `/documents/{document_id}/reindex` | Reindex document |
+| `POST` | `/documents/{document_id}/reingest` | Re-ingest document |
+| `GET` | `/collections` | List collections |
+| `POST` | `/collections` | Create collection |
+| `GET` | `/collections/{collection_id}` | Get collection |
+| `PATCH` | `/collections/{collection_id}` | Update collection |
+| `DELETE` | `/collections/{collection_id}` | Delete collection |
+| `POST` | `/chat/sessions` | Create chat session |
+| `GET` | `/chat/sessions` | List sessions |
+| `GET` | `/chat/sessions/{session_id}` | Get session |
+| `DELETE` | `/chat/sessions/{session_id}` | Delete session |
+| `GET` | `/chat/sessions/{session_id}/history` | Get chat history |
+| `POST` | `/chat/sessions/{session_id}/turns` | Create turn (non-streaming) |
+| `POST` | `/chat/sessions/{session_id}/turns/stream` | Create turn (streaming SSE) |
+| `POST` | `/chat/turns/{turn_id}/cancel` | Cancel streaming turn |
+| `POST` | `/chat/evaluate/sanity-check` | Run evaluation on golden dataset |
+| `GET` | `/settings` | Get all settings |
+| `PUT` | `/settings` | Update settings |
+
+---
+
+## 6. Data Flow: Ingestion
+
+```
+1. User uploads file/URL via frontend
+   ↓
+2. POST /ingestion/file-upload or /ingestion/url
+   ↓
+3. Backend creates ingestion_attempt (status: pending)
+   ↓
+4. BackgroundTasks queues process_ingestion_attempt()
+   ↓
+5. Extract text (PDF/TXT/Web)
+   ↓
+6. Detect duplicates (file hash, text hash, similarity)
+   ↓
+7. If duplicate detected:
+   - Create duplicate_decision record
+   - Wait for user decision (skip/replace/variant/merge)
+   ↓
+8. Chunk document (auto-select strategy: page-aware for PDF, heading-aware for MD, fixed-size for TXT)
+   ↓
+9. Generate embeddings (OpenAI text-embedding-3-small, cached in SQLite)
+   ↓
+10. Index chunks in Weaviate (hybrid search: BM25 + semantic)
+    ↓
+11. Create document, chunks, embeddings, index_entries records
+    ↓
+12. Update ingestion_attempt (status: completed)
 ```
 
 ---
 
-## 5. Data Flow for Query (Grounded Chat)
+## 7. Data Flow: Query & Retrieval
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant Frontend
-    participant Backend
-    participant QueryEnhance
-    participant Security
-    participant Retrieval
-    participant Generation
-    participant Safety
-    
-    User->>Frontend: Send query
-    Frontend->>Backend: POST /chat/sessions/{id}/turns/stream
-    
-    Backend->>QueryEnhance: Rewrite & classify intent
-    QueryEnhance->>Backend: Rewritten query + mode
-    
-    Backend->>Security: Validate query
-    Security->>Backend: Pass/Block
-    
-    Backend->>Retrieval: Retrieve chunks (hybrid)
-    Retrieval->>Backend: Top-K chunks + scores
-    
-    Backend->>Retrieval: Rerank results
-    Retrieval->>Backend: Reranked chunks
-    
-    Backend->>Retrieval: Apply context window
-    Retrieval->>Backend: Final chunks (within budget)
-    
-    Backend->>Generation: Generate answer
-    Generation->>Backend: Answer tokens (streaming)
-    Backend->>Frontend: Stream tokens
-    Frontend->>User: Display tokens
-    
-    Backend->>Safety: Extract claims
-    Safety->>Backend: Claims + confidence levels
-    
-    Backend->>Safety: Validate citations
-    Safety->>Backend: Valid citations
-    
-    Backend->>Backend: Calculate groundedness score
-    Backend->>Frontend: Final answer + citations + score
+```
+1. User sends query via chat UI
+   ↓
+2. POST /chat/sessions/{session_id}/turns/stream
+   ↓
+3. Safety check (heuristic + fuzzy + LLM injection detection)
+   ↓
+4. Query intelligence:
+   - Classify query type (factual/comparative/how-to/troubleshooting/exploratory)
+   - Dynamic routing selects strategy (baseline/expansion/decomposition/hyde/synonym)
+   - Rewrite, expand, decompose, or generate HyDE as needed
+   ↓
+5. Multi-strategy retrieval (parallel):
+   - BM25 (keyword search)
+   - Semantic (vector search)
+   - HyDE (if enabled)
+   ↓
+6. Merge results via RRF (Reciprocal Rank Fusion)
+   ↓
+7. Rerank results (currently dummy; sorts by similarity score)
+   ↓
+8. Select top-k chunks within context window
+   ↓
+9. Assemble context:
+   - Format retrieved chunks
+   - Include chat history (sliding window of 10 turns)
+   - Build system + user prompts
+   ↓
+10. Stream LLM response token-by-token via SSE
+    ↓
+11. Extract citations (link claims to source chunks)
+    ↓
+12. Calculate groundedness score
+    ↓
+13. Store turn, citations, and metrics in SQLite
 ```
 
 ---
 
-## 6. Component Responsibilities
+## 8. Key Features
 
-### Query Enhancement Pipeline
-- **Query Rewriter**: Clarifies ambiguous queries using LLM
-- **Intent Classifier**: Determines query complexity (SIMPLE/EXPAND/MULTIHOP)
-- **Query Decomposer**: Breaks multi-part queries into sub-queries
-- **Mode Selector**: Chooses optimal retrieval strategy
+### Query Intelligence (Pre-Retrieval)
+- **Classification:** Detects query type (factual, comparative, how-to, troubleshooting, exploratory)
+- **Expansion:** Generates 3–5 alternative phrasings
+- **Decomposition:** Breaks multi-part questions into sub-queries
+- **HyDE:** Generates hypothetical relevant documents
+- **Synonym Expansion:** Domain-specific vocabulary mapping
+- **Dynamic Routing:** Selects optimal strategy based on query type
 
-### Retrieval Pipeline
-- **SIMPLE Retriever**: Fast semantic search for straightforward queries
-- **EXPAND Retriever**: Multi-query generation for multi-aspect questions
-- **MULTIHOP Retriever**: Chained reasoning for causal questions
-- **Hybrid Search**: Combines BM25 (keyword) + semantic (vector) scoring
-- **Reranker**: Refines ordering using term overlap, position, structure
-- **Context Window**: Selects highest-scoring chunks within token budget
+### Retrieval
+- **Hybrid Search:** BM25 (keyword) + semantic (vector) via Weaviate
+- **Multi-Strategy:** Parallel retrieval with RRF merging
+- **Reranking:** Post-retrieval ranking (placeholder; real cross-encoder pending)
+- **Collection Filtering:** Query within specific collections
+- **Parent-Child Retrieval:** Hierarchical indexing for precision + context
 
-### Safety & Validation
-- **Query Validator**: Detects injection patterns (49 patterns across 8 categories: SQL, NoSQL, LDAP, XSS, command, path traversal, code execution, prompt override)
-- **Fuzzy Injection Detector**: Embedding-based similarity detection (70% threshold) catches typo variants and obfuscated attacks
-- **Safety Modes**: Configurable strict/moderate/lenient modes (0.5/0.7/0.9 thresholds)
-- **Ingestion Safety**: Chunk-level filtering during document upload to prevent malicious content indexing
-- **PII Detector**: Identifies sensitive data (email, phone, SSN, card)
-- **Claim Extractor**: Parses claims with confidence levels
-- **Fact Validator**: Verifies claims against source chunks
-- **Hallucination Detector**: Flags unsupported statements
-- **Confidence Scorer**: Calculates answer trustworthiness (0.0-1.0)
+### Chunking
+- **Fixed-Size:** Plain text with configurable overlap
+- **Heading-Aware:** Markdown/structured docs; preserves section context
+- **Page-Aware:** PDFs; respects page boundaries
+- **Semantic:** Narrative text; splits at topic boundaries
+- **Parent-Child:** Hierarchical indexing
 
-### Conversation Management
-- **Conversation History**: Maintains multi-turn context
-- **Entity Resolver**: Resolves pronouns to prior entities
-- **Context Awareness**: Combines history + entity resolution
+### Safety
+- **Heuristic Scanner:** 49 regex patterns across 8 attack categories
+- **Fuzzy Scanner:** Cosine similarity to known injection corpus (70% threshold)
+- **LLM Scanner:** LLM judges adversarial intent
+- **Configurable Modes:** Strict (0.5), Moderate (0.7), Lenient (0.9) thresholds
 
-### Observability
-- **Query Tracer**: Logs all execution steps
-- **Performance Profiler**: Measures latency, throughput, cost
-- **Trace Logger**: Persists traces to JSONL for analysis
+### Grounding & Citations
+- **Grounding:** LLM generates answers only from retrieved context
+- **Citations:** Every claim linked to source chunks with page numbers
+- **Streaming:** Token-by-token response streaming
 
----
-
-## 7. Technology Stack
-
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Frontend** | Vite + React + TypeScript | User interface |
-| **Backend API** | FastAPI (Python) | REST API endpoints |
-| **Metadata Store** | SQLite | Relational data + embedding cache |
-| **Vector Store** | Weaviate (Docker) | Hybrid search index |
-| **Embedding Model** | OpenAI text-embedding-3-small | Semantic vectors (1536-dim) |
-| **LLM** | OpenAI GPT-4o or Ollama | Answer generation |
-| **Async Runtime** | Python asyncio | Concurrent operations |
-| **Configuration** | .env + environment variables | Settings management |
-| **Logging** | JSONL format | Audit trail + traces |
+### Conversation Memory
+- **Session History:** Multi-turn context with sliding window (10 turns)
+- **Reference Resolution:** Resolves pronouns to prior turns
+- **Metadata Tracking:** Topic, quality metrics per session
 
 ---
 
-## 8. Where to Find Code
+## 9. Configuration
 
-| Component | Location |
-|-----------|----------|
-| API routers | `backend/routers/` |
-| Services | `backend/*/service.py` |
-| Repositories (SQLite) | `backend/repositories/` |
-| Query enhancement | `backend/query_enhancement/` |
-| Retrieval strategies | `backend/retrieval/` |
-| Safety & validation | `backend/safety/` |
-| Conversation | `backend/conversation/` |
-| Grounding & citations | `backend/grounding/` |
-| Frontend components | `frontend/src/` |
-| Configuration | `backend/config/` |
-| Error handling | `backend/errors/` |
+Settings are managed via:
+1. **Environment variables** (`.env` file or system env)
+2. **`config/settings.json`** (persistent config)
+3. **Runtime updates** via `PUT /settings`
 
----
-
-## 9. Cross-References
-
-- **Onboarding Guide** – [`docs/onboarding.md`](./onboarding.md)
-- **API Flows** – [`docs/api-flows.md`](./api-flows.md)
-- **AI Learning Guide** – [`docs/ai-learning.md`](./ai-learning.md)
-- **Database Schema** – [`docs/database-schema.md`](./database-schema.md)
-- **System Flow Diagrams** – [`docs/diagrams/system-flow.md`](./diagrams/system-flow.md)
-- **Enhancement Recommendations** – [`docs/enhancement-recommendations.md`](./enhancement-recommendations.md)
+Key settings:
+- `OPENAI_API_KEY` — LLM and embedding API key
+- `WEAVIATE_URL` — Vector DB endpoint (default: `http://localhost:8080`)
+- `DATABASE_PATH` — SQLite file path
+- `CHUNKING_STRATEGY` — Default chunking strategy
+- `RETRIEVAL_MODE` — Hybrid/semantic/keyword
+- `SAFETY_MODE` — Strict/moderate/lenient
+- Feature toggles: `query_expansion_enabled`, `query_decomposition_enabled`, `hyde_enabled`, `reranking_enabled`, etc.
 
 ---
 
-## 10. Next Steps
+## 10. Deployment
 
-For implementation roadmap and enhancement recommendations, see [`docs/enhancement-recommendations.md`](./enhancement-recommendations.md).
+### Local Development
+```bash
+# Backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cd backend
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# Frontend
+cd frontend
+npm install
+npm run dev
+```
+
+### Docker
+```bash
+docker-compose up -d  # Starts Weaviate on port 8080
+```
+
+Migrations run automatically on backend startup via `app.py:65` (`apply_migrations()`).
+
+---
+
+## 11. Known Limitations & Roadmap
+
+### Current Limitations
+- **Reranker:** Dummy implementation (sorts by similarity score). Real cross-encoder (`BAAI/bge-reranker-base`) pending.
+- **Ingestion:** Uses in-process `BackgroundTasks` (not durable). Celery/RQ job queue pending.
+- **PII Detection:** Not implemented (roadmap item).
+- **RAGAS Metrics:** Evaluation harness exists; full RAGAS metrics pending.
+- **Conversation Memory:** Sliding window only; no context compression or advanced coreference.
+
+### Roadmap
+See [`docs/enhancement-recommendations.md`](./enhancement-recommendations.md) and [`rag-prd-requirement.md`](../rag-prd-requirement.md) for planned features.
+
+---
+
+## 12. Cross-References
+
+- **Onboarding:** [`docs/onboarding.md`](./onboarding.md)
+- **API Flows:** [`docs/api-flows.md`](./api-flows.md)
+- **Database Schema:** [`docs/database-schema.md`](./database-schema.md)
+- **Retrieval Deep Dive:** [`docs/RETRIEVAL_FLOW.md`](./RETRIEVAL_FLOW.md)
+- **Chunking Strategies:** [`docs/CHUNKING_STRATEGIES.md`](./CHUNKING_STRATEGIES.md)
+- **Safety & Injection Detection:** [`docs/PROMPT_INJECTION_DETECTION.md`](./PROMPT_INJECTION_DETECTION.md)

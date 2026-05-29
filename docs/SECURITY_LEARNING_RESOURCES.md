@@ -1,5 +1,11 @@
 # Security Learning Resources
 
+**Status:** 📚 Educational  
+**Last verified:** 2026-05-29  
+**Source files:** N/A (external references)
+
+---
+
 This guide curates reputable learning resources to help you understand security concepts underlying the validation system.
 
 ## Prompt Injection Attacks

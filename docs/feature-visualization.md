@@ -1,5 +1,13 @@
 # 📊 Feature Visualization & Decision Trees
 
+**Status:** 🟡 Partial  
+**Last verified:** 2026-05-29  
+**Source files:** backend/chat/, backend/ingestion/
+
+---
+
+> **Accuracy note:** Some diagrams reference PII detection, Entity Resolver, and Claim Extractor as active components. These are **planned** features, not yet implemented. The core pipeline (ingestion, chunking, hybrid retrieval, query intelligence, RRF, generation, citations, safety) is accurate. See [`enhancement-recommendations.md`](./enhancement-recommendations.md) for implementation status.
+
 **RAG Knowledge Base Lab - Complete System Flow Guide**
 
 ---

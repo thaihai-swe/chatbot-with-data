@@ -1,5 +1,11 @@
 # Prompt Injection Detection Testing Guide
 
+**Status:** 🟢 Implemented  
+**Last verified:** 2026-05-29  
+**Source files:** backend/chat/safety.py
+
+---
+
 ## Overview
 
 This guide provides test cases to verify the Advanced Prompt Injection Detection feature through the chat UI.

@@ -6,5 +6,5 @@ sequenceDiagram
     participant Router as Router (health.py)
     
     Frontend->>Router: GET /health
-    Router-->>Frontend: {"status": "ok"}
+    Router-->>Frontend: {"status": "ok", "app_name": "...", "environment": "..."}
 ```
