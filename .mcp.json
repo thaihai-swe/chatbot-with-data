@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "hybrid-code-graph": {
+      "command": "hybrid-code-graph",
+      "args": [
+        "serve",
+        "."
+      ],
+      "env": {}
+    }
+  },
+  "instruction": "SYSTEM INSTRUCTION: This workspace is attached to an MCP Code Graph.\n\nYou MUST NOT use grep, recursive file-listing, broad glob searches, or raw file reads to discover system architecture unless CodeGraph cannot answer the query.\n\nYour first action for discovery MUST be calling hybrid_code_graph_search, hybrid_code_graph_get_outline, hybrid_code_graph_find_references, or hybrid_code_graph_resolve_endpoint.\n\nBefore modifying code, you MUST invoke hybrid_code_graph_get_blast_radius or hybrid_code_graph_review_diff where applicable.\n\nAlways map API routes using hybrid_code_graph_resolve_endpoint before making route-related changes.\n"
+}
