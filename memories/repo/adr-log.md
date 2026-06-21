@@ -1,0 +1,34 @@
+# ADR Log
+
+Append-only index of Architecture Decision Records for this repository.
+
+## Write Contract
+
+- **Write Authority**: Only `/spec-adr` has write authority over this index.
+- **Trigger**: Append a new entry immediately when a new ADR is proposed or accepted. Do not wait for feature merge.
+- **Immutability**: Past log entries are immutable. If a decision changes, create a new ADR, update its status to `Superseded`, and reference the new ADR ID.
+- **Format**: All log entries must follow the exact structure defined in the `## Entry Template` section below.
+
+## How To Use This File
+
+- One entry per ADR. Do not edit past entries.
+- Each entry links to the full ADR artifact under `artifacts/features/<slug>/adr-<number>.md`.
+- Status values: `Accepted`, `Superseded`, `Under Review`, `Rejected`.
+- `/context-memory` may read this file for architecture drift detection but does not append entries.
+
+## Entry Template
+
+```
+### ADR-<NNN> — <Short Decision Title>
+
+- Date: YYYY-MM-DD
+- Feature slug: <slug>
+- Artifact: artifacts/features/<slug>/adr-<number>.md
+- Status: Accepted | Superseded | Under Review | Rejected
+- Superseded by: <ADR-NNN or none>
+- One-line summary: <What was decided and why>
+```
+
+## Log
+
+<!-- Append new entries below in ADR-001, ADR-002, ... order. -->

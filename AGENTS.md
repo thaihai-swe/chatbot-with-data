@@ -1,18 +1,30 @@
-# AGENTS.md
+## Purpose
+
+This file is the agent entrypoint and instruction router for this repository. Read it every session before any other file.
 
 ## 0. Priority Rules
 
 These rules override all other guidance in this file when they conflict.
 
-* **Read design guidance first:** For any front-end or UI task, read `@design.md` before proposing or editing UI code.
-* **No flattery, no filler:** Start with the answer, action, blocker, or decision. Avoid ceremonial openers.
-* **Correct false premises:** If the user’s premise is wrong, say so before continuing.
-* **Never fabricate:** Do not invent file paths, commit hashes, test results, API names, library functions, or repository behavior. Read files, run commands, or say what is unknown.
-* **Ask only when needed:** Ask before proceeding when ambiguity materially changes the result. Otherwise resolve ambiguity by inspecting the repo.
-* **Touch only the request:** Every changed line must directly support the user’s request. No drive-by refactors, formatting churn, or unrelated cleanup.
-* **Fail loud:** Do not mark work complete if verification was skipped, failed, or only partially run. State exactly what was and was not verified.
-* **Preserve behavior:** Existing observable behavior is a contract unless the user explicitly asks to change it.
-* **Keep design SOLID:** Follow SOLID principles when changing or adding software design.
+
+**Language convention.** These keywords carry consistent meaning across this file, skill files, and memory files:
+
+* **MUST / MUST NOT** — absolute requirement or prohibition. Never deviate.
+* **SHOULD / SHOULD NOT** — strong recommendation. Deviate only with a documented reason.
+* **MAY** — optional, at the agent's discretion.
+
+When a rule uses one of these keywords, treat it with the corresponding weight.
+
+* **No flattery, no filler:** Start with the answer, action, blocker, or decision. You **MUST NOT** add ceremonial openers.
+* **Correct false premises:** If the user’s premise is wrong, you **MUST** say so before continuing.
+* **Never fabricate:** You **MUST NOT** invent file paths, commit hashes, test results, API names, library functions, or repository behavior. Read files, run commands, or say what is unknown.
+* **Unknown stays unknown:** When information is unavailable, you **MUST** mark it explicitly as `[UNKNOWN]`. **MUST NOT** fill gaps with plausible-sounding guesses. An honest `[UNKNOWN]` is more valuable than a confident hallucination.
+* **Ask only when needed:** **SHOULD** ask before proceeding when ambiguity materially changes the result. Otherwise resolve ambiguity by inspecting the repo.
+* **Touch only the request:** Every changed line **MUST** directly support the user’s request. No drive-by refactors, formatting churn, or unrelated cleanup.
+* **Fail loud:** You **MUST NOT** mark work complete if verification was skipped, failed, or only partially run. State exactly what was and was not verified.
+* **Preserve behavior:** Existing observable behavior is a contract. You **MUST NOT** change it unless the user explicitly asks.
+* **Apply architectural rules:** For object-oriented design (OOP), SOLID principles, and preventing cross-cutting overengineering (duplicate spellings, hidden coupling, premature seams), see `docs/policies/code-design.md`. Its `MUST` / `MUST NOT` rules carry the same weight as the rules in this section.
+* **Read the Master Index:** Before non-trivial work, **SHOULD** consult `INDEX.md` at the repo root. `INDEX.md` routes on-demand context indexes and key memory files (such as `memories/repo/core-policies.md` which declares active status and limits).
 
 ## 1. Operating Loop
 
@@ -46,7 +58,7 @@ When there are multiple viable approaches, present the tradeoff briefly and choo
 
 ## 3. Engineering Standards
 
-* **Simplicity first:** Implement the minimum code that solves the stated problem.
+* **Simplicity first (Ponytail Rule):** Implement the minimum code that solves the stated problem. You MUST adopt a "lazy senior developer" mindset: question if a task needs to exist at all (YAGNI), use standard libraries and native platform features before custom code, and prefer one-liners. See `docs/rules/ponytail.md` for the full ladder.
 * **No speculative code:** Do not add features, configuration, abstractions, or error handling for scenarios that are not required.
 * **Reuse established patterns:** Before adding a helper, abstraction, dependency, or convention, search for an existing equivalent.
 * **Prefer surgical refactoring:** Preserve behavior and institutional knowledge. Do not rewrite working systems unless the user asks or the existing design prevents the requested change.
@@ -99,6 +111,7 @@ Rules:
 * Always review subagent output before relying on it.
 * You remain responsible for final decisions and merge quality.
 * Do not hide uncertainty behind subagent output.
+* **Context Indexes:** Do not read all documentation, memory, or rule files. Instead, consult the master routing index `MASTER_INDEX.md` at session start to locate and load specific sub-indexes (e.g. `docs/rules/`) only when the active task warrants it.
 
 ## 7. Communication Style
 
@@ -119,12 +132,7 @@ For multi-step work, keep the current state explicit:
 
 * Keep context lean. Search, summarize, and continue rather than dumping large files into the main thread.
 * If stuck after two failed corrections on the same issue, stop, summarize the current state, and ask whether to reset or change approach.
-* Write descriptive commit messages when commits are requested:
 
-  * Subject under 72 characters.
-  * Body explains why the change exists.
-  * Avoid generic messages like `fix bug`.
-  * Do not add attribution unless requested.
 
 ## 9. Final Response Checklist
 

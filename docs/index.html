@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoreZero Docs</title>
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+        }
+
+        body {
+            margin: 0;
+            background: linear-gradient(180deg, #f6f0e4 0%, #fbf9f4 100%);
+            color: #1f2933;
+        }
+
+        main {
+            max-width: 780px;
+            margin: 0 auto;
+            padding: 48px 24px 64px;
+        }
+
+        h1 {
+            font-size: clamp(2.2rem, 5vw, 3.8rem);
+            line-height: 1.05;
+            margin: 0 0 12px;
+        }
+
+        p,
+        li {
+            font-size: 1.05rem;
+            line-height: 1.6;
+        }
+
+        .eyebrow {
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            color: #7c5c1b;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.74);
+            border: 1px solid #d7c9ac;
+            border-radius: 18px;
+            padding: 20px 22px;
+            margin-top: 18px;
+            box-shadow: 0 18px 40px rgba(105, 79, 18, 0.08);
+        }
+
+        a {
+            color: #8a3b12;
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <div class="eyebrow">CoreZero</div>
+        <h1>Installed Docs</h1>
+        <p>This is the adopter-facing documentation surface shipped into downstream repositories.</p>
+
+        <section class="card">
+            <h2>Read first</h2>
+            <ul>
+                <li><a href="README.md">README.md</a></li>
+                <li><a href="policies/code-design.md">policies/code-design.md</a></li>
+            </ul>
+        </section>
+
+        <section class="card">
+            <h2>Agent Rules</h2>
+            <ul>
+                <li><a href="rules/python.md">rules/python.md</a></li>
+                <li><a href="rules/security.md">rules/security.md</a></li>
+            </ul>
+        </section>
+
+        <section class="card">
+            <h2>Customize for your project</h2>
+            <ul>
+                <li><a href="project/architecture.md">project/architecture.md</a></li>
+                <li><a href="project/product-sense.md">project/product-sense.md</a></li>
+                <li><a href="project/glossary.md">project/glossary.md</a></li>
+                <li><a href="project/tech-stack.md">project/tech-stack.md</a></li>
+                <li><a href="project/project-constraints.md">project/project-constraints.md</a></li>
+            </ul>
+        </section>
+
+        <section class="card">
+            <h2>Generated placeholders</h2>
+            <ul>
+                <li><a href="project/code-map.md">project/code-map.md</a></li>
+                <li><a href="generated/dashboard.html">generated/dashboard.html</a></li>
+            </ul>
+        </section>
+
+        <section class="card">
+            <h2>Installed bundles</h2>
+            <p>Governance: <code>/context-status</code>, <code>/harness-maintain</code>, <code>/spec-adr</code>.</p>
+            <p>Docs authoring: <code>/technical-docs</code>, <code>/codebase-documenter</code>.</p>
+            <p>Specialist visualization: <code>/visualize</code>.</p>
+        </section>
+    </main>
+</body>
+
+</html>
