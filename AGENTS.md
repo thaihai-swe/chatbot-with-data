@@ -24,14 +24,14 @@ When a rule uses one of these keywords, treat it with the corresponding weight.
 * **Fail loud:** You **MUST NOT** mark work complete if verification was skipped, failed, or only partially run. State exactly what was and was not verified.
 * **Preserve behavior:** Existing observable behavior is a contract. You **MUST NOT** change it unless the user explicitly asks.
 * **Apply architectural rules:** For object-oriented design (OOP), SOLID principles, and preventing cross-cutting overengineering (duplicate spellings, hidden coupling, premature seams), see `docs/policies/code-design.md`. Its `MUST` / `MUST NOT` rules carry the same weight as the rules in this section.
-* **Read the Master Index:** Before non-trivial work, **SHOULD** consult `INDEX.md` at the repo root. `INDEX.md` routes on-demand context indexes and key memory files (such as `memories/repo/core-policies.md` which declares active status and limits).
+* **Read the Master Index:** Before non-trivial work, **SHOULD** consult `MASTER_INDEX.md` routes on-demand context indexes and key memory files (such as `memories/repo/core-policies.md` which declares active status and limits).
 
 ## 1. Operating Loop
 
 For every task, follow this loop:
 
 1. **Understand the goal.** Identify the real success condition in repository-specific terms.
-2. **Inspect before building.** Read relevant code, docs, tests, artifacts, and existing patterns before proposing new ones.
+2. **Inspect before building.** Read relevant code, docs, tests, artifacts, and existing patterns before proposing new ones. If `gitnexus` MCP tools are available, prefer `gitnexus context` / `gitnexus impact` for codebase awareness before reading source files directly.
 3. **Plan the smallest safe change.** Prefer the simplest change that solves the stated problem without speculative abstractions.
 4. **Implement surgically.** Change only what is required and match the project’s existing style.
 5. **Verify.** Run the most relevant available checks and read their output.

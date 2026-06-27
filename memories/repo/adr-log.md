@@ -1,5 +1,11 @@
 # ADR Log
 
+## Index
+
+- **Write Contract** — only spec-adr has write authority; immutable past entries
+- **Entry Template** — ADR-NNN block format with date, slug, status, superseded-by, summary
+- **Log** — append-only list of ADR entries (Proposed/Accepted/Deprecated/Superseded)
+
 Append-only index of Architecture Decision Records for this repository.
 
 ## Write Contract
@@ -8,12 +14,13 @@ Append-only index of Architecture Decision Records for this repository.
 - **Trigger**: Append a new entry immediately when a new ADR is proposed or accepted. Do not wait for feature merge.
 - **Immutability**: Past log entries are immutable. If a decision changes, create a new ADR, update its status to `Superseded`, and reference the new ADR ID.
 - **Format**: All log entries must follow the exact structure defined in the `## Entry Template` section below.
+- **Spec/Plan linkage**: Each ADR must include the feature slug and related spec/plan links per the ADR template.
 
 ## How To Use This File
 
 - One entry per ADR. Do not edit past entries.
-- Each entry links to the full ADR artifact under `artifacts/features/<slug>/adr-<number>.md`.
-- Status values: `Accepted`, `Superseded`, `Under Review`, `Rejected`.
+- Each entry links to the full ADR artifact under `docs/project/adr/[number]-[slug].md`.
+- Status values: `Proposed`, `Accepted`, `Deprecated`, `Superseded`.
 - `/context-memory` may read this file for architecture drift detection but does not append entries.
 
 ## Entry Template
@@ -23,8 +30,8 @@ Append-only index of Architecture Decision Records for this repository.
 
 - Date: YYYY-MM-DD
 - Feature slug: <slug>
-- Artifact: artifacts/features/<slug>/adr-<number>.md
-- Status: Accepted | Superseded | Under Review | Rejected
+- Artifact: docs/project/adr/[number]-[slug].md
+- Status: Proposed | Accepted | Deprecated | Superseded
 - Superseded by: <ADR-NNN or none>
 - One-line summary: <What was decided and why>
 ```

@@ -1,0 +1,23 @@
+{
+  "skill_name": "codebase-documenter",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I just inherited a Node.js/Express REST API project with about 15 files. It has user authentication, database models, and API endpoints. I need to create documentation that will help new developers understand the codebase and get set up in 30 minutes. What should I document and how?",
+      "expected_output": "Comprehensive documentation covering architecture, setup, key components, data models, and API endpoints. Should include a quick-start guide and diagrams showing data flow.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "We have a Python data pipeline project with multiple ETL stages, Airflow DAGs, and Spark jobs. The codebase is complex and we're onboarding a new team member. Generate documentation that explains the data flow, how to run jobs locally, and how to add new pipeline stages.",
+      "expected_output": "Documentation focused on data models, ETL flow diagrams, setup instructions, and guidelines for extending the pipeline. Should include examples of adding new stages.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Document this React component library. We have 20+ reusable components, a Storybook setup, and TypeScript types. New developers need to understand the component architecture, how to use components, and how to add new ones.",
+      "expected_output": "Documentation covering component organization, API documentation for key components, usage examples, contribution guidelines, and architecture decisions. Should include component hierarchy diagrams.",
+      "files": []
+    }
+  ]
+}

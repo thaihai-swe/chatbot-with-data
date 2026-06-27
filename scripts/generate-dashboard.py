@@ -626,9 +626,8 @@ def main():
         return 1
 
     # Render dashboard
-    try:
         html_content = get_html_template(
-            json.dumps(features)
+            json.dumps(features).replace("<", "\\u003c").replace(">", "\\u003e")
         )
     except Exception as exc:
         print(f"Error rendering dashboard: {exc}", file=sys.stderr)

@@ -1,5 +1,16 @@
 # CoreZero Learned Heuristics
 
+## Index
+
+- **LH-001** — Docs drift at workflow surface; update in same wave
+- **LH-002** — Bootstrap and docs verified together
+- **LH-003** — Generated references worth seeding early (code-map.md)
+- **LH-004** — Agent overscaffolds new files [ARCHIVED — promoted to code-design.md]
+- **LH-005** — Vague task validation leads to skipped verification
+- **LH-006** — Token budget underestimation triggers mid-task compaction
+- **LH-007** — Memory thresholds trigger post-oversize; track proactively
+- **LH-008** — Domain packs ignored when building features [ARCHIVED — promoted to spec-requirements]
+
 ## Purpose
 
 This file captures repeated, evidence-backed heuristics that improve maintenance of the kit.
@@ -39,16 +50,18 @@ This file captures repeated, evidence-backed heuristics that improve maintenance
 - Last reviewed: 2026-05-27
 - Promote to stronger rule? No
 
-### LH-004: Agent tends to overscaffold when starting new files
+### LH-004: Agent tends to overscaffold when starting new files — ARCHIVED on 2026-06-25, see archive/deprecated-heuristics.md
+
+### LH-005: Task validation evidence must be specific and machine-verifiable
 - Trigger:
-  - agent creates a new file or module for the first time in a session
+  - creating tasks in `tasks.md`
 - Working heuristic:
-  - check existing files of similar type before writing; match their structure, not a generic template. Prefer the smallest file that satisfies the task over a boilerplate scaffold.
+  - every task must specify a concrete command or test file that runs and exits 0 as its validation proof, rather than vague human descriptions.
 - Evidence:
-  - repeated over-generation of boilerplate sections that the codebase never uses (e.g., full docstrings, empty method stubs, placeholder configs)
+  - tasks with vague proof criteria (e.g. "manual verify") lead to incomplete or skipped validation during alignment audits
 - Confidence: High
-- Last reviewed: 2026-06-20
-- Promote to stronger rule? **[PROMOTED]** Added to `docs/policies/code-design.md`
+- Last reviewed: 2026-06-23
+- Promote to stronger rule? No
 
 ### LH-006: Token budget underestimation causes context compaction mid-complex task
 - Trigger:
@@ -65,20 +78,11 @@ This file captures repeated, evidence-backed heuristics that improve maintenance
 - Trigger:
   - running `/context-memory audit` or noticing a memory file exceeds 800 lines
 - Working heuristic:
-  - track memory file sizes proactively in `harness-telemetry.md` Trend Summary. When any file reaches 600 lines, create a promotion proposal early rather than waiting for the 800-line warning.
+  - track memory file sizes proactively in `harness-telemetry.md` Trend Summary. When any file reaches the Early Warning threshold (per `core-policies.md` `## Memory Promotion Thresholds`), create a promotion proposal early rather than waiting for the Threshold Breach band.
 - Evidence:
-  - `project-knowledge-base.md` and `learned-heuristics.md` have grown past thresholds without triggering promotion because the check only runs during post-ship sync
+  - `project-knowledge-base.md` and `learned-heuristics.md` have grown past early-warning thresholds without triggering promotion because the check only runs during post-ship sync
 - Confidence: Medium
 - Last reviewed: 2026-06-18
 - Promote to stronger rule? Yes — candidate for `memories/repo/core-policies.md` Memory Promotion Thresholds
 
-### LH-008: Domain packs are ignored when building new features
-- Trigger:
-  - agent implements a feature that touches a domain with an installed pack but does not load it
-- Working heuristic:
-  - during `/spec-research` and `/spec-requirements`, explicitly check if the task keywords match any domain pack triggers in `MASTER_INDEX.md` `## By Domain Packs`. If a match exists, load the pack before writing the spec.
-- Evidence:
-  - features built without loading domain packs repeated patterns that were already captured in the pack, or violated boundary rules
-- Confidence: High
-- Last reviewed: 2026-06-20
-- Promote to stronger rule? **[PROMOTED]** Added as a MUST rule in `spec-requirements/SKILL.md`
+### LH-008: Domain packs are ignored when building new features — ARCHIVED on 2026-06-25, see archive/deprecated-heuristics.md

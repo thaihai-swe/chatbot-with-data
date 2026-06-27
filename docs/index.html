@@ -7,14 +7,38 @@
     <title>CoreZero Docs</title>
     <style>
         :root {
-            color-scheme: light;
+            color-scheme: light dark;
             font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-start: #1a1a1a;
+                --bg-end: #2d2d2d;
+                --text: #e0ddd8;
+                --card-bg: rgba(50, 50, 50, 0.88);
+                --card-border: #555;
+                --eyebrow: #c9a85c;
+                --link: #d99b6f;
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg-start: #f6f0e4;
+                --bg-end: #fbf9f4;
+                --text: #1f2933;
+                --card-bg: rgba(255, 255, 255, 0.74);
+                --card-border: #d7c9ac;
+                --eyebrow: #7c5c1b;
+                --link: #8a3b12;
+            }
         }
 
         body {
             margin: 0;
-            background: linear-gradient(180deg, #f6f0e4 0%, #fbf9f4 100%);
-            color: #1f2933;
+            background: linear-gradient(180deg, var(--bg-start) 0%, var(--bg-end) 100%);
+            color: var(--text);
         }
 
         main {
@@ -43,8 +67,8 @@
         }
 
         .card {
-            background: rgba(255, 255, 255, 0.74);
-            border: 1px solid #d7c9ac;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
             border-radius: 18px;
             padding: 20px 22px;
             margin-top: 18px;
@@ -52,7 +76,7 @@
         }
 
         a {
-            color: #8a3b12;
+            color: var(--link);
         }
     </style>
 </head>
@@ -74,8 +98,9 @@
         <section class="card">
             <h2>Agent Rules</h2>
             <ul>
-                <li><a href="rules/python.md">rules/python.md</a></li>
+
                 <li><a href="rules/security.md">rules/security.md</a></li>
+                <li><a href="rules/ponytail.md">rules/ponytail.md</a></li>
             </ul>
         </section>
 

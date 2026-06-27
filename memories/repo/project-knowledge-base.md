@@ -1,5 +1,13 @@
 # CoreZero Project Knowledge Base
 
+## Index
+
+- **System Reference Documents** — links to architecture.md and core-policies.md
+- **Repository Overview** — kit structure (skills/, references/, docs/, scripts/)
+- **Key Architectural Boundaries** — template postures, memory governance, review modes, command ownership
+- **Common Installation & Bootstrap Watchouts** — baseline testing, router drift, generated placeholders
+- **Feature Lifecycle Handoff Patterns** — first-feature routing, state mismatch repair
+
 ## System Reference Documents
 
 - **Architecture Boundary Map:** Refer to `docs/project/architecture.md` for static system snapshots, components, and runtime boundaries. Do not duplicate structural maps here.
@@ -27,10 +35,10 @@ The installer script (`scripts/install.sh`) handles files using three distinct p
 - **`preserve`**: Feature-specific state folders (`artifacts/features/`, local settings). These are completely owned by the adopter project and are never touched by the installer.
 
 ### 2. The Memory Governance Loop
-Tier definitions (Instruction / Auto / Extracted) and the promotion loop live in `skills/context/context-memory/SKILL.md` `## Memory Tiers`. Intent-based routing of these tiers lives in `MASTER_INDEX.md`.
+Tier definitions (Instruction / Auto / Extracted) and the promotion loop live in `skills/context-memory/SKILL.md` `## Memory Tiers`. Intent-based routing of these tiers lives in `MASTER_INDEX.md`.
 
 ### 3. Gated Integration vs. Standalone Review Distinction
-The dual-purpose behavior of `code-review` (standalone PR mode vs. `/harness-verify`-gated blocking mode) is defined in `skills/utilities/code-review/SKILL.md`.
+The dual-purpose behavior of `code-review` (standalone PR mode vs. `/harness-verify`-gated blocking mode) is defined in `skills/code-review/SKILL.md`.
 
 ### 4. Shipped Command Ownership
 The shipped helpers own the following durable surfaces:
@@ -44,7 +52,7 @@ The shipped helpers own the following durable surfaces:
 ## Common Installation & Bootstrap Watchouts
 
 - **Baseline Testing**: `/starter-init` checks whether the target repository is greenfield or brownfield. It requires running the canonical baseline test or compile check. If none exists, the adopter must document the best available proof surface before autonomous feature work can proceed.
-- **Drift in Routers**: `AGENTS.md` must stay under 50 lines for its router portion to prevent context window saturation. Standard operating guidelines should remain in `core-policies.md` and only be linked from `AGENTS.md`.
+- **Drift in Routers**: `AGENTS.md` is the runtime instruction router and standards reference; it is intentionally detailed (~150 lines) to serve as a single entrypoint for agent behavior. Standard operating guidelines live in `core-policies.md` and are linked from `AGENTS.md`. If you trim `AGENTS.md`, ensure core operating guidelines remain accessible in `core-policies.md`.
 - **Generated Placeholder Ownership**: `docs/project/code-map.md` is a shipped placeholder refreshed by `/harness-maintain`. `docs/generated/dashboard.html` is refreshed by `/context-status`.
 
 ## Feature Lifecycle Handoff Patterns

@@ -1,0 +1,87 @@
+phases:
+  - name: Spec Approved
+    preconditions:
+      - artifact: spec.md
+        check: exists
+  - name: Plan Approved
+    preconditions:
+      - artifact: plan.md
+        check: exists
+      - artifact: tasks.md
+        check: exists
+  - name: Implementing
+    preconditions:
+      - artifact: plan.md
+        check: exists
+      - artifact: tasks.md
+        check: exists
+  - name: Verifying
+    preconditions:
+      - artifact: tasks.md
+        check: exists
+
+gates:
+  - name: lint
+    command: npm run lint
+    stack: node
+    on_fail: block
+  - name: typecheck
+    command: npm run typecheck
+    stack: node
+    on_fail: block
+  - name: test-node
+    command: npm test
+    stack: node
+    on_fail: block
+  - name: flake8
+    command: flake8 .
+    stack: python
+    on_fail: block
+  - name: mypy
+    command: mypy .
+    stack: python
+    on_fail: block
+  - name: test-python
+    command: pytest
+    stack: python
+    on_fail: block
+
+stack_detection:
+  node:
+    files:
+      - package.json
+    gates:
+      - lint
+      - typecheck
+      - test-node
+  python:
+    files:
+      - pytest.ini
+      - pyproject.toml
+    gates:
+      - flake8
+      - mypy
+      - test-python
+
+preflight_tools:
+  npm:
+    command: npm
+  python3:
+    command: python3
+  flake8:
+    command: flake8
+    optional: true
+  mypy:
+    command: mypy
+    optional: true
+  pytest:
+    command: pytest
+    optional: true
+
+thresholds:
+  token_warn: 160000
+  token_hard: 200000
+  timeout_seconds: 300
+
+plugins:
+  - scripts/harness/plugins/*.py
