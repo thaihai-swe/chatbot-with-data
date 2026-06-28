@@ -62,9 +62,8 @@ class EvaluationService:
                 results=[]
             )
 
-        # We'll use a dummy session or create one for evaluation
-        # For simplicity, we'll process each turn in isolation
-        session_id = "eval-session"
+        import uuid
+        session_id = f"eval-{uuid.uuid4().hex[:8]}"
 
         tasks = []
         for case in dataset:
@@ -102,15 +101,15 @@ class EvaluationService:
             # For the Lab, we'll just try to use a session 'eval'
             try:
                 from repositories.chat_repository import ChatRepository
-                if not ChatRepository.get_session("eval"):
-                    ChatRepository.create_session("eval", [])
-            except:
-                pass
+                if not ChatRepository.get_session(session_id):
+                    ChatRepository.create_session(session_id, [])
+            except Exception as exc:
+                logger.warning(f"Could not create eval session: {exc}")
 
             response = await loop.run_in_executor(
                 None,
                 self.chat_service.process_turn,
-                "eval",
+                session_id,
                 question
             )
 

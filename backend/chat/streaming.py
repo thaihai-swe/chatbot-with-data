@@ -7,7 +7,7 @@ import uuid
 import asyncio
 from typing import Optional, Dict, Any, AsyncIterator
 
-from chat.retrieval import AdvancedRetrievalService
+from chat.advanced_retrieval import AdvancedRetrievalService
 from chat.context import ContextService
 from chat.generation import GenerationService
 from chat.citations import CitationService
@@ -104,11 +104,12 @@ class StreamingOrchestrator:
                 return
 
             # 3. Chunk safety check
-            # checked_chunks = self.safety_service.check_chunks(retrieved_chunks)
-            # safe_chunks = [c for c in checked_chunks if c.get("safety_risk") != "high"]
+            checked_chunks = self.safety_service.check_chunks(retrieved_chunks)
+            safe_chunks = [c for c in checked_chunks if c.get("safety_risk") != "high"]
 
-            # if len(safe_chunks) < len(retrieved_chunks):
-            #     logger.info(f"Filtered out {len(retrieved_chunks) - len(safe_chunks)} malicious chunks in stream.")
+            if len(safe_chunks) < len(retrieved_chunks):
+                logger.info(f"Filtered out {len(retrieved_chunks) - len(safe_chunks)} high-risk chunks in stream.")
+            retrieved_chunks = safe_chunks
 
             # 4. Evaluate grounding
             is_sufficient, refusal_reason = self.grounding_service.evaluate_evidence(retrieved_chunks)
@@ -239,7 +240,7 @@ from fastapi import Depends
 from chat.context import get_context_service
 from chat.generation import get_generation_service
 from chat.citations import get_citation_service
-from chat.retrieval import get_advanced_retrieval_service
+from chat.advanced_retrieval import get_advanced_retrieval_service
 
 def get_streaming_orchestrator(
     advanced_retrieval_service: AdvancedRetrievalService = Depends(get_advanced_retrieval_service),

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from indexing.weaviate_store import WeaviateVectorStore
-from repositories import Repository
+from ingestion.service import IngestionService
+from repositories import DocumentRepository, IngestionRepository
 from schemas.documents import (
     DocumentMoveRequest,
     DocumentResponse,
@@ -17,7 +17,11 @@ logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/documents", tags=["documents"])
-repository = Repository()
+repository = DocumentRepository()
+
+
+def get_ingestion_service() -> IngestionService:
+    return IngestionService()
 
 
 @router.get("", response_model=list[DocumentSummary])
@@ -37,17 +41,13 @@ def get_document(document_id: str) -> dict:
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_document(document_id: str) -> None:
+def delete_document(
+    document_id: str,
+    svc: IngestionService = Depends(get_ingestion_service),
+) -> None:
     if not repository.delete_document(document_id):
         raise HTTPException(status_code=404, detail="Document not found")
-    # Vector cleanup after successful SQL deletion
-    try:
-        weaviate_store = WeaviateVectorStore()
-        deleted = weaviate_store.delete_by_document(document_id)
-        logger.info(f"Deleted {deleted} vectors for document {document_id}")
-    except Exception as exc:
-        logger.error(f"Vector deletion failed for document {document_id}: {exc}")
-        raise HTTPException(status_code=500, detail="Vector deletion failed")
+    svc.delete_document_vectors(document_id)
 
 
 @router.post("/{document_id}/move", response_model=DocumentResponse)
@@ -60,18 +60,16 @@ def move_document(document_id: str, payload: DocumentMoveRequest) -> dict:
 
 
 @router.post("/{document_id}/reindex", response_model=dict)
-def reindex_document(document_id: str) -> dict[str, str]:
-    from ingestion.service import IngestionService
+def reindex_document(
+    document_id: str,
+    svc: IngestionService = Depends(get_ingestion_service),
+) -> dict[str, str]:
     record = repository.get_document(document_id)
     if not record:
         raise HTTPException(status_code=404, detail="Document not found")
 
     repository.record_reindex_request(document_id)
 
-    # Trigger actual indexing
-    ingestion_service = IngestionService()
-
-    # We need to pass an attempt-like dict or just fetch what's needed
     attempt_mock = {
         "extracted_text": record["extracted_text"],
         "source_type": record["source_type"],
@@ -80,7 +78,7 @@ def reindex_document(document_id: str) -> dict[str, str]:
         "submitted_filename": record["filename"],
     }
 
-    ingestion_service._chunk_and_index_document(document_id, attempt_mock)
+    svc.chunk_and_index_document(document_id, attempt_mock)
 
     return {
         "document_id": document_id,
@@ -90,12 +88,17 @@ def reindex_document(document_id: str) -> dict[str, str]:
 
 
 @router.post("/{document_id}/reingest", response_model=dict, status_code=status.HTTP_202_ACCEPTED)
-def reingest_document(document_id: str, payload: ReingestRequest) -> dict:
+def reingest_document(
+    document_id: str,
+    payload: ReingestRequest,
+    svc: IngestionService = Depends(get_ingestion_service),
+) -> dict:
     try:
-        attempt = repository.create_reingest_attempt(
+        attempt = IngestionRepository().create_reingest_attempt(
             document_id=document_id,
             collection_ids=payload.collection_ids,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    svc.process_ingestion_attempt(attempt["id"])
     return attempt

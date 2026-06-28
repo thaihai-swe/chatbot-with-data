@@ -4,12 +4,12 @@ from typing import Any
 
 from duplicate_detection.heuristics import classify_by_metadata
 from models import DuplicateStatus
-from repositories import Repository
+from repositories import DocumentRepository
 
 
 class DuplicateDetector:
     def __init__(self) -> None:
-        self.repository = Repository()
+        self.repository = DocumentRepository()
 
     def detect(
         self,

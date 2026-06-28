@@ -54,7 +54,7 @@ class GenerationService:
         config = get_config()
         effective_stream = stream if stream is not None else config.llm.streaming_enabled
 
-        print(f"Context package for generation: {json.dumps(context_package, indent=2)}")
+        logger.debug(f"Context package for generation: {json.dumps(context_package, indent=2)}")
         
         context_string = context_package.get("context_string", "")
         if intent == "factual":

@@ -1,9 +1,9 @@
 """Factory functions for provider selection based on configuration."""
 
 import logging
-import os
 from functools import lru_cache
 
+from config import get_settings, get_config
 from .base import BaseLLMProvider, BaseEmbeddingProvider
 from .openai import OpenAILLMProvider, OpenAIEmbeddingProvider
 
@@ -20,16 +20,15 @@ def get_llm_provider() -> BaseLLMProvider:
     Raises:
         ValueError: If provider type is unsupported
     """
-    # Read provider type from environment or use default
-    provider_type = os.getenv("LLM_PROVIDER", "openai").lower()
+    config = get_config()
+    settings = get_settings()
+    provider_type = config.llm.provider
 
     logger.info(f"Initializing LLM provider: {provider_type}")
 
-    from config import get_config
-    
     if provider_type in ("openai", "openai-compatible"):
-        api_key = os.getenv("OPENAI_API_KEY")
-        api_base = os.getenv("OPENAI_API_BASE") if provider_type == "openai-compatible" else None
+        api_key = settings.openai_api_key
+        api_base = settings.openai_api_base if provider_type == "openai-compatible" else None
         model = get_config().llm.model
         timeout = 60
 
@@ -53,16 +52,15 @@ def get_embedding_provider() -> BaseEmbeddingProvider:
     Raises:
         ValueError: If provider type is unsupported
     """
-    # Read provider type from environment or use default
-    provider_type = os.getenv("EMBEDDING_PROVIDER", "openai").lower()
+    config = get_config()
+    settings = get_settings()
+    provider_type = config.ingestion.embedding_provider
 
     logger.info(f"Initializing embedding provider: {provider_type}")
 
-    from config import get_config
-    
     if provider_type in ("openai", "openai-compatible"):
-        api_key = os.getenv("EMBEDDING_API_KEY") or os.getenv("OPENAI_API_KEY")
-        api_base = os.getenv("EMBEDDING_API_BASE") if provider_type == "openai-compatible" else None
+        api_key = settings.embedding_api_key
+        api_base = settings.embedding_api_base if provider_type == "openai-compatible" else None
         model = get_config().ingestion.embedding_model
         max_retries = 3
         timeout = 30
@@ -76,4 +74,3 @@ def get_embedding_provider() -> BaseEmbeddingProvider:
         )
     else:
         raise ValueError(f"Unsupported embedding provider: {provider_type}")
-

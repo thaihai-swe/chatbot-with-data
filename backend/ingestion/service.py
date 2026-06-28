@@ -8,7 +8,7 @@ from fastapi import UploadFile
 from duplicate_detection import DuplicateDetector
 from extractors import ExtractorDispatcher
 from models import DuplicateAction, DuplicateStatus, IngestionStatus, SourceType
-from repositories import Repository
+from repositories import DocumentRepository, IngestionRepository, LifecycleRepository
 from storage import LocalStorage
 from chunking.service import get_chunking_service
 from indexing.indexing_service import IndexingService
@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 
 class IngestionService:
     def __init__(self) -> None:
-        self.repository = Repository()
+        self.ingestion_repo = IngestionRepository()
+        self.document_repo = DocumentRepository()
+        self.lifecycle_repo = LifecycleRepository()
         self.storage = LocalStorage()
         self.dispatcher = ExtractorDispatcher()
         self.detector = DuplicateDetector()
@@ -53,7 +55,7 @@ class IngestionService:
     ) -> dict:
         artifact_path, _ = await self.storage.save_upload(file)
         source_type = PathClassifier.classify_from_filename(file.filename or "")
-        return self.repository.create_ingestion_attempt(
+        return self.ingestion_repo.create_ingestion_attempt(
             source_type=source_type,
             status=IngestionStatus.SUBMITTED.value,
             submitted_filename=file.filename,
@@ -63,7 +65,7 @@ class IngestionService:
         )
 
     def submit_url(self, url: str, collection_ids: list[str]) -> dict:
-        return self.repository.create_ingestion_attempt(
+        return self.ingestion_repo.create_ingestion_attempt(
             source_type=SourceType.URL.value,
             status=IngestionStatus.SUBMITTED.value,
             source_uri=url,
@@ -71,14 +73,14 @@ class IngestionService:
         )
 
     def process_ingestion_attempt(self, attempt_id: str) -> None:
-        attempt = self.repository.get_ingestion_attempt(attempt_id)
+        attempt = self.ingestion_repo.get_ingestion_attempt(attempt_id)
         if not attempt:
             raise KeyError(f"Ingestion attempt {attempt_id} not found")
         try:
             # Capture run snapshot
             get_settings_manager().save_run_snapshot(attempt_id, domain="ingestion")
 
-            self.repository.update_ingestion_attempt(
+            self.ingestion_repo.update_ingestion_attempt(
                 attempt_id,
                 status=IngestionStatus.PROCESSING.value,
             )
@@ -96,7 +98,7 @@ class IngestionService:
                 candidate,
                 ignore_document_id=attempt["document_id"],
             )
-            attempt = self.repository.update_ingestion_attempt(
+            attempt = self.ingestion_repo.update_ingestion_attempt(
                 attempt_id,
                 title=extraction["title"],
                 extracted_text=extraction["extracted_text"],
@@ -112,7 +114,7 @@ class IngestionService:
                 | {"detection_method": duplicate_result["detection_method"]},
             )
             if duplicate_result["classification"] != DuplicateStatus.UNIQUE.value:
-                self.repository.update_ingestion_attempt(
+                self.ingestion_repo.update_ingestion_attempt(
                     attempt_id,
                     status=IngestionStatus.AWAITING_USER_ACTION.value,
                 )
@@ -123,9 +125,9 @@ class IngestionService:
             )
 
             # Start chunking and indexing
-            stats = self._chunk_and_index_document(document_id, attempt)
+            stats = self.chunk_and_index_document(document_id, attempt)
 
-            self.repository.update_ingestion_attempt(
+            self.ingestion_repo.update_ingestion_attempt(
                 attempt_id,
                 document_id=document_id,
                 status=IngestionStatus.COMPLETED.value,
@@ -140,7 +142,7 @@ class IngestionService:
                     f"{stats['safe_chunks_count']} chunks indexed"
                 )
         except Exception as exc:
-            self.repository.update_ingestion_attempt(
+            self.ingestion_repo.update_ingestion_attempt(
                 attempt_id,
                 status=IngestionStatus.FAILED.value,
                 error_message=str(exc),
@@ -148,7 +150,7 @@ class IngestionService:
             )
 
     def apply_duplicate_decision(self, attempt_id: str, action: str) -> dict:
-        attempt = self.repository.get_ingestion_attempt(attempt_id)
+        attempt = self.ingestion_repo.get_ingestion_attempt(attempt_id)
         if not attempt:
             raise KeyError(f"Ingestion attempt {attempt_id} not found")
         evidence = (
@@ -167,7 +169,7 @@ class IngestionService:
         document_id = None
         if final_status == IngestionStatus.COMPLETED.value:
             document_id = self._finalize_successful_ingestion(attempt_id, action=action)
-        updated_attempt = self.repository.update_ingestion_attempt(
+        updated_attempt = self.ingestion_repo.update_ingestion_attempt(
             attempt_id,
             document_id=document_id,
             status=final_status,
@@ -176,7 +178,7 @@ class IngestionService:
 
         # Start chunking and indexing if completed
         if final_status == IngestionStatus.COMPLETED.value and document_id:
-            stats = self._chunk_and_index_document(document_id, attempt)
+            stats = self.chunk_and_index_document(document_id, attempt)
             if stats["blocked_chunks_count"] > 0:
                 logger.info(
                     f"Duplicate decision ingestion for {attempt_id}: "
@@ -184,7 +186,7 @@ class IngestionService:
                     f"{stats['safe_chunks_count']} chunks indexed"
                 )
 
-        decision = self.repository.create_duplicate_decision(
+        decision = self.lifecycle_repo.create_duplicate_decision(
             ingestion_attempt_id=attempt_id,
             document_id=document_id,
             matched_document_id=attempt["duplicate_match_document_id"],
@@ -197,7 +199,7 @@ class IngestionService:
         return {"decision": decision, "attempt": updated_attempt}
 
     def _finalize_successful_ingestion(self, attempt_id: str, *, action: str) -> str:
-        attempt = self.repository.get_ingestion_attempt(attempt_id)
+        attempt = self.ingestion_repo.get_ingestion_attempt(attempt_id)
         if not attempt:
             raise KeyError(f"Ingestion attempt {attempt_id} not found")
         metadata = json.loads(attempt["metadata_json"])
@@ -209,14 +211,14 @@ class IngestionService:
         }:
             if not matched_document_id:
                 raise ValueError("Matched document is required for this duplicate action")
-            current = self.repository.get_document(matched_document_id)
+            current = self.document_repo.get_document(matched_document_id)
             if not current:
                 raise KeyError(f"Matched document {matched_document_id} not found")
             merged_metadata = {
                 **current["metadata"],
                 **metadata,
             }
-            updated = self.repository.update_document(
+            updated = self.document_repo.update_document(
                 matched_document_id,
                 title=attempt["title"] or current["title"],
                 source_uri=attempt["source_uri"] or current["source_uri"],
@@ -233,11 +235,11 @@ class IngestionService:
             union_collection_ids = sorted(
                 set(collection_ids) | {item["id"] for item in current["collections"]}
             )
-            self.repository.assign_document_to_collections(
+            self.document_repo.assign_document_to_collections(
                 matched_document_id,
                 union_collection_ids,
             )
-            self.repository.update_ingestion_attempt(
+            self.ingestion_repo.update_ingestion_attempt(
                 attempt_id,
                 document_id=matched_document_id,
             )
@@ -247,7 +249,7 @@ class IngestionService:
         else:
             version_of_document_id = None
         if attempt["document_id"]:
-            updated = self.repository.update_document(
+            updated = self.document_repo.update_document(
                 attempt["document_id"],
                 title=attempt["title"] or "Untitled",
                 source_uri=attempt["source_uri"],
@@ -259,9 +261,9 @@ class IngestionService:
                 extracted_text=attempt["extracted_text"] or "",
                 metadata=metadata,
             )
-            self.repository.assign_document_to_collections(updated["id"], collection_ids)
+            self.document_repo.assign_document_to_collections(updated["id"], collection_ids)
             return updated["id"]
-        created = self.repository.create_document(
+        created = self.document_repo.create_document(
             title=attempt["title"] or "Untitled",
             source_type=attempt["source_type"],
             source_uri=attempt["source_uri"],
@@ -275,13 +277,23 @@ class IngestionService:
             collection_ids=collection_ids,
             version_of_document_id=version_of_document_id,
         )
-        self.repository.update_ingestion_attempt(
+        self.ingestion_repo.update_ingestion_attempt(
             attempt_id,
             document_id=created["id"],
         )
         return created["id"]
 
-    def _chunk_and_index_document(self, document_id: str, attempt: dict) -> dict:
+    def delete_document_vectors(self, document_id: str) -> None:
+        from indexing.weaviate_store import WeaviateVectorStore
+        try:
+            store = WeaviateVectorStore()
+            deleted = store.delete_by_document(document_id)
+            logger.info(f"Deleted {deleted} vectors for document {document_id}")
+        except Exception as exc:
+            logger.error(f"Vector deletion failed for document {document_id}: {exc}")
+            raise
+
+    def chunk_and_index_document(self, document_id: str, attempt: dict) -> dict:
         """Trigger chunking and indexing for a document.
 
         Returns:
@@ -291,7 +303,7 @@ class IngestionService:
         # Note: we use attempt instead of re-fetching document for performance if available
         text = attempt.get("extracted_text")
         if not text:
-            doc = self.repository.get_document(document_id)
+            doc = self.document_repo.get_document(document_id)
             text = doc["extracted_text"]
 
         if not text:
@@ -314,7 +326,10 @@ class IngestionService:
         collection_ids = attempt["collection_ids"]
 
         if not collection_ids:
-            collection_ids = ["default"]
+            from repositories.collection_repository import CollectionRepository
+            coll_repo = CollectionRepository()
+            default = coll_repo.get_or_create_default()
+            collection_ids = [default["id"]]
 
         # Clear old chunks and vectors before re-chunking (for reindex operations)
         from repositories.chunk_repository import ChunkRepository

@@ -1,157 +1,18 @@
-"""Service for collection-scoped retrieval from vector DB."""
 from __future__ import annotations
 
 import logging
-import json
-import time
-import re
-from typing import Optional, List, Tuple, Dict, Any
+from typing import Any, Dict, List, Optional
 
+from fastapi import Depends
+
+from config import get_config
 from indexing.base import VectorStore
 from providers.base import BaseEmbeddingProvider
 from providers.factory import get_embedding_provider
-from config import get_settings, get_config
 from repositories.chunk_repository import ChunkRepository
-from schemas.chat import RerankingTrace, RetrievalTrace, RetrievalRunTrace
-from chat.multi_hop import MultiHopRetrievalOrchestrator
-from chat.prompts import (
-    QUERY_CLASSIFICATION_PROMPT,
-    QUERY_EXPANSION_PROMPT,
-    QUERY_REWRITING_PROMPT,
-    QUERY_DECOMPOSITION_PROMPT,
-    HYDE_PROMPT,
-    SYNONYM_EXPANSION_PROMPT
-)
-from repositories.core import Repository
-from fastapi import Depends
-from providers.base import BaseLLMProvider
-from providers.factory import get_llm_provider
-from chat.utils import parse_json_from_llm
 
 logger = logging.getLogger(__name__)
 
-
-class QueryIntelligenceService:
-    """Service for LLM-powered query intelligence and transformation."""
-    def __init__(self, llm_provider: BaseLLMProvider):
-        self.llm_provider = llm_provider
-
-    def _call_llm(self, prompt: str) -> str:
-        # LLMProvider handles temperature 0.0 internally or via parameters if supported
-        # For simplicity, we pass messages and temperature=0.0
-        result = self.llm_provider.generate_completion(
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
-            stream=False
-        )
-        # Final safety cleanup for string-based responses
-        if result:
-            result = result.strip()
-            # Remove common LLM chatter/notes if they slip through (e.g. (Note: ...))
-            result = re.sub(r"\(Note:.*?\)", "", result, flags=re.IGNORECASE | re.DOTALL).strip()
-        return result
-
-    def classify_query(self, query_text: str) -> Tuple[str, float]:
-        prompt = QUERY_CLASSIFICATION_PROMPT.format(query_text=query_text)
-        result = self._call_llm(prompt)
-        parsed = parse_json_from_llm(result)
-        if isinstance(parsed, dict):
-            intent = parsed.get("intent", "factual")
-            confidence = parsed.get("confidence_score", 0.0)
-            try:
-                confidence = float(confidence)
-            except (ValueError, TypeError):
-                confidence = 0.0
-            return str(intent), confidence
-        return "factual", 0.0
-
-    def expand_query(self, query_text: str, count: int) -> List[str]:
-        prompt = QUERY_EXPANSION_PROMPT.format(query_text=query_text, count=count)
-        result = self._call_llm(prompt)
-        parsed = parse_json_from_llm(result)
-        if isinstance(parsed, list):
-            return [str(q).strip() for q in parsed]
-        logger.error(f"Failed to parse query expansion JSON: {result}")
-        return []
-
-    def rewrite_query(self, query_text: str) -> str:
-        prompt = QUERY_REWRITING_PROMPT.format(query_text=query_text)
-        return self._call_llm(prompt)
-
-    def decompose_query(self, query_text: str) -> List[str]:
-        prompt = QUERY_DECOMPOSITION_PROMPT.format(query_text=query_text)
-        result = self._call_llm(prompt)
-        parsed = parse_json_from_llm(result)
-        if isinstance(parsed, list):
-            return [str(q).strip() for q in parsed]
-        logger.error(f"Failed to parse query decomposition JSON: {result}")
-        return []
-
-    def generate_hyde(self, query_text: str) -> str:
-        prompt = HYDE_PROMPT.format(query_text=query_text)
-        return self._call_llm(prompt)
-
-    def expand_synonyms(self, query_text: str) -> Dict[str, str]:
-        prompt = SYNONYM_EXPANSION_PROMPT.format(query_text=query_text)
-        result = self._call_llm(prompt)
-        parsed = parse_json_from_llm(result)
-        if isinstance(parsed, dict):
-            # Ensure values are joined if they are lists
-            cleaned = {}
-            for k, v in parsed.items():
-                if isinstance(v, list):
-                    cleaned[str(k)] = " ".join(map(str, v))
-                else:
-                    cleaned[str(k)] = str(v)
-            return cleaned
-        logger.error(f"Failed to parse synonym JSON: {result}")
-        return {}
-
-
-def get_query_intelligence_service(llm_provider: BaseLLMProvider = Depends(get_llm_provider)) -> QueryIntelligenceService:
-    return QueryIntelligenceService(llm_provider)
-
-
-
-class CandidateMerger:
-    """Service for merging candidate chunks from multiple retrieval runs using Reciprocal Rank Fusion."""
-    def __init__(self, rrf_k: int = 60):
-        self.rrf_k = rrf_k
-
-    def merge(self, results_list: List[List[Dict[str, Any]]], top_k: int = 10) -> List[Dict[str, Any]]:
-        """
-        Merge multiple lists of chunks using RRF.
-        Each chunk must have a 'chunk_id' to deduplicate.
-        """
-        if not results_list:
-            return []
-
-        chunk_map = {}
-        rrf_scores = {}
-
-        for results in results_list:
-            for rank, chunk in enumerate(results):
-                chunk_id = chunk.get("chunk_id")
-                if not chunk_id:
-                    continue
-
-                if chunk_id not in chunk_map:
-                    chunk_map[chunk_id] = chunk
-                    rrf_scores[chunk_id] = 0.0
-
-                rrf_scores[chunk_id] += 1.0 / (self.rrf_k + rank + 1)
-
-        # Sort by RRF score descending
-        sorted_chunk_ids = sorted(rrf_scores.keys(), key=lambda cid: rrf_scores[cid], reverse=True)
-
-        merged_chunks = []
-        for cid in sorted_chunk_ids[:top_k]:
-            chunk = chunk_map[cid].copy()
-            chunk["similarity_score"] = rrf_scores[cid]
-            chunk["original_score"] = chunk_map[cid].get("similarity_score")
-            merged_chunks.append(chunk)
-
-        return merged_chunks
 
 class RetrievalService:
     """Service for retrieving relevant chunks from the vector index."""
@@ -161,13 +22,6 @@ class RetrievalService:
         embedding_provider: BaseEmbeddingProvider,
         vector_store: VectorStore,
     ):
-        """
-        Initialize the retrieval service.
-
-        Args:
-            embedding_provider: Provider for generating embeddings of queries
-            vector_store: Vector store implementation
-        """
         self.embedding_provider = embedding_provider
         self.vector_store = vector_store
 
@@ -178,18 +32,6 @@ class RetrievalService:
         k: int | None = None,
         alpha: float | None = None,
     ) -> List[Dict[str, Any]]:
-        """
-        Retrieve relevant chunks for a query, scoped to collections.
-
-        Args:
-            query_text: The user's query
-            collection_ids: The collection ID or list of IDs to scope the search to (None for all)
-            k: Number of chunks to retrieve (defaults to config)
-            alpha: Weight between keyword (0.0) and semantic (1.0) search
-
-        Returns:
-            List of chunk metadata dicts with similarity scores
-        """
         config = get_config()
         k = k or config.retrieval.top_k
 
@@ -204,35 +46,28 @@ class RetrievalService:
 
         logger.info(f"Retrieving {k} chunks (alpha={alpha}) for query: '{query_text}' (collections={collection_ids})")
 
-        # 1. Generate embedding for the query
         query_embedding = self.embedding_provider.embed(query_text)
 
-        # 2. Query Vector Store
         raw_results = self.vector_store.query_hybrid(
             query_text=query_text,
             query_embedding=query_embedding,
             alpha=alpha,
             k=k,
-            collection_ids=collection_ids if isinstance(collection_ids, list) else ([collection_ids] if collection_ids else None)
+            collection_ids=collection_ids
+            if isinstance(collection_ids, list)
+            else ([collection_ids] if collection_ids else None),
         )
 
-        # 3. Format results
         formatted_results = []
         chunk_repo = ChunkRepository()
         for chunk_id, similarity, metadata in raw_results:
-            result = {
-                "chunk_id": chunk_id,
-                "similarity_score": similarity,
-                **metadata
-            }
-
+            result = {"chunk_id": chunk_id, "similarity_score": similarity, **metadata}
             if chunk_id:
                 chunk_data = chunk_repo.get_chunk(chunk_id)
                 if chunk_data:
                     for key, value in chunk_data.items():
                         if key not in result and value is not None:
                             result[key] = value
-
             formatted_results.append(result)
 
         logger.info(f"Found {len(formatted_results)} relevant chunks")
@@ -240,300 +75,9 @@ class RetrievalService:
 
 
 def get_retrieval_service(
-    embedding_provider: BaseEmbeddingProvider = Depends(get_embedding_provider)
+    embedding_provider: BaseEmbeddingProvider = Depends(get_embedding_provider),
 ) -> RetrievalService:
-    """Factory function for RetrievalService."""
     from indexing.weaviate_store import WeaviateVectorStore
 
     vector_store = WeaviateVectorStore()
     return RetrievalService(embedding_provider, vector_store)
-
-
-from schemas.chat import RetrievalTrace, RetrievalRunTrace
-from schemas.settings import RetrievalSettings
-from fastapi import Depends
-
-class RerankingService:
-    """Service for re-scoring candidates after retrieval."""
-    def __init__(self, model: str = "dummy-reranker"):
-        self.model = model
-
-    def rerank(self, query_text: str, chunks: List[Dict[str, Any]], top_k: int) -> Tuple[List[Dict[str, Any]], RerankingTrace]:
-        if not chunks:
-            return chunks, RerankingTrace(model=self.model)
-
-        t0 = time.time()
-        pre_order_ids = [str(c.get("chunk_id")) for c in chunks]
-
-        # Dummy reranking: Sort by similarity_score
-        sorted_chunks = sorted(chunks, key=lambda c: c.get("similarity_score", 0), reverse=True)[:top_k]
-
-        post_order_ids = [str(c.get("chunk_id")) for c in sorted_chunks]
-
-        trace = RerankingTrace(
-            model=self.model,
-            pre_order_ids=pre_order_ids,
-            post_order_ids=post_order_ids,
-            latency_ms=int((time.time() - t0) * 1000)
-        )
-        return sorted_chunks, trace
-
-def get_reranking_service() -> RerankingService:
-    return RerankingService()
-
-class AdvancedRetrievalService:
-    """Wrapper service for advanced retrieval strategies."""
-
-    def __init__(self, baseline_retrieval_service: RetrievalService, query_intelligence_service: QueryIntelligenceService, reranking_service: RerankingService):
-        self.baseline_retrieval_service = baseline_retrieval_service
-        self.query_intelligence_service = query_intelligence_service
-        self.reranking_service = reranking_service
-        self.candidate_merger = CandidateMerger()
-
-    def retrieve(
-        self,
-        query_text: str,
-        config: RetrievalSettings,
-        collection_ids: Optional[list[str]] = None,
-        k: int | None = None,
-    ) -> Tuple[List[Dict[str, Any]], RetrievalTrace]:
-        """
-        Retrieve chunks using configured advanced strategies.
-        Defaults to baseline if no advanced features are enabled.
-        """
-        global_config = get_config()
-        k = k or global_config.retrieval.top_k
-
-        trace = RetrievalTrace(original_query=query_text)
-
-        if config.intelligence_enabled:
-            t0 = time.time()
-            intent, confidence = self.query_intelligence_service.classify_query(query_text)
-            if confidence < 0.6:
-                intent = "factual"
-
-            trace.classification = intent
-            trace.classification_confidence = confidence
-            trace.execution_time_ms["classification"] = int((time.time() - t0) * 1000)
-
-            if config.dynamic_routing_enabled and trace.classification:
-                # Reset defaults
-                config.query_expansion_enabled = False
-                config.query_decomposition_enabled = False
-                config.hyde_enabled = False
-                config.synonym_expansion_enabled = False
-
-                if trace.classification == "factual":
-                    trace.routing.selected_strategy = "baseline"
-                    trace.routing.reason = "Factual query: skipping complex expansions."
-                elif trace.classification == "comparison":
-                    config.query_decomposition_enabled = True
-                    trace.routing.selected_strategy = "decomposition"
-                    trace.routing.reason = "Comparison query: enabling decomposition."
-                elif trace.classification == "how_to":
-                    config.hyde_enabled = True
-                    trace.routing.selected_strategy = "hyde"
-                    trace.routing.reason = "How-to query: enabling HyDE."
-                elif trace.classification == "troubleshooting":
-                    config.synonym_expansion_enabled = True
-                    trace.routing.selected_strategy = "synonym_expansion"
-                    trace.routing.reason = "Troubleshooting query: enabling synonym expansion."
-                elif trace.classification == "exploratory":
-                    config.query_expansion_enabled = True
-                    trace.routing.selected_strategy = "expansion"
-                    trace.routing.reason = "Exploratory query: enabling query expansion."
-                else:
-                    trace.routing.selected_strategy = "baseline"
-                    trace.routing.reason = f"Classification {trace.classification} unmapped. Defaulting to baseline."
-            else:
-                trace.routing.selected_strategy = "manual"
-                trace.routing.reason = "Dynamic routing disabled or no classification available."
-
-        if config.intelligence_enabled:
-            t0 = time.time()
-            rewritten = self.query_intelligence_service.rewrite_query(query_text)
-            trace.transformations.rewritten_query = rewritten
-            trace.execution_time_ms["rewriting"] = int((time.time() - t0) * 1000)
-
-        queries_to_run = [query_text]
-        if config.intelligence_enabled and trace.transformations.rewritten_query:
-            if trace.transformations.rewritten_query != query_text:
-                queries_to_run.append(trace.transformations.rewritten_query)
-
-        # Build final query list with transformations
-        all_variations = []
-
-        for q in queries_to_run:
-            if config.query_expansion_enabled:
-                t0 = time.time()
-                vars = self.query_intelligence_service.expand_query(q, config.query_expansion_count)
-                all_variations.extend(vars)
-                trace.execution_time_ms["expansion"] = trace.execution_time_ms.get("expansion", 0) + int((time.time() - t0) * 1000)
-
-        if config.query_expansion_enabled:
-            trace.transformations.expanded_queries = list(set(all_variations))
-
-        if config.query_decomposition_enabled:
-            t0 = time.time()
-            trace.transformations.sub_questions = self.query_intelligence_service.decompose_query(query_text)
-            trace.execution_time_ms["decomposition"] = int((time.time() - t0) * 1000)
-
-        # Multi-hop reasoning integration
-        if config.multi_hop_enabled and trace.transformations.sub_questions and len(trace.transformations.sub_questions) > 1:
-            logger.info("Multi-hop enabled with multiple sub-questions, using MultiHopRetrievalOrchestrator")
-            try:
-                orchestrator = MultiHopRetrievalOrchestrator(
-                    retrieval_service=self,
-                    llm_client=self.query_intelligence_service.llm_provider
-                )
-                chunks, reasoning_chain = orchestrator.execute_multi_hop(
-                    query=query_text,
-                    sub_questions=trace.transformations.sub_questions,
-                    config=config,
-                    collection_ids=collection_ids or []
-                )
-                trace.reasoning_chain = reasoning_chain
-                trace.merged_candidates_count = len(chunks)
-
-                # Apply reranking if enabled
-                if config.reranker_enabled and chunks:
-                    top_k_rerank = config.reranker_top_n or k
-                    chunks, rerank_trace = self.reranking_service.rerank(query_text, chunks, top_k_rerank)
-                    trace.reranking = rerank_trace
-
-                return chunks, trace
-            except Exception as e:
-                logger.error(f"Multi-hop execution failed: {e}, falling back to parallel retrieval")
-                # Continue with parallel retrieval on failure
-
-        if config.hyde_enabled:
-            t0 = time.time()
-            trace.transformations.hyde_doc = self.query_intelligence_service.generate_hyde(query_text)
-            trace.execution_time_ms["hyde"] = int((time.time() - t0) * 1000)
-
-        if config.synonym_expansion_enabled:
-            t0 = time.time()
-            trace.transformations.synonym_expansions = self.query_intelligence_service.expand_synonyms(query_text)
-            trace.execution_time_ms["synonym_expansion"] = int((time.time() - t0) * 1000)
-
-        # Final collection of unique queries to execute
-        unique_queries = list(set(queries_to_run))
-        if config.query_expansion_enabled and trace.transformations.expanded_queries:
-            unique_queries.extend(trace.transformations.expanded_queries)
-
-        if config.query_decomposition_enabled and trace.transformations.sub_questions:
-            unique_queries.extend(trace.transformations.sub_questions)
-
-        if config.hyde_enabled and trace.transformations.hyde_doc:
-            unique_queries.append(trace.transformations.hyde_doc)
-
-        unique_queries = list(dict.fromkeys(unique_queries)) # Deduplicate preserve order
-
-        search_mode = config.retrieval_mode or global_config.retrieval.retrieval_mode
-
-        # Map search_mode to effective alpha
-        if search_mode == "keyword":
-            effective_alpha = 0.0
-        elif search_mode == "semantic":
-            effective_alpha = 1.0
-        else: # hybrid
-            effective_alpha = config.hybrid_weight if config.hybrid_weight is not None else global_config.retrieval.hybrid_weight
-
-        all_results = []
-        for q in unique_queries:
-            search_query = q
-            if config.synonym_expansion_enabled and trace.transformations.synonym_expansions:
-                for old, new in trace.transformations.synonym_expansions.items():
-                    if isinstance(new, list):
-                        new = " ".join(map(str, new))
-                    elif not isinstance(new, str):
-                        new = str(new)
-                    search_query = search_query.replace(old, new)
-
-            chunks = self.baseline_retrieval_service.retrieve_relevant_chunks(
-                query_text=search_query,
-                collection_ids=collection_ids,
-                k=k,
-                alpha=effective_alpha
-            )
-            all_results.append(chunks)
-            trace.retrieval_runs.append(RetrievalRunTrace(
-                query=search_query,
-                raw_count=len(chunks),
-                top_scores=[float(c.get("similarity_score", 0.0)) for c in chunks]
-            ))
-
-        if len(all_results) > 1:
-            t0 = time.time()
-            merged_chunks = self.candidate_merger.merge(all_results, top_k=k)
-            trace.execution_time_ms["merging"] = int((time.time() - t0) * 1000)
-            final_chunks = merged_chunks
-        else:
-            final_chunks = all_results[0] if all_results else []
-
-        trace.merged_candidates_count = len(final_chunks)
-
-        if config.reranker_enabled:
-            top_k_rerank = config.reranker_top_n or k
-            t0 = time.time()
-            final_chunks, rerank_trace = self.reranking_service.rerank(query_text, final_chunks, top_k_rerank)
-            trace.reranking = rerank_trace
-            trace.execution_time_ms["reranking"] = int((time.time() - t0) * 1000)
-
-        if config.parent_child_enabled:
-            t0 = time.time()
-            expanded_chunks = []
-            seen_parent_ids = set()
-            chunk_repo = ChunkRepository()
-
-            for chunk in final_chunks:
-                parent_id = chunk.get("parent_chunk_id")
-                if parent_id:
-                    if parent_id not in seen_parent_ids:
-                        seen_parent_ids.add(parent_id)
-                        parent_chunk = chunk_repo.get_chunk(parent_id)
-                        if parent_chunk:
-                            # Inherit scores from child for downstream consistency
-                            parent_chunk["similarity_score"] = chunk.get("similarity_score", 0.0)
-                            if "original_score" in chunk:
-                                parent_chunk["original_score"] = chunk["original_score"]
-                            expanded_chunks.append(parent_chunk)
-                            trace.parent_child_expansions_count += 1
-                        else:
-                            expanded_chunks.append(chunk)
-                else:
-                    expanded_chunks.append(chunk)
-
-            final_chunks = expanded_chunks
-            trace.execution_time_ms["parent_child_expansion"] = int((time.time() - t0) * 1000)
-
-        return final_chunks, trace
-
-    def retrieve_relevant_chunks(
-        self,
-        query_text: str,
-        collection_ids: Optional[list[str]] = None,
-        k: int | None = None,
-        config: Optional[RetrievalSettings] = None,
-    ) -> List[Dict[str, Any]]:
-        """
-        Compatibility wrapper for callers that still expect the baseline
-        retrieval interface.
-        """
-        effective_config = config if config is not None else get_config().retrieval
-        chunks, _ = self.retrieve(
-            query_text=query_text,
-            config=effective_config,
-            collection_ids=collection_ids,
-            k=k,
-        )
-        return chunks
-
-
-def get_advanced_retrieval_service(
-    retrieval_service: RetrievalService = Depends(get_retrieval_service),
-    query_intelligence_service: QueryIntelligenceService = Depends(get_query_intelligence_service),
-    reranking_service: RerankingService = Depends(get_reranking_service)
-) -> AdvancedRetrievalService:
-    """Factory function for AdvancedRetrievalService."""
-    return AdvancedRetrievalService(retrieval_service, query_intelligence_service, reranking_service)

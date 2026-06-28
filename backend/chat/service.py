@@ -8,7 +8,7 @@ from typing import Optional
 
 from fastapi import Depends
 
-from chat.retrieval import AdvancedRetrievalService, get_advanced_retrieval_service
+from chat.advanced_retrieval import AdvancedRetrievalService, get_advanced_retrieval_service
 from chat.collection_routing import CollectionRoutingService
 from chat.context import ContextService, get_context_service
 from chat.generation import GenerationService, get_generation_service

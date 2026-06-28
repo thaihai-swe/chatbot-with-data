@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 
-from repositories import Repository
+from repositories import CollectionRepository
 from schemas import CollectionCreate, CollectionResponse, CollectionUpdate
 
 
 router = APIRouter(prefix="/collections", tags=["collections"])
-repository = Repository()
+repository = CollectionRepository()
 
 
 @router.get("", response_model=list[CollectionResponse])

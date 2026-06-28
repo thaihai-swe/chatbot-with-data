@@ -3,9 +3,7 @@ skills/*
 .agents/*
 .codegraph
 .DS_Store
-.gemini/
 .claude/
-.gemini/*
 .claude/*
 # Editors
 .idea/

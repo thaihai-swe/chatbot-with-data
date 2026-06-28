@@ -19,7 +19,7 @@
         "semantic_chunking_enabled": false,
         "semantic_similarity_threshold": 0.1,
         "parent_child_enabled": true,
-        "embedding_provider": "openai",
+        "embedding_provider": "openai-compatible",
         "embedding_model": "openrouter/openai/text-embedding-3-small",
         "embedding_batch_size": 100,
         "vector_db_collection": "DocumentChunk"
@@ -47,7 +47,7 @@
         "multi_hop_timeout_ms": 30000
     },
     "llm": {
-        "provider": "openai",
+        "provider": "openai-compatible",
         "model": "rag-combo",
         "temperature": 0.0,
         "max_tokens": 1000,

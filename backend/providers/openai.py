@@ -8,6 +8,7 @@ from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import openai
 
+from config import get_config
 from providers.base import BaseLLMProvider, BaseEmbeddingProvider
 
 logger = logging.getLogger(__name__)
@@ -62,7 +63,6 @@ class OpenAILLMProvider(BaseLLMProvider):
         self, messages: List[Dict[str, str]], temperature: Optional[float]
     ) -> str:
         """Generate non-streaming completion."""
-        from config import get_config
         model = get_config().llm.model
         kwargs = {"model": model, "messages": messages}
         if temperature is not None:
@@ -79,7 +79,6 @@ class OpenAILLMProvider(BaseLLMProvider):
         self, messages: List[Dict[str, str]], temperature: Optional[float]
     ) -> Iterator[str]:
         """Generate streaming completion."""
-        from config import get_config
         model = get_config().llm.model
         kwargs = {"model": model, "messages": messages, "stream": True}
         if temperature is not None:
@@ -121,20 +120,17 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
         """Initialize OpenAI embedding provider.
 
         Args:
-            api_key: OpenAI API key (falls back to OPENAI_API_KEY env var)
+            api_key: OpenAI API key
             api_base: Optional custom API base URL
             model: Model name (defaults to text-embedding-3-small)
             max_retries: Maximum number of retries for rate limit errors
             timeout: Request timeout in seconds
         """
-        import os
+        if not api_key:
+            raise ValueError("No API key provided")
 
-        self.api_key = api_key or os.getenv("EMBEDDING_API_KEY") or os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
-            raise ValueError("No API key provided and EMBEDDING_API_KEY/OPENAI_API_KEY not set")
-
-        self.api_base = api_base or os.getenv("EMBEDDING_API_BASE") or os.getenv("OPENAI_API_BASE")
-        from config import get_config
+        self.api_key = api_key
+        self.api_base = api_base
         self.model = model or get_config().ingestion.embedding_model
         self.max_retries = max_retries
         self.timeout = timeout
@@ -167,7 +163,6 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
             raise ValueError("Text cannot be empty")
 
         try:
-            from config import get_config
             model = get_config().ingestion.embedding_model
             response = self.client.embeddings.create(input=[text], model=model)
             embedding = response.data[0].embedding
@@ -210,7 +205,6 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
             batch = texts[i : i + batch_size]
 
             try:
-                from config import get_config
                 model = get_config().ingestion.embedding_model
                 response = self.client.embeddings.create(input=batch, model=model)
 
@@ -248,7 +242,6 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
         Returns:
             Cost in dollars
         """
-        from config import get_config
         model = get_config().ingestion.embedding_model
         price_per_million = self.PRICING.get(model, 0.0)
         return (tokens / 1_000_000) * price_per_million
@@ -259,7 +252,6 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
         Returns:
             Dictionary with api_calls, failed_calls, total_tokens, total_cost, model
         """
-        from config import get_config
         return {
             "api_calls": self.api_calls,
             "failed_calls": self.failed_calls,

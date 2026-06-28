@@ -15,8 +15,15 @@ from schemas.settings import GlobalSettings
 
 load_dotenv()
 
+# Anchor: all data paths resolve relative to backend/ regardless of CWD
+_BACKEND_DIR = Path(__file__).resolve().parent
+
 def get_env_path(name: str, default: str) -> Path:
-    return Path(os.getenv(name, default))
+    raw = os.getenv(name, default)
+    p = Path(raw)
+    if p.is_absolute():
+        return p
+    return (_BACKEND_DIR / p).resolve()
 
 @dataclass(frozen=True)
 class Settings:
@@ -40,7 +47,9 @@ class Settings:
     ))
     request_id_header: str = "X-Request-ID"
 
-    # LLM Settings
+    # LLM / Provider Settings
+    llm_provider: str = field(default_factory=lambda: os.getenv("LLM_PROVIDER", "openai"))
+    embedding_provider: str = field(default_factory=lambda: os.getenv("EMBEDDING_PROVIDER", "openai"))
     openai_api_key: Optional[str] = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
     openai_api_base: Optional[str] = field(default_factory=lambda: os.getenv("OPENAI_API_BASE"))
     embedding_api_key: Optional[str] = field(default_factory=lambda: os.getenv("EMBEDDING_API_KEY", os.getenv("OPENAI_API_KEY")))

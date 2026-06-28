@@ -100,8 +100,17 @@ If no collections are relevant or you're uncertain, return an empty collection_i
         # Build prompt
         prompt = self._build_routing_prompt(query, collections)
 
-        # Call LLM
-        response_text = self.llm_client(prompt)
+        # Call LLM — fallback to factory if no llm_client provided
+        if self.llm_client is None:
+            from providers.factory import get_llm_provider
+            llm = get_llm_provider()
+            response_text = llm.generate_completion(
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0,
+                stream=False,
+            )
+        else:
+            response_text = self.llm_client(prompt)
 
         # Parse JSON response
         try:
