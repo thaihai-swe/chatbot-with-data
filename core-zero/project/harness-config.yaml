@@ -1,0 +1,35 @@
+phases:
+  - name: "Researching"
+    preconditions: []
+  - name: "Spec Approved"
+    preconditions:
+      - artifact: "spec.md"
+  - name: "Plan Approved"
+    preconditions:
+      - artifact: "plan.md"
+      - artifact: "tasks.md"
+  - name: "Verifying"
+    preconditions:
+      - artifact: "spec.md"
+      - artifact: "plan.md"
+      - artifact: "tasks.md"
+      - artifact: "status.md"
+  - name: "Done"
+    preconditions:
+      - artifact: "spec.md"
+      - artifact: "plan.md"
+      - artifact: "tasks.md"
+      - artifact: "status.md"
+
+stack_detection:
+  python:
+    files:
+      - requirements.txt
+    gates:
+      - test
+
+gates:
+  - name: test
+    command: PYTHONPATH=backend /Users/thaihai-swe/Desktop/chatbot-with-data/.venv/bin/pytest
+    stack: python
+    on_fail: print

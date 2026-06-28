@@ -53,6 +53,7 @@ function DocumentTable({
                       className="button button-ghost"
                       style={{ height: "32px", padding: "0 10px", fontSize: "12px" }}
                       type="button"
+                      disabled={document.is_attempt}
                       onClick={() => onReingest(document)}
                     >
                       Re-ingest
@@ -61,6 +62,7 @@ function DocumentTable({
                       style={{ width: "160px", height: "32px", fontSize: "12px", padding: "0 8px" }}
                       aria-label={`Move ${document.title} to collection`}
                       defaultValue=""
+                      disabled={document.is_attempt}
                       onChange={(event) => {
                         if (!event.target.value) {
                           return;
@@ -80,6 +82,7 @@ function DocumentTable({
                       className="button button-danger"
                       style={{ height: "32px", padding: "0 10px", fontSize: "12px" }}
                       type="button"
+                      disabled={document.is_attempt}
                       onClick={() => onDelete(document.id)}
                     >
                       Delete

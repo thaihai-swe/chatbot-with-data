@@ -12,6 +12,7 @@ from repositories import DocumentRepository, IngestionRepository, LifecycleRepos
 from storage import LocalStorage
 from chunking.service import get_chunking_service
 from indexing.indexing_service import IndexingService
+from indexing.understanding import DocumentUnderstandingService
 from indexing.weaviate_store import WeaviateVectorStore
 from chat.safety import SafetyService
 from providers.factory import get_llm_provider, get_embedding_provider
@@ -42,6 +43,9 @@ class IngestionService:
             embedding_provider=embedding_provider,
             vector_store=vector_store
         )
+
+        # Initialize DocumentUnderstandingService with resolved provider
+        self.understanding_service = DocumentUnderstandingService(llm_provider=llm_provider)
 
         # Initialize SafetyService with resolved providers
         self.safety_service = SafetyService(
@@ -119,6 +123,10 @@ class IngestionService:
                     status=IngestionStatus.AWAITING_USER_ACTION.value,
                 )
                 return
+
+            # Run document understanding between extraction and finalization
+            self._understand_document(attempt_id)
+
             document_id = self._finalize_successful_ingestion(
                 attempt_id,
                 action=DuplicateAction.INGEST_ANYWAY.value,
@@ -168,6 +176,7 @@ class IngestionService:
         )
         document_id = None
         if final_status == IngestionStatus.COMPLETED.value:
+            self._understand_document(attempt_id)
             document_id = self._finalize_successful_ingestion(attempt_id, action=action)
         updated_attempt = self.ingestion_repo.update_ingestion_attempt(
             attempt_id,
@@ -197,6 +206,40 @@ class IngestionService:
             final_status=final_status,
         )
         return {"decision": decision, "attempt": updated_attempt}
+
+    def _understand_document(self, attempt_id: str) -> None:
+        """Run document understanding on extracted text (non-fatal).
+
+        Stores result in the attempt's metadata_json under 'doc_understanding'.
+        Skips if disabled, text too large, or LLM unavailable.
+        """
+        attempt = self.ingestion_repo.get_ingestion_attempt(attempt_id)
+        if not attempt:
+            return
+
+        config = get_config()
+        if not config.ingestion.doc_understanding_enabled:
+            return
+
+        text = attempt.get("extracted_text") or ""
+        if len(text) > 100_000:
+            logger.warning(
+                f"Skipping document understanding for {attempt_id}: "
+                f"text too large ({len(text)} chars, max 100K)"
+            )
+            return
+
+        title = attempt.get("title") or attempt.get("submitted_filename")
+        result = self.understanding_service.understand(text=text, title=title)
+        if result is None:
+            return
+
+        metadata = json.loads(attempt["metadata_json"]) if attempt.get("metadata_json") else {}
+        metadata["doc_understanding"] = result
+        self.ingestion_repo.update_ingestion_attempt(
+            attempt_id,
+            metadata=metadata,
+        )
 
     def _finalize_successful_ingestion(self, attempt_id: str, *, action: str) -> str:
         attempt = self.ingestion_repo.get_ingestion_attempt(attempt_id)

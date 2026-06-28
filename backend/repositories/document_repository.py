@@ -129,6 +129,30 @@ class DocumentRepository(BaseRepository):
         record["latest_attempt"] = dict(latest_attempt) if latest_attempt else None
         return record
 
+    def get_document_batch(self, ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch multiple documents by ID.
+
+        Args:
+            ids: List of document IDs
+
+        Returns:
+            Dict mapping document ID to {title, metadata}
+        """
+        if not ids:
+            return {}
+        placeholders = ",".join("?" for _ in ids)
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"SELECT id, title, metadata_json FROM documents WHERE id IN ({placeholders}) AND deleted_at IS NULL",
+                ids,
+            ).fetchall()
+        result = {}
+        for row in rows:
+            record = dict(row)
+            record["metadata"] = json.loads(record.pop("metadata_json"))
+            result[record["id"]] = record
+        return result
+
     def list_documents(
         self,
         *,

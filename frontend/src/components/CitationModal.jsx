@@ -1,7 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
+
+function getQuoteText(citation) {
+  return citation?.quote_text || citation?.metadata?.quote_text || null;
+}
 
 export default function CitationModal({ citation, chunk, onClose }) {
+  const [showFullContext, setShowFullContext] = useState(false);
   if (!citation || !chunk) return null;
+
+  const quoteText = getQuoteText(citation);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -32,11 +39,34 @@ export default function CitationModal({ citation, chunk, onClose }) {
           </div>
 
           <div className="field">
-            <span className="eyebrow">Excerpt</span>
-            <div className="surface-card" style={{ padding: "16px", background: "var(--surface-muted)", fontSize: "15px", lineHeight: "1.6", whiteSpace: "pre-wrap", border: "1px solid var(--border)" }}>
-              {chunk.text || chunk.content || chunk.metadata?.text || "No text content available."}
-            </div>
+            <span className="eyebrow">{quoteText ? "Quote" : "Excerpt"}</span>
+            {quoteText ? (
+              <div className="quote-highlight" style={{ padding: "16px", fontSize: "15px", lineHeight: "1.6", fontStyle: "italic", borderLeft: "3px solid var(--accent)", background: "var(--surface-muted)" }}>
+                &ldquo;{quoteText}&rdquo;
+              </div>
+            ) : (
+              <div className="surface-card" style={{ padding: "16px", background: "var(--surface-muted)", fontSize: "15px", lineHeight: "1.6", whiteSpace: "pre-wrap", border: "1px solid var(--border)" }}>
+                {chunk.text || chunk.content || chunk.metadata?.text || "No text content available."}
+              </div>
+            )}
           </div>
+
+          {quoteText && (
+            <div className="field" style={{ marginTop: "16px" }}>
+              <button
+                className="button button-ghost"
+                style={{ fontSize: "12px", padding: "4px 8px", cursor: "pointer" }}
+                onClick={() => setShowFullContext(!showFullContext)}
+              >
+                {showFullContext ? "Hide full context" : "Show full context"}
+              </button>
+              {showFullContext && (
+                <div className="surface-card" style={{ marginTop: "8px", padding: "16px", background: "var(--surface-muted)", fontSize: "15px", lineHeight: "1.6", whiteSpace: "pre-wrap", border: "1px solid var(--border)" }}>
+                  {chunk.text || chunk.content || chunk.metadata?.text || "No text content available."}
+                </div>
+              )}
+            </div>
+          )}
 
           {(chunk.parent_text || chunk.metadata?.parent_text) && (
             <div className="field" style={{ marginTop: "16px" }}>

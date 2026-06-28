@@ -21,8 +21,9 @@
 - **Vector DB**: Weaviate 1.27.0 (Docker) for hybrid search (BM25 + semantic)
 - **LLM**: OpenAI GPT-4o / compatible endpoint via provider abstraction layer
 - **Metadata**: SQLite with 16 tables, 4 migration versions
+- **Document Understanding**: Module at `backend/indexing/understanding.py` for summary and section metadata generation
 - Design docs live under `documents/` (16 files covering architecture, API, schema, chunking, retrieval, security)
-- Harness policy lives under `core-zero/`
+- Harness policy and configuration live under `core-zero/`
 - Utility scripts live under `scripts/`
 
 ## Key Architectural Boundaries

@@ -1,4 +1,4 @@
-import { NavLink, Route, Routes } from "react-router-dom";
+import { Link, NavLink, Route, Routes } from "react-router-dom";
 import React, { useState, useEffect } from "react";
 
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -25,10 +25,10 @@ function App() {
     <ErrorBoundary>
       <div className="app-shell">
         <header className="top-header">
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <Link to="/" style={{ display: "flex", alignItems: "center", gap: "16px", textDecoration: "none", color: "inherit" }}>
             <div style={{ width: "32px", height: "32px", background: "var(--gradient-primary)", borderRadius: "var(--radius-sm)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: "900", fontSize: "20px" }}>K</div>
             <span style={{ fontWeight: "750", fontSize: "20px", letterSpacing: "-0.02em" }}>KnowledgeBase<span style={{ color: "var(--accent)" }}>Lab</span></span>
-          </div>
+          </Link>
 
           <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
             <nav className="top-nav" aria-label="Primary">

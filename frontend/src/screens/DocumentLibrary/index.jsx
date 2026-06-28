@@ -25,47 +25,128 @@ function DocumentLibraryScreen() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  async function refreshData() {
-    setLoading(true);
+  async function refreshData(showSpinner = true) {
+    if (showSpinner) {
+      setLoading(true);
+    }
     try {
       const [collectionsPayload, documentsPayload, attemptsPayload] = await Promise.all([
         listCollections(),
         listDocuments({ collectionId: selectedCollection, query }),
-        listIngestionAttempts("awaiting_user_action"),
+        listIngestionAttempts(),
       ]);
       setCollections(collectionsPayload);
-      setDocuments(documentsPayload);
-      setPendingAttempts(attemptsPayload);
+
+      const awaitingUserAction = [];
+      const tableAttempts = [];
+
+      for (const attempt of attemptsPayload) {
+        if (attempt.status === "awaiting_user_action") {
+          awaitingUserAction.push(attempt);
+        } else if (
+          attempt.status === "submitted" ||
+          attempt.status === "processing" ||
+          attempt.status === "failed"
+        ) {
+          // If collection filter is active, only show attempts for this collection
+          if (selectedCollection && !(attempt.collection_ids || []).includes(selectedCollection)) {
+            continue;
+          }
+
+          // If search query is active, filter attempts by query
+          if (query) {
+            const lowerQuery = query.toLowerCase();
+            const titleMatch = (attempt.title || "").toLowerCase().includes(lowerQuery);
+            const fileMatch = (attempt.submitted_filename || "").toLowerCase().includes(lowerQuery);
+            const uriMatch = (attempt.source_uri || "").toLowerCase().includes(lowerQuery);
+            if (!titleMatch && !fileMatch && !uriMatch) {
+              continue;
+            }
+          }
+
+          // Check if this attempt is already associated with a completed document in documentsPayload
+          const isDocInPayload = documentsPayload.some((d) => d.id === attempt.document_id);
+          if (!isDocInPayload) {
+            tableAttempts.push(attempt);
+          }
+        }
+      }
+
+      const formattedAttempts = tableAttempts.map((attempt) => {
+        const attemptCollections = (attempt.collection_ids || [])
+          .map((cid) => {
+            const col = collectionsPayload.find((c) => c.id === cid);
+            return col ? { id: col.id, name: col.name } : null;
+          })
+          .filter(Boolean);
+
+        return {
+          id: attempt.id,
+          title: attempt.title || attempt.submitted_filename || attempt.source_uri || "Untitled",
+          source_type: attempt.source_type,
+          collections: attemptCollections,
+          latest_status: attempt.status,
+          is_attempt: true,
+          created_at: attempt.created_at,
+        };
+      });
+
+      const allItems = [
+        ...formattedAttempts,
+        ...documentsPayload.map((d) => ({ ...d, is_attempt: false })),
+      ];
+
+      allItems.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+      setDocuments(allItems);
+      setPendingAttempts(awaitingUserAction);
       setError("");
     } catch (requestError) {
       setError(requestError.message);
     } finally {
-      setLoading(false);
+      if (showSpinner) {
+        setLoading(false);
+      }
     }
   }
 
   useEffect(() => {
-    refreshData();
+    refreshData(true);
   }, [selectedCollection, query]);
+
+  useEffect(() => {
+    const hasActiveAttempts = documents.some(
+      (doc) =>
+        doc.is_attempt &&
+        (doc.latest_status === "submitted" || doc.latest_status === "processing"),
+    );
+
+    if (hasActiveAttempts) {
+      const interval = setInterval(() => {
+        refreshData(false);
+      }, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [documents]);
 
   async function handleUploadFile(payload) {
     setError("");
-    const attempt = await uploadFile(payload);
-    const refreshed = await getIngestionAttempt(attempt.id);
-    if (refreshed.status === "awaiting_user_action") {
-      setPendingAttempts((current) => [refreshed, ...current]);
+    try {
+      await uploadFile(payload);
+      await refreshData(false);
+    } catch (err) {
+      setError(err.message);
     }
-    await refreshData();
   }
 
   async function handleSubmitUrl(payload) {
     setError("");
-    const attempt = await submitUrl(payload);
-    const refreshed = await getIngestionAttempt(attempt.id);
-    if (refreshed.status === "awaiting_user_action") {
-      setPendingAttempts((current) => [refreshed, ...current]);
+    try {
+      await submitUrl(payload);
+      await refreshData(false);
+    } catch (err) {
+      setError(err.message);
     }
-    await refreshData();
   }
 
   async function handleDuplicateDecision(attemptId, action) {

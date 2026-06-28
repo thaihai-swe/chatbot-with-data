@@ -38,6 +38,7 @@
 - ADR location: `core-zero/project/adr/[number]-[slug].md`
 - Generated documentation location: `core-zero/generated/`
 - Codemap path: `core-zero/project/code-map.md`
+- Harness config path: `core-zero/project/harness-config.yaml`
 
 ## Verification Commands
 
@@ -48,6 +49,7 @@
 - Test command (frontend): `npm test` (vitest scaffolded, no tests written)
 - Test command (backend): `pytest` (scaffolded, no tests written)
 - Docker: `docker-compose up -d` (starts Weaviate)
+- Harness config file: `core-zero/project/harness-config.yaml` (defines delivery phases and mechanical validation gates)
 - Harness gate-runner command: `bash scripts/harness/gate-runner.sh` (overridden by `scripts/harness/gate-runner.local.sh` if present)
 
 ## Session Defaults

@@ -667,6 +667,9 @@ tr:hover td {
 .modal-body { padding: 32px; overflow-y: auto; flex: 1; }
 .modal-footer { padding: 24px 32px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 16px; background: var(--surface-muted); }
 
+/* Citation Modal */
+.quote-highlight { border-radius: var(--radius-md); }
+
 /* Banners */
 .error-banner, .success-banner { padding: 16px 20px; border-radius: var(--radius-lg); margin-bottom: 32px; border: 1px solid var(--border); font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 12px; }
 .error-banner { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }

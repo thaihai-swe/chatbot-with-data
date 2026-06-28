@@ -28,6 +28,10 @@ class IngestionSettings(BaseModel):
     embedding_batch_size: int = Field(default=100, ge=1)
     vector_db_collection: str = "DocumentChunk"
 
+    # Document Understanding
+    doc_understanding_enabled: bool = True
+    doc_understanding_model: Optional[str] = None  # None = use default LLM model
+
 class RetrievalSettings(BaseModel):
     retrieval_mode: str = Field(default="hybrid") # semantic, keyword, hybrid
     top_k: int = Field(default=5, ge=1)

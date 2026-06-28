@@ -39,3 +39,17 @@
 - Production builds would need explicit API URL configuration
 
 **Citation:** `frontend/vite.config.js` contains the proxy configuration.
+
+---
+
+## In-Place Ingestion Progress Polling
+
+**When to use:** When uploading files or fetching URLs where the backend processes the ingestion asynchronously in the background.
+
+**Key implementation notes:**
+- Render the active ingestion attempts (e.g., `submitted` or `processing` status) directly inside the document inventory list alongside fully completed documents.
+- Use a background polling interval in the screen (e.g., `useEffect` running every 2 seconds) to fetch updates without displaying a full-screen loading spinner that interrupts the user.
+- Disable document action buttons (like Re-ingest, Move, Delete) for in-progress attempts until the document status becomes completed.
+- Once the attempt status becomes terminal (`completed` or `failed`), stop the background polling.
+
+**Citation:** `frontend/src/screens/DocumentLibrary/index.jsx` merges in-progress ingestion attempts into the documents list and uses a background interval to poll status. `frontend/src/components/DocumentTable.jsx` disables action buttons for these rows.

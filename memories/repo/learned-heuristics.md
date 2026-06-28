@@ -65,3 +65,18 @@ This file captures repeated, evidence-backed heuristics that improve maintenance
 - **Confidence**: Medium
 - **Last reviewed**: 2026-06-28
 - **Promote to stronger rule?**: No
+
+### LH-006: Harness config file required for verification scripts
+- **Status**: Active  <!-- Active | Fading | Archived -->
+- **Trigger**:
+  - Running `scripts/harness/gate-runner.sh` or `scripts/harness/phase-gate.sh`
+  - Re-initializing the project harness or starting feature verification
+- **Working heuristic**:
+  - The verification harness scripts expect `core-zero/project/harness-config.yaml` to exist. If it is missing (due to incomplete or partial initialization), the harness fails with `ConfigError`. Always ensure this file is created and properly defines the phases and test runner commands before running harness verifications.
+- **Evidence**:
+  - Running `phase-gate.sh` in feature `1.0-citation-ingest-richer` failed with `ConfigError: Config not found: core-zero/project/harness-config.yaml` until the file was manually created.
+- **Recurrence count**: 1
+- **Semantic links**: [harness-config.yaml](file:///Users/thaihai-swe/Desktop/chatbot-with-data/core-zero/project/harness-config.yaml)
+- **Confidence**: High
+- **Last reviewed**: 2026-06-28
+- **Promote to stronger rule?**: No

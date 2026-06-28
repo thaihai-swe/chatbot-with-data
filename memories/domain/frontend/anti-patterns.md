@@ -19,3 +19,13 @@
 **What to do instead:** Abstract SSE handling into a service or hook that emits cleanly-typed events. The UI subscribes to those events.
 
 **Citation:** `backend/chat/streaming.py` sends token events; frontend should consume via an abstraction layer.
+
+---
+
+## Blocking Screen UI with Loader Spinners During Background Polling
+
+**Why it fails:** Replacing the entire document list or page with a full-screen loader spinner while polling background processes (like ingestion) makes the page unusable and flashes the UI during updates.
+
+**What to do instead:** Run the polling logic silently in the background (with no spinner) so the user can interact with other documents while the status updates in-place.
+
+**Citation:** Initially the app blocked the screen with "Synchronizing inventory..." during file ingest, which locked the library screen. Refactored to poll silently using background intervals.

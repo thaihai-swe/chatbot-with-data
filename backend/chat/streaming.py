@@ -129,6 +129,7 @@ class StreamingOrchestrator:
                 query_text=query_text,
                 retrieved_chunks=retrieved_chunks,
                 chat_history=history,
+                collection_ids=session.collection_ids,
             )
 
             ChatRepository.create_turn(
@@ -186,7 +187,9 @@ class StreamingOrchestrator:
 
             citation_labels = self.citation_service.extract_citations(full_answer)
             valid_citations = self.citation_service.map_citations_to_chunks(
-                citation_labels, retrieved_chunks
+                citation_labels, retrieved_chunks,
+                answer_text=full_answer,
+                llm_provider=self.generation_service.llm_provider,
             )
 
             citation_objects = []
@@ -196,12 +199,14 @@ class StreamingOrchestrator:
                     turn_id=turn_id,
                     chunk_id=cit_data['chunk_id'],
                     document_id=cit_data['document_id'],
+                    quote_text=cit_data.get('quote_text'),
                     metadata_json=json.dumps(cit_data),
                 )
                 citation_objects.append({
                     "id": cit.id,
                     "chunk_id": cit.chunk_id,
                     "document_id": cit.document_id,
+                    "quote_text": cit_data.get('quote_text'),
                     "metadata": cit_data,
                 })
 

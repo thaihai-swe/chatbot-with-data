@@ -154,6 +154,7 @@ class ChatService:
             query_text=query_text,
             retrieved_chunks=safe_chunks,
             chat_history=history,
+            collection_ids=collection_ids,
         )
 
         turn = ChatRepository.create_turn(
@@ -194,7 +195,9 @@ class ChatService:
                 # 6. Extract and validate citations
                 citation_labels = self.citation_service.extract_citations(answer_text)
                 valid_citations = self.citation_service.map_citations_to_chunks(
-                    citation_labels, safe_chunks
+                    citation_labels, safe_chunks,
+                    answer_text=answer_text,
+                    llm_provider=self.generation_service.llm_provider,
                 )
 
                 # 7. Persist citations and update turn
@@ -204,6 +207,7 @@ class ChatService:
                         turn_id=turn_id,
                         chunk_id=cit_data['chunk_id'],
                         document_id=cit_data['document_id'],
+                        quote_text=cit_data.get('quote_text'),
                         metadata_json=json.dumps(cit_data),
                     )
 
