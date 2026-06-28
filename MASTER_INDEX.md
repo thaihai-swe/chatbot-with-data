@@ -82,7 +82,9 @@ Domain packs live in `memories/domain/`. Trigger keywords are declared in `gloss
 - **No packs installed:** Skip this section entirely.
 
 Installed packs:
-- **example** (`memories/domain/`) — triggers: `example`, `sample`, `demo`, `template`, `walkthrough`. Worked-example pack shipped as a schema demo; replace with a real domain pack.
+- **RAG Pipeline** (`memories/domain/rag/`) — triggers: `rag`, `retrieval`, `generation`, `rerank`, `hybrid search`, `bm25`, `vector search`, `query`, `context assembly`, `streaming`, `citation`, `grounding`, `candidate merger`, `rrf`, `safety`, `prompt injection`. Core query processing pipeline.
+- **Document Ingestion** (`memories/domain/ingestion/`) — triggers: `ingestion`, `chunking`, `embedding`, `indexing`, `upload`, `extract`, `duplicate detection`, `document`, `weaviate`, `pdf`, `migration`. Document upload, extraction, chunking, and indexing.
+- **Frontend UI** (`memories/domain/frontend/`) — triggers: `frontend`, `react`, `ui`, `screen`, `component`, `vite`, `x-ray`, `chat ui`, `document library`, `settings`, `evaluation`, `playground`. React SPA screens and components.
 
 ### By Debug (load on debug, retro, or failure)
 

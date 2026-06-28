@@ -18,16 +18,16 @@
 - **No PII redaction** (roadmap item, not implemented)
 - **No SSRF protection** on URL ingestion (`backend/extractors/web_extractor.py`)
 - **Prompt injection defense** implemented (3-layer: heuristic + fuzzy + LLM)
-- [USER REVIEW NEEDED] — Compliance requirements (SOC2, GDPR, etc.)
-- [USER REVIEW NEEDED] — Data retention policies
+- [UNKNOWN] — Compliance requirements (SOC2, GDPR, etc.) — no evidence in codebase
+- [UNKNOWN] — Data retention policies — no evidence in codebase
 
 ## Resource Limits
 
-[USER REVIEW NEEDED] — No evidence of resource limits in code or config.
+[UNKNOWN] — No evidence of resource limits in code or config.
 
 ## Deployment Constraints
 
 - **No Dockerfiles for app containers** — only Weaviate in Docker
 - **No CI/CD pipeline**
-- [USER REVIEW NEEDED] — Deployment environment (cloud, self-hosted, etc.)
-- [USER REVIEW NEEDED] — Expected scale (users, QPS, document volume)
+- [UNKNOWN] — Deployment environment (cloud, self-hosted, etc.) — no evidence in codebase
+- [UNKNOWN] — Expected scale (users, QPS, document volume) — no evidence in codebase
