@@ -52,6 +52,8 @@ data/
 */.chroma_db
 
 # Harness Kit ignores
+core-zero/generated/*
 docs/generated/*
 memories/repo/harness-telemetry.md
 scripts/harness/gate-runner.local.sh
+.gitnexus
