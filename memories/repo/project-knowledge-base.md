@@ -20,7 +20,7 @@
 - **Frontend**: React SPA at `frontend/` with Vite dev server
 - **Vector DB**: Weaviate 1.27.0 (Docker) for hybrid search (BM25 + semantic)
 - **LLM**: OpenAI GPT-4o / compatible endpoint via provider abstraction layer
-- **Metadata**: SQLite with 16 tables, 4 migration versions
+- **Metadata**: SQLite with 17 tables, 5 migration versions
 - **Document Understanding**: Module at `backend/indexing/understanding.py` for summary and section metadata generation
 - Design docs live under `documents/` (16 files covering architecture, API, schema, chunking, retrieval, security)
 - Harness policy and configuration live under `core-zero/`
@@ -83,4 +83,4 @@ From archaeology sweep (see `memories/repo/brownfield/brownfield-map.md`):
 
 1. **Prompt injection defense must remain active**: The 3-layer safety check (heuristic → fuzzy → LLM) in `backend/chat/safety.py` must always run before any user query reaches the retrieval or generation pipeline.
 2. **Hybrid search (BM25 + vector) must remain the default retrieval strategy**: The `CandidateMerger` with RRF fusion in `backend/chat/retrieval.py` is the core differentiator.
-3. **SQLite schema must be backward-compatible**: 16 tables across 4 migration versions exist. Any schema changes must not break the existing migration chain in `backend/migrations/runner.py`.
+3. **SQLite schema must be backward-compatible**: 17 tables across 5 migration versions exist. Any schema changes must not break the existing migration chain in `backend/migrations/runner.py`.

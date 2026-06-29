@@ -35,23 +35,23 @@ This file captures repeated, evidence-backed heuristics that improve maintenance
   - Adding new database tables or columns
   - Modifying `backend/migrations/` or `backend/database.py`
 - **Working heuristic**:
-  - The migration chain has 4 versions across 16 tables. Always add a new migration version rather than editing past ones. Backward compatibility must be maintained.
+  - The migration chain has 5 versions across 17 tables. Always add a new migration version rather than editing past ones. Backward compatibility must be maintained.
 - **Evidence**:
-  - `backend/migrations/runner.py` runs migrations sequentially; `backend/migrations/versions/` contains 4 version directories. Brownfield-map records this as preserved behavior #3.
+  - `backend/migrations/runner.py` runs migrations sequentially; versions `0001` through `0005_user_annotations` exist. Brownfield-map records this as preserved behavior #3. Feature `3.0-ux-upgrade` confirmed the pattern by adding `0005_user_annotations` with idempotent `INSERT OR IGNORE` semantics following the established pattern.
 - **Confidence**: High
-- **Last reviewed**: 2026-06-28
+- **Last reviewed**: 2026-06-29
 - **Promote to stronger rule?**: Yes — consider promoting to a core policy if schema changes become frequent.
 
-### LH-004: API routers have no authentication — changes must handle all 7 routers consistently
+### LH-004: API routers have no authentication — changes must handle all 8 routers consistently
 - **Trigger**:
   - Adding authentication middleware or modifying router logic
   - Reviewing security posture of the API surface
 - **Working heuristic**:
-  - None of the 7 routers (`health`, `chat`, `documents`, `collections`, `ingestion`, `settings`, `duplicate_decisions`) have auth middleware. When adding auth, either apply it globally via middleware or handle all routers consistently.
+  - None of the 8 routers (`health`, `chat`, `documents`, `collections`, `ingestion`, `settings`, `duplicate_decisions`, `notes`) have auth middleware. When adding auth, either apply it globally via middleware or handle all routers consistently.
 - **Evidence**:
-  - `brownfield-map.md` lists all 7 routers under security-sensitive paths with risk MEDIUM due to no auth middleware. `backend/routers/` contains 7 route modules.
+  - `brownfield-map.md` lists all 7 original routers under security-sensitive paths with risk MEDIUM due to no auth middleware. Feature `3.0-ux-upgrade` added the 8th router (`notes.py`) following the same pattern. `backend/routers/` contains 8 route modules.
 - **Confidence**: High
-- **Last reviewed**: 2026-06-28
+- **Last reviewed**: 2026-06-29
 - **Promote to stronger rule?**: No — once auth is added, this heuristic becomes obsolete.
 
 ### LH-005: Chunking strategy auto-selection handles most document types

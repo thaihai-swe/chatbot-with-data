@@ -4,12 +4,27 @@ from __future__ import annotations
 import logging
 from typing import List, Dict, Any, Optional
 
+from database import get_connection
 from models.chat import ChatTurn
 from config import get_settings, get_config
 from repositories.chunk_repository import ChunkRepository
 from repositories.document_repository import DocumentRepository
 
 logger = logging.getLogger(__name__)
+
+
+def load_chunk_notes(chunk_ids: List[str]) -> Dict[str, str]:
+    """Query chunk_notes for the given chunk IDs.
+    
+    Returns a dict mapping chunk_id -> note_text.
+    """
+    if not chunk_ids:
+        return {}
+    placeholders = ",".join("?" for _ in chunk_ids)
+    query = f"SELECT chunk_id, note_text FROM chunk_notes WHERE chunk_id IN ({placeholders})"
+    with get_connection() as connection:
+        rows = connection.execute(query, chunk_ids).fetchall()
+    return {row["chunk_id"]: row["note_text"] for row in rows}
 
 
 from chat.prompts import get_grounded_system_prompt, CONFLICT_INSTRUCTION, UNCERTAINTY_INSTRUCTION
@@ -32,6 +47,7 @@ class ContextService:
         retrieved_chunks: List[Dict[str, Any]],
         chat_history: List[ChatTurn],
         collection_ids: Optional[List[str]] = None,
+        annotations: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """
         Assemble the full context for an LLM prompt.
@@ -41,6 +57,7 @@ class ContextService:
             retrieved_chunks: List of retrieved chunk metadata
             chat_history: List of previous turns in the session
             collection_ids: Optional list of collection IDs for document enrichment
+            annotations: Optional dict mapping chunk_id -> note_text to inject into <source> tags
 
         Returns:
             Dict containing system prompt, user prompt, and metadata
@@ -72,6 +89,9 @@ class ContextService:
             attrs = f'label="{source_label}" id="{source_id}" title="{title}" page="{page}"'
             if section:
                 attrs += f' section="{section}"'
+            if annotations and source_id in annotations:
+                note_text = annotations[source_id].replace('"', "&quot;")
+                attrs += f' user_note="{note_text}"'
             part = f'<source {attrs}>\n{chunk_text}\n</source>'
             context_parts.append(part)
 

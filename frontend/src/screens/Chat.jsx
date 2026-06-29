@@ -11,6 +11,7 @@ import {
 import { listCollections } from "../api/knowledgeApi";
 import XRayPanel from "../components/XRayPanel";
 import CitationModal from "../components/CitationModal";
+import CitationBadge from "../components/CitationBadge";
 
 export default function ChatScreen() {
   const { sessionId } = useParams();
@@ -261,43 +262,36 @@ export default function ChatScreen() {
           }
         }
 
+        let targetCit = null;
+        if (/^\d+$/.test(label)) {
+          const index = parseInt(label, 10) - 1;
+          targetCit = msg.citations?.[index];
+        }
+        if (!targetCit && msg.citations) {
+          targetCit = msg.citations.find(c => c.chunk_id === label);
+        }
+
+        let targetChunk = null;
+        if (targetCit) {
+          targetChunk = (msg.chunks || []).find(c => c.chunk_id === targetCit.chunk_id);
+        }
+
         if (!title) {
           title = `Source ${label}`;
         }
 
         return (
-          <span 
-            key={idx} 
-            className="inline-citation-tag" 
-            style={{ 
-              cursor: "pointer", 
-              color: "var(--accent-strong)", 
-              fontWeight: "600",
-              textDecoration: "underline",
-              backgroundColor: "rgba(99, 102, 241, 0.08)",
-              border: "1px solid var(--border)",
-              padding: "2px 6px",
-              borderRadius: "var(--radius-sm)",
-              fontSize: "12px",
-              margin: "0 2px"
-            }}
+          <CitationBadge
+            key={idx}
+            label={title}
+            citation={targetCit}
+            chunk={targetChunk}
             onClick={() => {
-              let targetCit = null;
-              if (/^\d+$/.test(label)) {
-                const index = parseInt(label, 10) - 1;
-                targetCit = msg.citations?.[index];
-              }
-              if (!targetCit && msg.citations) {
-                targetCit = msg.citations.find(c => c.chunk_id === label);
-              }
               if (targetCit) {
                 handleCitationClick(targetCit, msg.chunks || []);
               }
             }}
-            title={title}
-          >
-            [{title}]
-          </span>
+          />
         );
       }
       return part;

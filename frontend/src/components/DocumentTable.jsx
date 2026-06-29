@@ -6,6 +6,7 @@ function DocumentTable({
   onDelete,
   onReingest,
   onMove,
+  onViewDocument,
 }) {
   if (!documents.length) {
     return (
@@ -49,6 +50,17 @@ function DocumentTable({
                 </td>
                 <td>
                   <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                    {onViewDocument && (
+                      <button
+                        className="button button-ghost"
+                        style={{ height: "32px", padding: "0 10px", fontSize: "12px" }}
+                        type="button"
+                        disabled={document.is_attempt}
+                        onClick={() => onViewDocument(document.id)}
+                      >
+                        View
+                      </button>
+                    )}
                     <button
                       className="button button-ghost"
                       style={{ height: "32px", padding: "0 10px", fontSize: "12px" }}

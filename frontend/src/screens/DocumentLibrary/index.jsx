@@ -13,6 +13,7 @@ import {
   uploadFile,
 } from "../../api/knowledgeApi";
 import DocumentTable from "../../components/DocumentTable";
+import SourceBrowser from "../../components/SourceBrowser";
 import UploadForm from "../../components/UploadForm";
 import DuplicateDecisionScreen from "../DuplicateDecision";
 
@@ -22,6 +23,7 @@ function DocumentLibraryScreen() {
   const [pendingAttempts, setPendingAttempts] = useState([]);
   const [selectedCollection, setSelectedCollection] = useState("");
   const [query, setQuery] = useState("");
+  const [activeDocumentId, setActiveDocumentId] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -235,6 +237,14 @@ function DocumentLibraryScreen() {
           onDelete={handleDelete}
           onMove={handleMove}
           onReingest={handleReingest}
+          onViewDocument={(id) => setActiveDocumentId(id)}
+        />
+      )}
+
+      {activeDocumentId && (
+        <SourceBrowser
+          documentId={activeDocumentId}
+          onClose={() => setActiveDocumentId(null)}
         />
       )}
     </div>

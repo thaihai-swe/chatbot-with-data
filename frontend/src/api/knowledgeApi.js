@@ -34,6 +34,10 @@ export function listDocuments({ collectionId = "", query = "" } = {}) {
   return apiRequest(`/documents${suffix}`);
 }
 
+export function getDocument(documentId) {
+  return apiRequest(`/documents/${documentId}`);
+}
+
 export function deleteDocument(documentId) {
   return apiRequest(`/documents/${documentId}`, { method: "DELETE" });
 }
@@ -84,5 +88,16 @@ export function decideDuplicate(attemptId, action) {
   return apiRequest(`/ingestion/attempts/${attemptId}/duplicate-decision`, {
     method: "POST",
     body: JSON.stringify({ action }),
+  });
+}
+
+export function getChunkNote(chunkId) {
+  return apiRequest(`/chunks/${chunkId}/notes`);
+}
+
+export function upsertChunkNote(chunkId, noteText) {
+  return apiRequest(`/chunks/${chunkId}/notes`, {
+    method: "PUT",
+    body: JSON.stringify({ note_text: noteText }),
   });
 }

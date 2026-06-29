@@ -10,7 +10,7 @@ from fastapi import Depends
 
 from chat.advanced_retrieval import AdvancedRetrievalService, get_advanced_retrieval_service
 from chat.collection_routing import CollectionRoutingService
-from chat.context import ContextService, get_context_service
+from chat.context import ContextService, get_context_service, load_chunk_notes
 from chat.generation import GenerationService, get_generation_service
 from chat.citations import CitationService, get_citation_service
 from chat.grounding import GroundingService, get_grounding_service
@@ -155,12 +155,15 @@ class ChatService:
         # 6. Create turn record (pending)
         # turn_id was pre-generated for snapshot
         history = ChatRepository.list_turns_by_session(session_id)
+        chunk_ids = [c["chunk_id"] for c in safe_chunks if c.get("chunk_id")]
+        annotations = load_chunk_notes(chunk_ids)
 
         context_package = self.context_service.assemble_context(
             query_text=query_text,
             retrieved_chunks=safe_chunks,
             chat_history=history,
             collection_ids=collection_ids,
+            annotations=annotations,
         )
 
         turn = ChatRepository.create_turn(

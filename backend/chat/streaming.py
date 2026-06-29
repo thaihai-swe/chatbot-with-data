@@ -8,7 +8,7 @@ import asyncio
 from typing import Optional, Dict, Any, AsyncIterator
 
 from chat.advanced_retrieval import AdvancedRetrievalService
-from chat.context import ContextService
+from chat.context import ContextService, load_chunk_notes
 from chat.generation import GenerationService
 from chat.citations import CitationService
 from chat.grounding import GroundingService, get_grounding_service
@@ -131,11 +131,14 @@ class StreamingOrchestrator:
 
             # Create turn record
             history = ChatRepository.list_turns_by_session(session_id)
+            chunk_ids = [c["chunk_id"] for c in retrieved_chunks if c.get("chunk_id")]
+            annotations = load_chunk_notes(chunk_ids)
             context_package = self.context_service.assemble_context(
                 query_text=query_text,
                 retrieved_chunks=retrieved_chunks,
                 chat_history=history,
                 collection_ids=session.collection_ids,
+                annotations=annotations,
             )
 
             ChatRepository.create_turn(

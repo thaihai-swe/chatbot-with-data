@@ -10,6 +10,7 @@ from .documents import (
     DuplicateDecisionRequest,
 )
 from .ingestion import IngestionAttemptResponse, UrlIngestionRequest
+from .notes import NoteResponse, NoteUpsertRequest
 from .chat import (
     ChatSessionCreate,
     ChatSessionResponse,
@@ -28,6 +29,8 @@ __all__ = [
     "DuplicateDecisionRequest",
     "IngestionAttemptResponse",
     "UrlIngestionRequest",
+    "NoteResponse",
+    "NoteUpsertRequest",
     "ChatSessionCreate",
     "ChatSessionResponse",
     "ChatTurnCreate",

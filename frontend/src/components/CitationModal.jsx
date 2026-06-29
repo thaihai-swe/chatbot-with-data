@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { getChunkNote, upsertChunkNote } from "../api/knowledgeApi";
 
 function getQuoteText(citation) {
   return citation?.quote_text || citation?.metadata?.quote_text || null;
@@ -6,9 +7,36 @@ function getQuoteText(citation) {
 
 export default function CitationModal({ citation, chunk, onClose }) {
   const [showFullContext, setShowFullContext] = useState(false);
+  const [noteText, setNoteText] = useState("");
+  const [noteLoading, setNoteLoading] = useState(false);
+  const [noteSaved, setNoteSaved] = useState(false);
+
+  useEffect(() => {
+    if (!chunk?.chunk_id) return;
+    setNoteLoading(true);
+    getChunkNote(chunk.chunk_id).then((data) => {
+      if (data) {
+        setNoteText(data.note_text || "");
+      } else {
+        setNoteText("");
+      }
+    }).catch(() => {}).finally(() => setNoteLoading(false));
+  }, [chunk?.chunk_id]);
+
   if (!citation || !chunk) return null;
 
   const quoteText = getQuoteText(citation);
+
+  const handleSaveNote = async () => {
+    setNoteSaved(false);
+    try {
+      await upsertChunkNote(chunk.chunk_id, noteText);
+      setNoteSaved(true);
+      setTimeout(() => setNoteSaved(false), 2000);
+    } catch (err) {
+      alert("Failed to save note");
+    }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -67,6 +95,48 @@ export default function CitationModal({ citation, chunk, onClose }) {
               )}
             </div>
           )}
+
+          <div className="field" style={{ marginTop: "16px" }}>
+            <span className="eyebrow">Your Note</span>
+            <textarea
+              style={{
+                width: "100%",
+                minHeight: "80px",
+                padding: "10px 12px",
+                fontSize: "13px",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-md)",
+                background: "var(--surface)",
+                color: "var(--text-primary)",
+                resize: "vertical",
+                fontFamily: "inherit",
+                marginTop: "6px",
+              }}
+              placeholder="Add a note about this source..."
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              maxLength={2000}
+              disabled={noteLoading}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "6px" }}>
+              <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                {noteText.length}/2000
+              </span>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                {noteSaved && (
+                  <span style={{ fontSize: "12px", color: "var(--accent-strong)" }}>Saved</span>
+                )}
+                <button
+                  className="button button-primary"
+                  style={{ fontSize: "12px", padding: "4px 12px", height: "auto" }}
+                  onClick={handleSaveNote}
+                  disabled={noteLoading}
+                >
+                  Save Note
+                </button>
+              </div>
+            </div>
+          </div>
 
           {(chunk.parent_text || chunk.metadata?.parent_text) && (
             <div className="field" style={{ marginTop: "16px" }}>

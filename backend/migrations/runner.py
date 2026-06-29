@@ -288,10 +288,24 @@ SCHEMA_STATEMENTS = [
     """
     CREATE INDEX IF NOT EXISTS idx_chat_session_collections_session_id ON chat_session_collections(session_id)
     """,
+    """
+    CREATE TABLE IF NOT EXISTS chunk_notes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chunk_id TEXT NOT NULL UNIQUE,
+        note_text TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(chunk_id) REFERENCES chunks(id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_chunk_notes_chunk_id ON chunk_notes(chunk_id)
+    """,
 ]
 
 
 DROP_STATEMENTS = [
+    "DROP TABLE IF EXISTS chunk_notes",
     "DROP TABLE IF EXISTS chat_session_collections",
     "DROP TABLE IF EXISTS citations",
     "DROP TABLE IF EXISTS chat_turns",
@@ -359,6 +373,15 @@ def apply_migrations() -> None:
             connection.execute(
                 "INSERT INTO schema_migrations(version) VALUES (?)",
                 ("0004_multi_collection_chat",),
+            )
+
+        # 0005_user_annotations
+        cursor = connection.execute("SELECT 1 FROM schema_migrations WHERE version = ?", ("0005_user_annotations",))
+        if not cursor.fetchone():
+            # chunk_notes table created via SCHEMA_STATEMENTS; just record the version
+            connection.execute(
+                "INSERT INTO schema_migrations(version) VALUES (?)",
+                ("0005_user_annotations",),
             )
 
 
