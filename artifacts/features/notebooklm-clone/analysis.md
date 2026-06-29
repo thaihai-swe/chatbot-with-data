@@ -209,7 +209,6 @@ Query → Safety (3-layer) → Query Intelligence → Retrieval (multi-strategy)
 
 4. **Conflict detection** — Add prompt instruction to surface source disagreements + post-processing check.
 5. **Knowledge products** — Add Studio-like endpoints: `POST /generate/study-guide`, `/generate/briefing-doc`, `/generate/faq`.
-6. **Multi-format ingestion** — Add DOCX, EPUB, YouTube transcript support (CSV and image OCR lower priority).
 
 ### Tier 3 — UX Gaps (Lower Impact)
 

@@ -33,6 +33,7 @@ class StreamingOrchestrator:
         citation_service: CitationService,
         grounding_service: GroundingService,
         safety_service: SafetyService,
+        conflict_service: Optional[ConflictDetectionService] = None,
     ):
         self.advanced_retrieval_service = advanced_retrieval_service
         self.context_service = context_service
@@ -40,6 +41,11 @@ class StreamingOrchestrator:
         self.citation_service = citation_service
         self.grounding_service = grounding_service
         self.safety_service = safety_service
+        if conflict_service is None:
+            from chat.conflict import ConflictDetectionService
+            self.conflict_service = ConflictDetectionService(self.generation_service.llm_provider)
+        else:
+            self.conflict_service = conflict_service
 
     async def stream_turn(
         self,
@@ -210,10 +216,27 @@ class StreamingOrchestrator:
                     "metadata": cit_data,
                 })
 
+            conflict_status = "no_conflict"
+            conflict_details = None
+
+            unique_doc_ids = {chunk.get("document_id") for chunk in retrieved_chunks if chunk.get("document_id")}
+            if len(unique_doc_ids) > 1:
+                conflict_res = self.conflict_service.detect_conflict(full_answer, retrieved_chunks)
+                if conflict_res.get("has_conflict"):
+                    if conflict_res.get("surfaced_correctly"):
+                        conflict_status = "resolved_conflict"
+                    else:
+                        conflict_status = "unresolved_conflict"
+                    conflict_details = conflict_res.get("conflict_details")
+
+            context_package["conflict_status"] = conflict_status
+            context_package["conflict_details"] = conflict_details
+
             ChatRepository.update_turn_status(
                 turn_id=turn_id,
                 status="completed",
                 answer_text=full_answer,
+                context_used_json=json.dumps(context_package),
             )
 
             # Include safety trace, retrieval trace, and full chunks
@@ -222,6 +245,8 @@ class StreamingOrchestrator:
                 "retrieved_chunks": retrieved_chunks,
                 "retrieval_trace": trace.model_dump() if hasattr(trace, 'model_dump') else (trace.dict() if hasattr(trace, 'dict') else trace),
                 "safety_trace": safety_trace.model_dump() if hasattr(safety_trace, 'model_dump') else (safety_trace.dict() if hasattr(safety_trace, 'dict') else safety_trace),
+                "conflict_status": conflict_status,
+                "conflict_details": conflict_details,
             })
             yield self._format_sse("done", {"turn_id": turn_id})
 

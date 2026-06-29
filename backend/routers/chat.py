@@ -118,6 +118,13 @@ def get_session_history(session_id: str) -> List[ChatTurnResponse]:
             for c in citations
         ]
 
+        context_data = {}
+        try:
+            if turn.context_used_json:
+                context_data = json.loads(turn.context_used_json)
+        except Exception:
+            pass
+
         result.append(
             ChatTurnResponse(
                 id=turn.id,
@@ -131,6 +138,8 @@ def get_session_history(session_id: str) -> List[ChatTurnResponse]:
                 created_at=turn.created_at,
                 updated_at=turn.updated_at,
                 citations=citation_responses,
+                conflict_status=context_data.get("conflict_status", "no_conflict"),
+                conflict_details=context_data.get("conflict_details"),
             )
         )
 

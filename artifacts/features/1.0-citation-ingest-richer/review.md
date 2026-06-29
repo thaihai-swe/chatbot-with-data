@@ -4,9 +4,9 @@
 
 - Feature name: Citation, Document Understanding, and Richer Context
 - Feature slug: 1.0-citation-ingest-richer
-- Related spec: [spec.md](file:///Users/thaihai-swe/Desktop/chatbot-with-data/artifacts/features/1.0-citation-ingest-richer/spec.md)
-- Related plan: [plan.md](file:///Users/thaihai-swe/Desktop/chatbot-with-data/artifacts/features/1.0-citation-ingest-richer/plan.md)
-- Related tasks: [tasks.md](file:///Users/thaihai-swe/Desktop/chatbot-with-data/artifacts/features/1.0-citation-ingest-richer/tasks.md)
+- Related spec: [spec.md](artifacts/features/1.0-citation-ingest-richer/spec.md)
+- Related plan: [plan.md](artifacts/features/1.0-citation-ingest-richer/plan.md)
+- Related tasks: [tasks.md](artifacts/features/1.0-citation-ingest-richer/tasks.md)
 - Reviewer: Antigravity
 - Status: Completed
 - Last updated: 2026-06-28

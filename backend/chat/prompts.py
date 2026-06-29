@@ -214,3 +214,83 @@ SYNONYM_EXPANSION_PROMPT = """Extract key entities and provide common synonyms.
 
 Query: "{query_text}"
 JSON Dictionary:"""
+
+
+CONFLICT_DETECTION_EVALUATION_PROMPT = """Analyze the provided Answer and the Source Context to identify if there are conflicting claims within the Context, and whether the Answer correctly surfaced and presented those contradictions (rather than silently picking one side or choosing a false compromise).
+
+OUTPUT INSTRUCTIONS:
+- Reply ONLY with a valid JSON object.
+- DO NOT include markdown formatting.
+- DO NOT include notes or chatter.
+
+FIELDS:
+- "has_conflict": boolean (true if there are conflicting claims in the context)
+- "surfaced_correctly": boolean (true if there is a conflict and the answer explained it, OR if there is no conflict at all)
+- "conflict_details": string (description of the conflicting claims and document names, or empty if no conflict)
+
+Answer: "{answer_text}"
+
+Source Context:
+{context_text}
+
+JSON:"""
+
+
+STUDY_GUIDE_PROMPT = """You are a learning assistant. Generate a comprehensive Study Guide in Markdown format based on the following document summaries and topics in this collection.
+The study guide should include a detailed overview, key concepts, terminology definitions, and discussion/review questions.
+
+Document context:
+{context_text}
+
+Markdown Study Guide:"""
+
+
+BRIEFING_DOC_PROMPT = """You are a research analyst. Generate a professional Briefing Document in Markdown format based on the following document summaries in this collection.
+The briefing document should synthesize the documents, highlighting key takeaways, executive summary, policy implications or recommendations, and next steps.
+
+Document context:
+{context_text}
+
+Markdown Briefing Document:"""
+
+
+FAQ_PROMPT = """You are a helpful assistant. Generate an FAQ (Frequently Asked Questions) document in Markdown format based on the following document summaries in this collection.
+Identify the most important questions a reader would have and provide clear, concise answers based on the context.
+
+Document context:
+{context_text}
+
+Markdown FAQ:"""
+
+
+TIMELINE_PROMPT = """You are a historian and analyst. Generate a chronological Timeline in Markdown format based on the following document summaries in this collection.
+Extract key events, milestones, dates, and historical/project sequences mentioned in the context.
+
+Document context:
+{context_text}
+
+Markdown Timeline:"""
+
+
+GLOSSARY_PROMPT = """You are a lexicographer. Generate a Glossary of terms in Markdown format based on the following document summaries and topics in this collection.
+Define key technical terms, acronyms, and domain jargon found in the context.
+
+Document context:
+{context_text}
+
+Markdown Glossary:"""
+
+
+FLASHCARDS_PROMPT = """Generate a set of 5-10 interactive Flashcards based on the following document summaries and topics in this collection.
+Each flashcard must contain a question and a corresponding answer.
+
+OUTPUT INSTRUCTIONS:
+- Reply ONLY with valid JSON.
+- The output must be a JSON list of objects, where each object has "question" (string) and "answer" (string).
+- NO markdown, NO explanations, NO notes.
+
+Document context:
+{context_text}
+
+JSON:"""
+

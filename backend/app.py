@@ -17,6 +17,7 @@ from routers import (
     ingestion_router,
     chat_router,
     settings_router,
+    generate_router,
 )
 
 def create_app() -> FastAPI:
@@ -55,6 +56,7 @@ def create_app() -> FastAPI:
     app.include_router(ingestion_router)
     app.include_router(chat_router)
     app.include_router(settings_router)
+    app.include_router(generate_router)
 
     # 4. Error handlers
     register_error_handlers(app)

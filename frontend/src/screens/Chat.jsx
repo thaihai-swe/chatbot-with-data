@@ -64,6 +64,8 @@ export default function ChatScreen() {
                   metadata: c.metadata_json ? JSON.parse(c.metadata_json) : null
                 })) : [],
                 chunks: turn.retrieved_chunks_json ? JSON.parse(turn.retrieved_chunks_json) : [],
+                conflict_status: turn.conflict_status || "no_conflict",
+                conflict_details: turn.conflict_details,
                 trace: {
                   retrieval: turn.retrieval_trace,
                   safety: turn.safety_trace,
@@ -150,7 +152,13 @@ export default function ChatScreen() {
           if (prev.length === 0) return prev;
           const last = prev[prev.length - 1];
           if (last.role !== "assistant") return prev;
-          return [...prev.slice(0, -1), { ...last, citations: data.citations, chunks: data.retrieved_chunks }];
+          return [...prev.slice(0, -1), { 
+            ...last, 
+            citations: data.citations, 
+            chunks: data.retrieved_chunks,
+            conflict_status: data.conflict_status || "no_conflict",
+            conflict_details: data.conflict_details
+          }];
         });
       },
       onTrace: (trace) => {
@@ -223,6 +231,77 @@ export default function ChatScreen() {
       setActiveCitation(citation);
       setActiveChunk(chunk);
     }
+  };
+
+  const renderMessageContent = (msg) => {
+    if (msg.role !== "assistant" || !msg.citations || msg.citations.length === 0) {
+      return msg.content;
+    }
+
+    const parts = msg.content.split(/(\[Source\s+[^\]]+\])/g);
+    return parts.map((part, idx) => {
+      const match = part.match(/\[Source\s+([^\]]+)\]/);
+      if (match) {
+        const label = match[1].trim();
+        let title = "";
+        
+        if (/^\d+$/.test(label)) {
+          const index = parseInt(label, 10) - 1;
+          if (msg.chunks && msg.chunks[index]) {
+            title = msg.chunks[index].title || msg.chunks[index].metadata?.title;
+          } else if (msg.citations && msg.citations[index]) {
+            title = msg.citations[index].metadata?.title || msg.citations[index].title;
+          }
+        }
+        
+        if (!title && msg.citations) {
+          const cit = msg.citations.find(c => c.chunk_id === label);
+          if (cit) {
+            title = cit.metadata?.title || cit.title;
+          }
+        }
+
+        if (!title) {
+          title = `Source ${label}`;
+        }
+
+        return (
+          <span 
+            key={idx} 
+            className="inline-citation-tag" 
+            style={{ 
+              cursor: "pointer", 
+              color: "var(--accent-strong)", 
+              fontWeight: "600",
+              textDecoration: "underline",
+              backgroundColor: "rgba(99, 102, 241, 0.08)",
+              border: "1px solid var(--border)",
+              padding: "2px 6px",
+              borderRadius: "var(--radius-sm)",
+              fontSize: "12px",
+              margin: "0 2px"
+            }}
+            onClick={() => {
+              let targetCit = null;
+              if (/^\d+$/.test(label)) {
+                const index = parseInt(label, 10) - 1;
+                targetCit = msg.citations?.[index];
+              }
+              if (!targetCit && msg.citations) {
+                targetCit = msg.citations.find(c => c.chunk_id === label);
+              }
+              if (targetCit) {
+                handleCitationClick(targetCit, msg.chunks || []);
+              }
+            }}
+            title={title}
+          >
+            [{title}]
+          </span>
+        );
+      }
+      return part;
+    });
   };
 
   return (
@@ -300,7 +379,29 @@ export default function ChatScreen() {
           )}
           {messages.map((msg, idx) => (
             <div key={idx} className={`message-bubble ${msg.role === "user" ? "message-user" : "message-assistant"}`}>
-              {msg.content}
+              {renderMessageContent(msg)}
+              {msg.conflict_status === "unresolved_conflict" && (
+                <div style={{
+                  marginTop: "12px",
+                  padding: "10px 14px",
+                  backgroundColor: "rgba(239, 68, 68, 0.08)",
+                  borderLeft: "4px solid #ef4444",
+                  borderRadius: "var(--radius-md)",
+                  fontSize: "13px",
+                  color: "#ef4444",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "4px"
+                }}>
+                  <div style={{ fontWeight: "600" }}>⚠️ Warning: Source Contradiction Detected</div>
+                  <div>Sources in this collection contain conflicting claims on this topic that were not addressed in the response.</div>
+                  {msg.conflict_details && (
+                    <div style={{ fontSize: "11px", opacity: 0.85, marginTop: "2px" }}>
+                      <strong>Details:</strong> {msg.conflict_details}
+                    </div>
+                  )}
+                </div>
+              )}
               {debugMode && msg.trace && (
                 <div style={{ marginTop: "12px" }}>
                   <button onClick={() => setDebugTrace(msg.trace)} className="button button-ghost" style={{ fontSize: "11px", height: "24px", padding: "0 8px", background: "var(--surface)" }}>
@@ -308,26 +409,7 @@ export default function ChatScreen() {
                   </button>
                 </div>
               )}
-              {msg.citations && msg.citations.length > 0 && (
-                <div className="citations-list">
-                  <div style={{ fontSize: "12px", fontWeight: "600", marginBottom: "8px", color: "var(--text-muted)" }}>SOURCES</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                    {msg.citations.map((c, ci) => {
-                      const displayName = c.metadata?.title || c.document_id || `Source ${c.chunk_id.slice(0,4)}`;
-                      return (
-                        <span 
-                          key={ci} 
-                          className="citation-tag"
-                          onClick={() => handleCitationClick(c, msg.chunks || [])}
-                          title={displayName}
-                        >
-                          {displayName.length > 24 ? displayName.slice(0, 24) + '...' : displayName}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+
             </div>
           ))}
           {statusMessage && (

@@ -33,6 +33,7 @@ class ChatService:
         citation_service: CitationService,
         grounding_service: GroundingService,
         safety_service: SafetyService,
+        conflict_service: Optional[ConflictDetectionService] = None,
     ):
         self.advanced_retrieval_service = advanced_retrieval_service
         self.context_service = context_service
@@ -40,6 +41,11 @@ class ChatService:
         self.citation_service = citation_service
         self.grounding_service = grounding_service
         self.safety_service = safety_service
+        if conflict_service is None:
+            from chat.conflict import ConflictDetectionService
+            self.conflict_service = ConflictDetectionService(self.generation_service.llm_provider)
+        else:
+            self.conflict_service = conflict_service
 
     def process_turn(
         self,
@@ -211,16 +217,40 @@ class ChatService:
                         metadata_json=json.dumps(cit_data),
                     )
 
+                conflict_status = "no_conflict"
+                conflict_details = None
+
+                unique_doc_ids = {chunk.get("document_id") for chunk in safe_chunks if chunk.get("document_id")}
+                if len(unique_doc_ids) > 1:
+                    conflict_res = self.conflict_service.detect_conflict(answer_text, safe_chunks)
+                    if conflict_res.get("has_conflict"):
+                        if conflict_res.get("surfaced_correctly"):
+                            conflict_status = "resolved_conflict"
+                        else:
+                            conflict_status = "unresolved_conflict"
+                        conflict_details = conflict_res.get("conflict_details")
+
+                context_package["conflict_status"] = conflict_status
+                context_package["conflict_details"] = conflict_details
+
                 ChatRepository.update_turn_status(
                     turn_id=turn_id,
                     status="completed",
                     answer_text=answer_text,
                     groundedness_score=score,  # Persist score
+                    context_used_json=json.dumps(context_package),
                 )
 
             # 8. Reload turn and return
             turn = ChatRepository.get_turn(turn_id)
             citations = ChatRepository.list_citations_by_turn(turn_id)
+
+            context_data = {}
+            try:
+                if turn.context_used_json:
+                    context_data = json.loads(turn.context_used_json)
+            except Exception:
+                pass
 
             return ChatTurnResponse(
                 id=turn.id,
@@ -251,6 +281,8 @@ class ChatService:
                 ],
                 retrieval_trace=trace,
                 safety_trace=safety_trace,
+                conflict_status=context_data.get("conflict_status", "no_conflict"),
+                conflict_details=context_data.get("conflict_details"),
             )
 
         except Exception as e:

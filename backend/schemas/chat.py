@@ -159,6 +159,8 @@ class ChatTurnResponse(BaseModel):
     citations: List[CitationResponse] = []
     retrieval_trace: Optional[RetrievalTrace] = None
     safety_trace: Optional[SafetyTrace] = None
+    conflict_status: Optional[str] = "no_conflict"
+    conflict_details: Optional[str] = None
 
 
 ChatTurnResponse.model_rebuild()

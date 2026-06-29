@@ -5,6 +5,7 @@ from routers.health import router as health_router
 from routers.ingestion import router as ingestion_router
 from routers.chat import router as chat_router
 from routers.settings import router as settings_router
+from routers.generate import router as generate_router
 
 __all__ = [
     "collections_router",
@@ -14,4 +15,5 @@ __all__ = [
     "ingestion_router",
     "chat_router",
     "settings_router",
+    "generate_router",
 ]

@@ -228,6 +228,7 @@ class ChatRepository:
         safety_reason: Optional[str] = None,
         groundedness_score: Optional[float] = None,
         error_message: Optional[str] = None,
+        context_used_json: Optional[str] = None,
     ) -> ChatTurn:
         """Update turn status and optionally answer/error/safety fields."""
         query = "UPDATE chat_turns SET status = ?, updated_at = CURRENT_TIMESTAMP"
@@ -236,6 +237,10 @@ class ChatRepository:
         if answer_text is not None:
             query += ", answer_text = ?"
             params.append(answer_text)
+        
+        if context_used_json is not None:
+            query += ", context_used_json = ?"
+            params.append(context_used_json)
         
         if safety_status is not None:
             query += ", safety_status = ?"

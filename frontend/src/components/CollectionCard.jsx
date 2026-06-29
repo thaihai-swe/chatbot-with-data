@@ -1,3 +1,5 @@
+import React, { useState } from "react";
+
 function CollectionCard({
   collection,
   documents,
@@ -6,6 +8,33 @@ function CollectionCard({
   onDelete,
   onMoveDocument,
 }) {
+  const [generatingType, setGeneratingType] = useState(null);
+  const [productResult, setProductResult] = useState(null);
+
+  const handleGenerateProduct = async (type, label) => {
+    setGeneratingType(type);
+    setProductResult(null);
+    const apiBase = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+    try {
+      const response = await fetch(`${apiBase}/collections/${collection.id}/generate/${type}`, {
+        method: "POST"
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to generate: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setProductResult({
+        title: `${label} - ${collection.name}`,
+        type,
+        data
+      });
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setGeneratingType(null);
+    }
+  };
+
   return (
     <article className="panel" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
       <div className="panel-heading" style={{ marginBottom: "0" }}>
@@ -25,6 +54,24 @@ function CollectionCard({
         <button className="button button-danger" style={{ flex: 1, height: "36px", fontSize: "13px" }} onClick={() => onDelete(collection.id)}>
           Delete
         </button>
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", borderTop: "1px solid var(--border)", paddingTop: "16px" }}>
+        <span className="eyebrow" style={{ width: "100%", fontSize: "10px", marginBottom: "4px" }}>Generate Study Products</span>
+        {["Study Guide", "Briefing Doc", "FAQ", "Timeline", "Glossary", "Flashcards"].map((label) => {
+          const type = label.toLowerCase().replace(" ", "-");
+          return (
+            <button
+              key={type}
+              disabled={generatingType !== null || documents.length === 0}
+              className="button button-ghost"
+              style={{ fontSize: "11px", height: "28px", padding: "0 8px", background: "var(--surface-card)" }}
+              onClick={() => handleGenerateProduct(type, label)}
+            >
+              {generatingType === type ? "Generating..." : label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="stack" style={{ gap: "12px", borderTop: "1px solid var(--border)", paddingTop: "24px" }}>
@@ -71,6 +118,63 @@ function CollectionCard({
           <p style={{ fontSize: "13px", color: "var(--text-muted)", fontStyle: "italic" }}>No documents in this collection.</p>
         )}
       </div>
+
+      {productResult && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 9999,
+          padding: "24px"
+        }} onClick={() => setProductResult(null)}>
+          <div style={{
+            backgroundColor: "var(--surface)",
+            color: "var(--text-primary)",
+            padding: "24px",
+            borderRadius: "var(--radius-lg)",
+            width: "100%",
+            maxWidth: "700px",
+            maxHeight: "85vh",
+            display: "flex",
+            flexDirection: "column",
+            gap: "16px",
+            border: "1px solid var(--border)",
+            boxShadow: "var(--shadow-xl)"
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "700" }}>{productResult.title}</h3>
+              <button 
+                onClick={() => setProductResult(null)} 
+                className="button button-ghost" 
+                style={{ height: "28px", padding: "0 10px" }}
+              >
+                Close
+              </button>
+            </div>
+            
+            <div style={{ flex: 1, overflowY: "auto", fontSize: "14px", lineHeight: "1.6", whiteSpace: "pre-wrap" }}>
+              {productResult.type === "flashcards" ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {productResult.data.map((card, cidx) => (
+                    <div key={cidx} className="surface-card" style={{ padding: "14px", border: "1px solid var(--border)", background: "var(--surface-muted)" }}>
+                      <div style={{ fontWeight: "600", color: "var(--accent-strong)", marginBottom: "4px" }}>Question: {card.question}</div>
+                      <div style={{ color: "var(--text-secondary)" }}>Answer: {card.answer}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div>{productResult.data.content}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </article>
   );
 }

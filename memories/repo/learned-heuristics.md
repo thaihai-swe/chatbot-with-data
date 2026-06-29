@@ -76,7 +76,7 @@ This file captures repeated, evidence-backed heuristics that improve maintenance
 - **Evidence**:
   - Running `phase-gate.sh` in feature `1.0-citation-ingest-richer` failed with `ConfigError: Config not found: core-zero/project/harness-config.yaml` until the file was manually created.
 - **Recurrence count**: 1
-- **Semantic links**: [harness-config.yaml](file:///Users/thaihai-swe/Desktop/chatbot-with-data/core-zero/project/harness-config.yaml)
+- **Semantic links**: [harness-config.yaml](core-zero/project/harness-config.yaml)
 - **Confidence**: High
 - **Last reviewed**: 2026-06-28
 - **Promote to stronger rule?**: No
