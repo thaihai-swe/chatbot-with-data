@@ -109,7 +109,6 @@ Configurable safety modes: strict, moderate, permissive.
 - **Key Screens:**
   - **Chat:** Real-time conversation with streaming responses and citations.
   - **X-Ray Panel:** Debug view showing retrieved chunks, reranking scores, and query transformations.
-  - **Strategy Comparison:** Side-by-side comparison of retrieval strategies (baseline vs. hybrid vs. full pipeline).
   - **Evaluation Dashboard:** Metrics and ablation results.
 
 ### Data Flow
@@ -225,7 +224,6 @@ Visit `http://localhost:5173` to access the UI. The frontend proxies API calls t
 
 ### 3. Inspect the Pipeline
 - Click the **X-Ray** button to see the full retrieval pipeline for that query.
-- Compare strategies using the **Strategy Comparison** view.
 
 ### 4. Run Evaluation
 - Go to the **Evaluation** screen.
@@ -329,7 +327,7 @@ This portfolio project demonstrates core RAG techniques. For production deployme
 ├── frontend/
 │   ├── src/
 │   │   ├── screens/             # Chat, Evaluation, DocumentLibrary, etc.
-│   │   ├── components/          # XRayPanel, ExperimentComparison, etc.
+│   │   ├── components/          # XRayPanel, CitationModal, etc.
 │   │   └── App.jsx
 │   └── package.json
 ├── docs/                        # Detailed documentation

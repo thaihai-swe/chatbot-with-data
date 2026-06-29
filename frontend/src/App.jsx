@@ -6,7 +6,6 @@ import CollectionsScreen from "./screens/Collections";
 import DocumentLibraryScreen from "./screens/DocumentLibrary";
 import ChatScreen from "./screens/Chat";
 import EvaluationScreen from "./screens/Evaluation";
-import PlaygroundScreen from "./screens/Playground";
 import SettingsScreen from "./screens/SettingsScreen";
 import { WorkspaceProvider } from "./context/WorkspaceContext";
 import WorkspaceLayout from "./components/WorkspaceLayout";
@@ -64,14 +63,6 @@ function App() {
                 className={({ isActive }) =>
                   isActive ? "nav-link nav-link-active" : "nav-link"
                 }
-                to="/playground"
-              >
-                Playground
-              </NavLink>
-              <NavLink
-                className={({ isActive }) =>
-                  isActive ? "nav-link nav-link-active" : "nav-link"
-                }
                 to="/evaluation"
               >
                 Evaluation
@@ -103,7 +94,6 @@ function App() {
             <Route path="/collections" element={<CollectionsScreen />} />
             <Route path="/chat" element={<WorkspaceLayout />} />
             <Route path="/chat/:sessionId" element={<WorkspaceLayout />} />
-            <Route path="/playground" element={<PlaygroundScreen />} />
             <Route path="/evaluation" element={<EvaluationScreen />} />
             <Route path="/settings" element={<SettingsScreen />} />
           </Routes>

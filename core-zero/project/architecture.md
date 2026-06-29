@@ -40,9 +40,8 @@ Two-tier web application: FastAPI Python backend + React SPA frontend. Weaviate 
 - **`config/`** — Runtime config (settings.json, injection patterns, injection corpus)
 - **`duplicate_detection/`** — Dedup by file hash, text hash, similarity
 
-### Frontend (`frontend/`)
-- **7 screens**: Chat, Collections, DocumentLibrary, DuplicateDecision, Evaluation, Playground, SettingsScreen
-- **13 reusable components**: XRayPanel, ExperimentComparison, UploadForm, DocumentTable, etc.
+- **6 screens**: Chat, Collections, DocumentLibrary, DuplicateDecision, Evaluation, SettingsScreen
+- **11 reusable components**: XRayPanel, UploadForm, DocumentTable, etc.
 - **4 API client modules**: client.js, chat.js, knowledgeApi.js, settings.js
 - Single-page app using React Router v6 for client-side routing
 
