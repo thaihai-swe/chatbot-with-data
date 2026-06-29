@@ -39,13 +39,13 @@ def create_session(payload: ChatSessionCreate) -> ChatSessionResponse:
 
     session = ChatRepository.create_session(
         id=session_id,
-        collection_ids=payload.collection_ids,
+        collection_id=payload.collection_id,
         metadata_json=metadata_json,
     )
 
     return ChatSessionResponse(
         id=session.id,
-        collection_ids=session.collection_ids,
+        collection_id=session.collection_id,
         metadata_json=session.metadata_json,
         created_at=session.created_at,
         updated_at=session.updated_at,
@@ -53,13 +53,13 @@ def create_session(payload: ChatSessionCreate) -> ChatSessionResponse:
 
 
 @router.get("/sessions", response_model=List[ChatSessionResponse])
-def list_sessions() -> List[ChatSessionResponse]:
-    """List all chat sessions."""
-    sessions = ChatRepository.list_sessions()
+def list_sessions(collection_id: Optional[str] = None) -> List[ChatSessionResponse]:
+    """List chat sessions, optionally filtered by collection ID."""
+    sessions = ChatRepository.list_sessions(collection_id=collection_id)
     return [
         ChatSessionResponse(
             id=s.id,
-            collection_ids=s.collection_ids,
+            collection_id=s.collection_id,
             metadata_json=s.metadata_json,
             created_at=s.created_at,
             updated_at=s.updated_at,
@@ -77,7 +77,7 @@ def get_session(session_id: str) -> ChatSessionResponse:
 
     return ChatSessionResponse(
         id=session.id,
-        collection_ids=session.collection_ids,
+        collection_id=session.collection_id,
         metadata_json=session.metadata_json,
         created_at=session.created_at,
         updated_at=session.updated_at,

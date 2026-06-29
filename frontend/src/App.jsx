@@ -1,4 +1,4 @@
-import { Link, NavLink, Route, Routes } from "react-router-dom";
+import { Link, NavLink, Route, Routes, Navigate } from "react-router-dom";
 import React, { useState, useEffect } from "react";
 
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -8,6 +8,8 @@ import ChatScreen from "./screens/Chat";
 import EvaluationScreen from "./screens/Evaluation";
 import PlaygroundScreen from "./screens/Playground";
 import SettingsScreen from "./screens/SettingsScreen";
+import { WorkspaceProvider } from "./context/WorkspaceContext";
+import WorkspaceLayout from "./components/WorkspaceLayout";
 
 function App() {
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
@@ -23,6 +25,7 @@ function App() {
 
   return (
     <ErrorBoundary>
+      <WorkspaceProvider>
       <div className="app-shell">
         <header className="top-header">
           <Link to="/" style={{ display: "flex", alignItems: "center", gap: "16px", textDecoration: "none", color: "inherit" }}>
@@ -98,14 +101,15 @@ function App() {
           <Routes>
             <Route path="/" element={<DocumentLibraryScreen />} />
             <Route path="/collections" element={<CollectionsScreen />} />
-            <Route path="/chat" element={<ChatScreen />} />
-            <Route path="/chat/:sessionId" element={<ChatScreen />} />
+            <Route path="/chat" element={<WorkspaceLayout />} />
+            <Route path="/chat/:sessionId" element={<WorkspaceLayout />} />
             <Route path="/playground" element={<PlaygroundScreen />} />
             <Route path="/evaluation" element={<EvaluationScreen />} />
             <Route path="/settings" element={<SettingsScreen />} />
           </Routes>
         </main>
       </div>
+      </WorkspaceProvider>
     </ErrorBoundary>
   );
 }

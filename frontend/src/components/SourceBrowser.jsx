@@ -14,7 +14,7 @@ const drawerStyle = {
   right: 0,
   width: "60vw",
   height: "100vh",
-  background: "var(--surface-card)",
+  background: "var(--surface)",
   borderLeft: "1px solid var(--border)",
   boxShadow: "-4px 0 24px rgba(0,0,0,0.15)",
   zIndex: 1000,
@@ -143,7 +143,7 @@ function NoteEditor({ chunkId, onNoteChange }) {
   );
 }
 
-function SourceBrowser({ documentId, onClose }) {
+function SourceBrowser({ documentId, onClose, inline }) {
   const [document, setDocument] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedChunk, setSelectedChunk] = useState(null);
@@ -162,6 +162,60 @@ function SourceBrowser({ documentId, onClose }) {
   }, [documentId]);
 
   const chunks = document?.chunks || [];
+
+  if (inline) {
+    return (
+      <div className="source-browser-inline" onClick={(e) => e.stopPropagation()}>
+        <div style={headerStyle}>
+          <h2 style={{ fontSize: "14px", margin: 0, color: "var(--text-primary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {document?.title || "Document"}
+          </h2>
+          <button style={{ ...closeButtonStyle, fontSize: "16px" }} onClick={onClose} type="button">
+            ✕
+          </button>
+        </div>
+        {loading ? (
+          <div style={{ flex: 1, display: "grid", placeItems: "center" }}>
+            <div className="spinner" />
+          </div>
+        ) : (
+          <div style={bodyStyle}>
+            <div style={leftPaneStyle}>
+              <h3 style={{ fontSize: "12px", fontWeight: 600, margin: "0 0 12px", color: "var(--text-secondary)" }}>
+                Chunks ({chunks.length})
+              </h3>
+              {chunks.map((chunk, index) => (
+                <div
+                  key={chunk.id || index}
+                  style={{
+                    ...chunkItemStyle,
+                    background: selectedChunk === index ? "var(--accent-strong)" : "transparent",
+                    color: selectedChunk === index ? "#fff" : "var(--text-primary)",
+                  }}
+                  onClick={() => setSelectedChunk(index)}
+                >
+                  <div style={{ fontWeight: 500 }}>{chunk.title || `Chunk ${index + 1}`}</div>
+                  <div style={{ opacity: 0.6, fontSize: "11px", marginTop: "2px" }}>
+                    Page {chunk.page_number ?? "?"}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={rightPaneStyle}>
+              {selectedChunk !== null && chunks[selectedChunk]?.content ? (
+                <>
+                  <pre style={preStyle}>{chunks[selectedChunk].content}</pre>
+                  <NoteEditor chunkId={chunks[selectedChunk].id} />
+                </>
+              ) : (
+                <pre style={preStyle}>{document?.extracted_text || ""}</pre>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <>

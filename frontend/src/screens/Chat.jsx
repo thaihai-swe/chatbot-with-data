@@ -90,7 +90,7 @@ export default function ChatScreen() {
 
   const handleCreateSession = async () => {
     try {
-      const session = await createChatSession(selectedCollections);
+      const session = await createChatSession(selectedCollections[0] || null);
       setChatSessions([session, ...sessions]);
       navigate(`/chat/${session.id}`);
     } catch (err) {
@@ -107,7 +107,7 @@ export default function ChatScreen() {
 
     if (!sid) {
       try {
-        const session = await createChatSession(selectedCollections);
+        const session = await createChatSession(selectedCollections[0] || null);
         setChatSessions([session, ...sessions]);
         sid = session.id;
         isNew = true;

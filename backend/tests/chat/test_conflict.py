@@ -75,7 +75,7 @@ class TestChatServiceConflictIntegration:
 
         # 1. Mock ChatRepository static methods
         mock_session = MagicMock()
-        mock_session.collection_ids = []
+        mock_session.collection_id = None
         monkeypatch.setattr("chat.service.ChatRepository.get_session", MagicMock(return_value=mock_session))
         monkeypatch.setattr("chat.service.ChatRepository.list_turns_by_session", MagicMock(return_value=[]))
         

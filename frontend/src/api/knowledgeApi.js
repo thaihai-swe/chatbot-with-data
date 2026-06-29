@@ -101,3 +101,9 @@ export function upsertChunkNote(chunkId, noteText) {
     body: JSON.stringify({ note_text: noteText }),
   });
 }
+
+export function generateProduct(collectionId, productType) {
+  return apiRequest(`/collections/${collectionId}/generate/${productType}`, {
+    method: "POST",
+  });
+}

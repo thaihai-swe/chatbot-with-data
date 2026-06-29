@@ -276,17 +276,7 @@ SCHEMA_STATEMENTS = [
     CREATE INDEX IF NOT EXISTS idx_citations_turn_id ON citations(turn_id)
     """,
     """
-    CREATE TABLE IF NOT EXISTS chat_session_collections (
-        session_id TEXT NOT NULL,
-        collection_id TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (session_id, collection_id),
-        FOREIGN KEY(session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE,
-        FOREIGN KEY(collection_id) REFERENCES collections(id) ON DELETE CASCADE
-    )
-    """,
-    """
-    CREATE INDEX IF NOT EXISTS idx_chat_session_collections_session_id ON chat_session_collections(session_id)
+    CREATE INDEX IF NOT EXISTS idx_chat_sessions_collection_id ON chat_sessions(collection_id)
     """,
     """
     CREATE TABLE IF NOT EXISTS chunk_notes (
@@ -306,7 +296,6 @@ SCHEMA_STATEMENTS = [
 
 DROP_STATEMENTS = [
     "DROP TABLE IF EXISTS chunk_notes",
-    "DROP TABLE IF EXISTS chat_session_collections",
     "DROP TABLE IF EXISTS citations",
     "DROP TABLE IF EXISTS chat_turns",
     "DROP TABLE IF EXISTS chat_sessions",
@@ -363,13 +352,18 @@ def apply_migrations() -> None:
         # 0004_multi_collection_chat
         cursor = connection.execute("SELECT 1 FROM schema_migrations WHERE version = ?", ("0004_multi_collection_chat",))
         if not cursor.fetchone():
-            # Data migration: Move existing collection_id to the mapping table
-            connection.execute(
-                """
-                INSERT INTO chat_session_collections (session_id, collection_id)
-                SELECT id, collection_id FROM chat_sessions WHERE collection_id IS NOT NULL
-                """
+            # Check if chat_session_collections exists in the database
+            table_check = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='chat_session_collections'"
             )
+            if table_check.fetchone():
+                # Data migration: Move existing collection_id to the mapping table
+                connection.execute(
+                    """
+                    INSERT INTO chat_session_collections (session_id, collection_id)
+                    SELECT id, collection_id FROM chat_sessions WHERE collection_id IS NOT NULL
+                    """
+                )
             connection.execute(
                 "INSERT INTO schema_migrations(version) VALUES (?)",
                 ("0004_multi_collection_chat",),
@@ -382,6 +376,40 @@ def apply_migrations() -> None:
             connection.execute(
                 "INSERT INTO schema_migrations(version) VALUES (?)",
                 ("0005_user_annotations",),
+            )
+
+        # 0006_single_collection_chat
+        cursor = connection.execute("SELECT 1 FROM schema_migrations WHERE version = ?", ("0006_single_collection_chat",))
+        if not cursor.fetchone():
+            # Check if old table exists
+            table_check = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='chat_session_collections'"
+            )
+            if table_check.fetchone():
+                connection.execute(
+                    """
+                    UPDATE chat_sessions
+                    SET collection_id = (
+                        SELECT collection_id
+                        FROM chat_session_collections
+                        WHERE chat_session_collections.session_id = chat_sessions.id
+                        LIMIT 1
+                    )
+                    WHERE EXISTS (
+                        SELECT 1
+                        FROM chat_session_collections
+                        WHERE chat_session_collections.session_id = chat_sessions.id
+                    )
+                    """
+                )
+                connection.execute("DROP TABLE IF EXISTS chat_session_collections")
+            
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_chat_sessions_collection_id ON chat_sessions(collection_id)"
+            )
+            connection.execute(
+                "INSERT INTO schema_migrations(version) VALUES (?)",
+                ("0006_single_collection_chat",),
             )
 
 

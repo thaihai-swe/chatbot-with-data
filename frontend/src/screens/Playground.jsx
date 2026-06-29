@@ -39,7 +39,7 @@ export default function PlaygroundScreen() {
 
     try {
       // Create a temporary session for both calls
-      const session = await createChatSession([]);
+      const session = await createChatSession(null);
       const sessionId = session.id;
 
       // Execute both in parallel

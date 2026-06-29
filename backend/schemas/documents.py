@@ -26,6 +26,14 @@ class DocumentSummary(BaseModel):
     collections: list[CollectionMembership]
 
 
+class ChunkResponse(BaseModel):
+    id: str
+    title: str | None = None
+    page_number: int | None = None
+    chunk_order: int
+    content: str
+
+
 class DocumentResponse(DocumentSummary):
     canonical_source_uri: str | None = None
     mime_type: str | None = None
@@ -33,6 +41,7 @@ class DocumentResponse(DocumentSummary):
     normalized_text_hash: str | None = None
     extracted_text: str
     latest_attempt: dict[str, Any] | None = None
+    chunks: list[ChunkResponse] = Field(default_factory=list)
 
 
 class DocumentMoveRequest(BaseModel):

@@ -80,3 +80,15 @@ This file captures repeated, evidence-backed heuristics that improve maintenance
 - **Confidence**: High
 - **Last reviewed**: 2026-06-28
 - **Promote to stronger rule?**: No
+
+### LH-007: SQLite migration queries on deprecated tables must check for table existence
+- **Trigger**:
+  - Writing database schema migrations that execute data-copy operations from legacy/deprecated tables
+  - Editing migration runner logic or schema setup statements
+- **Working heuristic**:
+  - Always check `sqlite_master` for table existence before running data-migrations on deprecated/dropped tables. Fresh database builds that skip creating deprecated tables (since they are removed from schema definition statements) will crash during legacy migration step executions if the query is not conditional.
+- **Evidence**:
+  - Resolving the `no such table: chat_session_collections` crash in `reset_all_data.py` required making migration `0004` and `0006` checks conditional in [runner.py](file:///Users/thaihai-swe/Desktop/chatbot-with-data/backend/migrations/runner.py#L352-L380).
+- **Confidence**: High
+- **Last reviewed**: 2026-06-29
+- **Promote to stronger rule?**: No

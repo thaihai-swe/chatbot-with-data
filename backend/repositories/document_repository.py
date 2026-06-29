@@ -123,10 +123,20 @@ class DocumentRepository(BaseRepository):
                 "SELECT * FROM ingestion_attempts WHERE document_id = ? ORDER BY created_at DESC LIMIT 1",
                 (document_id,),
             ).fetchone()
+            chunk_rows = connection.execute(
+                """
+                SELECT id, title, page_number, chunk_order, text as content
+                FROM chunks
+                WHERE document_id = ?
+                ORDER BY chunk_order ASC
+                """,
+                (document_id,),
+            ).fetchall()
         record = dict(row)
         record["metadata"] = json.loads(record.pop("metadata_json"))
         record["collections"] = [dict(item) for item in collection_rows]
         record["latest_attempt"] = dict(latest_attempt) if latest_attempt else None
+        record["chunks"] = [dict(item) for item in chunk_rows]
         return record
 
     def get_document_batch(self, ids: list[str]) -> dict[str, dict[str, Any]]:

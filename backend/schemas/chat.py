@@ -8,13 +8,13 @@ if TYPE_CHECKING:
 
 
 class ChatSessionCreate(BaseModel):
-    collection_ids: Optional[List[str]] = Field(default_factory=list, description="Collection IDs to scope the chat. Empty for all collections.")
+    collection_id: Optional[str] = Field(None, description="Collection ID to scope the chat. None for global/all collections.")
     metadata: Optional[dict[str, Any]] = Field(default_factory=dict)
 
 
 class ChatSessionResponse(BaseModel):
     id: str
-    collection_ids: List[str] = Field(default_factory=list)
+    collection_id: Optional[str] = None
     metadata_json: str
     created_at: str
     updated_at: str

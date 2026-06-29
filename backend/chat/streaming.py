@@ -102,7 +102,7 @@ class StreamingOrchestrator:
             retrieved_chunks, trace = self.advanced_retrieval_service.retrieve(
                 query_text=query_text,
                 config=config,
-                collection_ids=session.collection_ids,
+                collection_ids=[session.collection_id] if session.collection_id else [],
             )
 
             if is_cancelled(turn_id):
@@ -137,7 +137,7 @@ class StreamingOrchestrator:
                 query_text=query_text,
                 retrieved_chunks=retrieved_chunks,
                 chat_history=history,
-                collection_ids=session.collection_ids,
+                collection_ids=[session.collection_id] if session.collection_id else [],
                 annotations=annotations,
             )
 

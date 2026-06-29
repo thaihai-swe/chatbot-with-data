@@ -105,7 +105,7 @@ class ChatService:
         advanced_config = get_config().retrieval
 
         # 3.1 Collection routing (if enabled)
-        collection_ids = session.collection_ids
+        collection_ids = [session.collection_id] if session.collection_id else []
         routing_trace = None
         if advanced_config.collection_routing_enabled and not collection_ids:
             # Only route if session has no pre-selected collections
