@@ -43,7 +43,8 @@ class RetrievalSettings(BaseModel):
     synonym_expansion_enabled: bool = False
     dynamic_routing_enabled: bool = False
     reranker_enabled: bool = False
-    reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    reranker_provider: str = Field(default="dummy")
+    reranker_model: str = "ms-marco-MiniLM-L-12-v2"
     reranker_top_n: int = Field(default=3, ge=1)
     intelligence_enabled: bool = True
     parent_child_enabled: bool = True

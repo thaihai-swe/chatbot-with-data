@@ -74,3 +74,28 @@ def get_embedding_provider() -> BaseEmbeddingProvider:
         )
     else:
         raise ValueError(f"Unsupported embedding provider: {provider_type}")
+
+
+@lru_cache()
+def get_reranker_provider() -> 'BaseRerankingProvider':
+    """Get reranking provider based on configuration.
+
+    Returns:
+        BaseRerankingProvider instance
+
+    Raises:
+        ValueError: If provider type is unsupported
+    """
+    config = get_config()
+    provider_type = config.retrieval.reranker_provider
+
+    logger.info(f"Initializing reranking provider: {provider_type}")
+
+    if provider_type == "dummy":
+        from .reranker import DummyRerankingProvider
+        return DummyRerankingProvider()
+    elif provider_type == "flashrank":
+        from .reranker import FlashRankProvider
+        return FlashRankProvider(model_name=config.retrieval.reranker_model)
+    else:
+        raise ValueError(f"Unsupported reranking provider: {provider_type}")

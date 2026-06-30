@@ -92,3 +92,15 @@ This file captures repeated, evidence-backed heuristics that improve maintenance
 - **Confidence**: High
 - **Last reviewed**: 2026-06-29
 - **Promote to stronger rule?**: No
+
+### LH-008: FastAPI / Uvicorn dependency caching requires backend restart
+- **Trigger**:
+  - Modifying backend configuration files (e.g., `settings.json`) that are used inside `@lru_cache()` dependencies (like factory providers).
+  - Testing newly configured providers via the UI or API.
+- **Working heuristic**:
+  - FastAPI dependencies using `@lru_cache` will indefinitely cache the fallback or old configuration if the backend is already running when the configuration file is updated. Always restart the backend server explicitly to bust the cache when testing provider switches (e.g., `DummyRerankingProvider` to `FlashRankProvider`).
+- **Evidence**:
+  - In feature `7.0-cross-encoder-reranking`, the frontend received `0` documents because `DummyRerankingProvider` remained cached despite `settings.json` being updated to `flashrank`, requiring a manual restart to activate the cross-encoder.
+- **Confidence**: High
+- **Last reviewed**: 2026-06-30
+- **Promote to stronger rule?**: No

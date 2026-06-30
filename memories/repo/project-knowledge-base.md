@@ -71,6 +71,7 @@ The shipped helpers own the following durable surfaces:
 | X-Ray Panel | Frontend debug panel showing retrieval internals, chunk scores, citation mapping, and generation details |
 | Collection Routing | LLM-routed selection of which document collections to search based on the user's query |
 | CandidateMerger | RRF-based fusion of multi-strategy retrieval results (BM25 + semantic + optional HyDE) |
+| Cross-Encoder Reranker | Post-retrieval scoring step using FlashRank (ms-marco-MiniLM-L-12-v2) to sort the fused candidates by semantic relevance before passing to the LLM |
 
 ## Feature Lifecycle Handoff Patterns
 

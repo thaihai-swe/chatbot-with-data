@@ -1,350 +1,385 @@
-# Production RAG Audit — Notebook LM Comparison 2026
+# Production RAG Audit — Notebook LM Feature Comparison
 
-## 1. Scope & Method
-
-**Goal:** Comprehensive comparison of our system against Google Notebook LM (June 2026) to identify every gap standing between us and a production-ready RAG platform, with specific focus on UI restructuring and architectural improvements.
-
-**Method:**
-- Codebase exploration: backend RAG pipeline (3,369 lines, 21 files), frontend (7 screens, 16 components, 4 API modules), infrastructure (9 routers, 17 tables, 5 migrations, Weaviate vector DB)
-- Web research on Notebook LM 2026 features (Gemini 3.5, Deep Research, 3-panel UI, Studio, Cinematic Video, 1M-token context)
-- Domain packs loaded: RAG Pipeline, Document Ingestion, Frontend UI
-- Production RAG best practices research (2026 industry standards)
-
-**Status of prior gap closure:** All 7 gaps from original notebooklm-clone analysis (2026-06-28) were closed across commits `c9f3e3a` (1.0), `cdee50c` (2.0), `2166046` (3.0). This is a fresh production-readiness assessment.
+> **Goal:** Deep-dive comparison of our system vs Google Notebook LM, focusing on RAG pipeline, citation system, user flow, and UI design. Written as a brownfield mapping exercise to identify what to build/change for Notebook-LM-like document chat.
+>
+> **Date:** 2026-06-30
+> **Phase:** Research Complete
+> **Next:** Route to `/spec-requirements` for authentication (P0), then `/spec-plan` for reranker + citation UX upgrade.
 
 ---
 
-## 2. Our Current System — What We Have
+## 1. Executive Summary
 
-### Backend Architecture
-```
-Routes -> Services -> Repositories -> SQLite + Weaviate
-```
+Our system has **3-panel workspace parity** (Sources ↔ Chat ↔ Studio), **knowledge product parity** (6 types), and **citation near-parity** with Notebook LM. The remaining gaps cluster into three tiers:
 
-| Module | Lines | State |
-|--------|-------|-------|
-| Safety (3-layer) | 317 | Production-grade |
-| Query Intelligence (classification, expansion, HyDE, decomposition, synonyms) | 99 | Foundational |
-| Advanced Retrieval (multi-strategy, RRF, dynamic routing) | 265 | Production-grade |
-| Multi-Hop (sequential sub-question) | 274 | Functional |
-| Candidate Merger (RRF) | 42 | Solid |
-| Reranking | 40 | STUB — dummy-reranker |
-| Grounding (evidence + LLM-as-judge) | 113 | Functional |
-| Context Assembly (summaries, citation maps, annotations) | 207 | Rich |
-| Generation (intent-specific prompts) | 98 | Solid |
-| Citations (quote extraction, dual-strategy) | 186 | Good |
-| Conflict Detection | 67 | Functional |
-| Knowledge Products (6 types) | 111 | Standalone |
-| Evaluation | 173 | Basic |
-| Prompts | 296 | Comprehensive |
-
-### Frontend Architecture
-- React 18 SPA, Vite, React Router v6
-- 7 screens, 16 components, 4 API modules
-- SSE streaming via Fetch + ReadableStream
-- Single `styles.css` (733 lines) with CSS custom properties (light/dark theme)
-- No external state management
-
-### Data Layer
-- 17 SQLite tables, 5 migration versions (append-only)
-- Weaviate vector DB (single collection, hybrid search)
-- Embedding cache in SQLite
+| Tier | Gaps | Impact |
+|------|------|--------|
+| **P0 — Blocks production** | No auth, no deployment config | Cannot ship |
+| **P1 — Quality gap** | Dummy reranker, no cross-encoder | Response quality degrades |
+| **P2 — UX/Feature gap** | Citation anchoring, source-selection UX, suggested questions, streaming studio, search | User experience vs Notebook LM |
 
 ---
 
-## 3. Notebook LM 2026 Reference Architecture
+## 2. Verified Codebase State
 
-Based on research across Notebook LM documentation, product updates, and the June 2026 timeline:
+### 2.1 Backend RAG Pipeline (21 modules)
 
-### Core Architecture
 ```
-Sources → Multi-Modal Ingestion → Deep Research → Gemini 3.5 Understanding →
-Multi-Index → Agentic Retrieval → Context Engineering → Grounded Gen → Studio Outputs
+Safety ──→ Query Intelligence ──→ Retrieval ──→ Reranker ──→ Context Assembly ──→ Generation
+ ↑___________|_______________________|_______________STUB______________|________________|_↓
+ |                                                                                  |
+ └───────────────────── Grounding + Citation Extraction ───────────────────────────┘
 ```
 
-### Key Architecture Differences
+**Pipeline flow** (`backend/chat/service.py:50-298`):
+1. Safety check (3-layer: regex → fuzzy → LLM) → early refuse if unsafe
+2. Collection routing (LLM-based multi-collection dispatch, `collection_routing.py`)
+3. Query intelligence: intent classification, HyDE, decomposition, synonym expansion (`advanced_retrieval.py:48-212`)
+4. Hybrid search: BM25 + vector via Weaviate (`retrieval.py:28-74`)
+5. **Reranker: DUMMY** — sorts by `similarity_score` only (`reranking.py:24-26`)
+6. Context assembly: `<source>` XML blocks + document summaries + citation map + annotations (`context.py:44-143`)
+7. Generation: intent-specific system prompts + LLM (`generation.py:36-93`)
+8. Grounding: LLM-as-judge groundedness score (`grounding.py:66-103`)
+9. Citation extraction: regex `[Source N]` → Jaccard sentence overlap → LLM fallback (`citations.py:24-116`)
+10. Conflict detection: multi-document conflict detection (`conflict.py`)
 
-| Dimension | Notebook LM | Our System | Gap Severity |
-|-----------|-------------|------------|--------------|
-| Context window | 1M tokens per source | ~1000 tokens per chunk (configurable) | **HIGH** |
-| Ingestion | 11+ formats + live sync | 4 formats (PDF, TXT, MD, URL) | **MEDIUM** |
-| Retrieval | Agentic (self-correcting, re-retrieve) | Linear pipeline | **MEDIUM** |
-| Reranker | Production cross-encoder | Dummy (sort by similarity) | **HIGH** |
-| Graph support | GraphRAG available | None | **LOW** |
-| Multi-modal | Images, charts, tables, audio, video | Text-only | **MEDIUM** |
-| UI paradigm | 3-panel (Sources + Chat + Studio) | Single-column chat | **CRITICAL** |
-| Organization | Notebook-based with tiers | Collection-based | **MEDIUM** |
-| Output formats | 10+ (audio, video, slides, infographics, etc.) | 6 text-only (no UI) | **HIGH** |
-| Auth/Security | Google IAM, per-source ACLs | None | **CRITICAL** |
-| Evaluation | Continuous, automated | Manual sanity check | **HIGH** |
-| Monitoring | Full observability stack | X-Ray debug panel only | **HIGH** |
+### 2.2 Frontend Architecture
+
+```
+WorkspaceLayout (3-panel)
+├── SourcesPanel (left)
+│   ├── Collection selector
+│   ├── Document checkboxes (per-doc enable/disable)
+│   ├── File upload
+│   └── SourceBrowser (per-doc viewer)
+├── ChatPanel (center)
+│   ├── Session list (per-collection)
+│   ├── Message history (MarkdownBlock renderer)
+│   ├── Inline citations [Source N] with HoverCard
+│   ├── CitationModal (deep-dive)
+│   ├── FlashcardBlock (interactive reveal)
+│   ├── XRayPanel (debug pipeline trace)
+│   └── Stream support (SSE)
+└── StudioPanel (right)
+    ├── 6 product buttons (study-guide, briefing, FAQ, timeline, glossary, flashcards)
+    └── Product history viewer
+```
+
+### 2.3 Chat Flow (Per Turn)
+
+```
+1. User types query in ChatPanel
+2. POST /chat/sessions/{id}/turns/stream (SSE) or sync POST
+3. Server: safety → collection_routing → retrieve → rerank → context → generate → ground → cite → persist
+4. Frontend: renders tokens OR full answer with [Source N] links
+5. User clicks [Source N]: HoverCard shows snippet, CitationModal shows full quote
+```
 
 ---
 
-## 4. Gap Analysis — Full Feature Comparison
+## 3. Notebook LM Feature Deep-Dive
 
-### 4.1 RAG Pipeline
+Based on published documentation (blog.google, notebooklm.google, 2026 teardowns):
 
-| Capability | Notebook LM | Our System | Status |
-|-----------|-------------|------------|--------|
-| Hybrid search (BM25 + vector) | Yes | Yes | PARITY |
-| Query expansion / HyDE | Yes | Yes | PARITY |
-| Reranker (cross-encoder) | Yes | Stub (dummy) | **GAP** |
-| Agentic retrieval (self-correct) | Yes (re-retrieve on insufficient) | No | **GAP** |
-| GraphRAG | Yes (Spanner Graph) | No | **GAP** |
-| 1M-token context per source | Yes (Gemini native) | Chunk-size bound | **MAJOR GAP** |
-| Quote-level citations | Exact quote highlighted | Jaccard + LLM fallback | NEAR PARITY |
-| Conflict detection | Yes | Yes | PARITY |
-| Citation mapping in prompt | Yes | Yes (citation-map block) | PARITY |
-| Source summaries in context | Yes | Yes | PARITY |
-| User annotations in context | Yes | Yes (chunk_notes injection) | PARITY |
-| Deep Research (agentic web search) | Yes (Nov 2025+) | No | **GAP** |
-| Multi-modal understanding | Charts, tables, images | No | **GAP** |
-| Insufficient evidence handling | Explicit rules | GroundingService | PARITY |
-| OOD handling | "No relevant info" | Refusal by threshold | PARITY |
+### 3.1 Core Architecture
 
-### 4.2 Ingestion
+| Aspect | Notebook LM | Our System | Delta |
+|--------|-------------|------------|-------|
+| Model | Gemini 3.5 / Antigravity | Configurable provider (OpenAI, etc.) | No gap |
+| Embedding | Google native embedding models | Configurable provider | No gap |
+| Chunking | Structural + context-aware segmentation | 5 strategies: fixed, heading, page, semantic, parent-child | NEAR PARITY |
+| Reranker | BGE-Reranker-v2 (cross-encoder) | **Dummy (sort by score)** | **CRITICAL GAP** |
+| Hybrid search | BM25 + vector (MIPS) | BM25 + vector via Weaviate | PARITY |
+| Context window | 1M tokens (500K words/source) | Limited by LLM provider (varies) | PARITY |
+| Token-level citation | **Inline source ID tokens in generation** | Post-hoc regex extraction `[Source N]` | **DESIGN GAP** |
 
-| Capability | Notebook LM | Our System | Status |
-|-----------|-------------|------------|--------|
-| PDF | Yes | Yes | PARITY |
-| TXT / MD | Yes | Yes | PARITY |
-| DOCX | Yes | No | **GAP** |
-| EPUB | Yes | No | **GAP** |
-| Google Docs (live sync) | Yes | No | **GAP** |
-| Google Sheets (live sync) | Yes | No | **GAP** |
-| YouTube transcripts | Yes | No | **GAP** |
-| Audio (MP3, WAV, MP4) | Yes | No | Skipped (scope) |
-| CSV / OCR | Yes | No | **GAP** |
-| URL / Web scraping | Yes | Yes | PARITY |
-| Image OCR | Yes | No | **GAP** |
-| Auto-summarize on upload | Yes | Yes (DocumentUnderstandingService) | PARITY |
-| Key topic extraction | Yes | Yes | PARITY |
-| Section hierarchy preservation | Yes | Partial (page_number, section_title) | **GAP** |
-| Living connections (auto-sync) | Yes (Drive) | No | **GAP** |
-| 1M tokens per source | Yes | 1000-token default | **MAJOR GAP** |
+The most significant architectural difference: **Notebook LM enforces attribution at generation time** (the model is prompted to emit `[1]`, `[2]` tokens inline, and every substantive sentence must have a citation), while our system **extracts citations post-hoc** from free text using regex. This makes Notebook LM's citations more reliable by design.
 
-### 4.3 Knowledge Products
+### 3.2 Citation System Comparison
 
-| Capability | Notebook LM | Our System | Status |
-|-----------|-------------|------------|--------|
-| Study Guide | Yes (Studio) | API exists, NO UI | PARTIAL |
-| Briefing Document | Yes (Studio) | API exists, NO UI | PARTIAL |
-| FAQ | Yes (Studio) | API exists, NO UI | PARTIAL |
-| Timeline | Yes (Studio) | API exists, NO UI | PARTIAL |
-| Glossary | Yes (Studio) | API exists, NO UI | PARTIAL |
-| Flashcards | Yes (Studio) | API exists, NO UI | PARTIAL |
-| Audio Overviews | Yes (80+ languages) | No | **GAP** |
-| Video Overviews | Yes (Cinematic, Veo 3) | No | Skipped (scope) |
-| Infographics / Slide Decks | Yes (PPTX export) | No | **GAP** |
-| Deep Dive discussions | Yes (interactive audio) | No | Skipped (scope) |
-| Streaming generation | Yes | No (sync only) | **GAP** |
-| Incremental updates | Yes | No | **GAP** |
-| Persona customization | Yes (Chat Personas) | No | **GAP** |
-
-### 4.4 Frontend / UI
-
-| Capability | Notebook LM | Our System | Status |
-|-----------|-------------|------------|--------|
-| Layout | 3-panel (Sources + Chat + Studio) | Single-page, sequential | **MAJOR GAP** |
-| Source browsing | Dedicated source panel with summaries | SourceBrowser side-drawer | PARTIAL |
-| Inline citation hover | Yes (tooltip) | Yes (HoverCard) | PARITY |
-| Citation deep-dive | Modal with exact quote highlighted | Modal with chunk text + quote | PARITY |
-| Annotation editing | In-panel | CitationModal + SourceBrowser | PARTIAL |
-| Output formatting | Studio panel with rich outputs | No dedicated output space | **MAJOR GAP** |
-| Notebook organization | Sources grouped into notebooks | Collections (basic) | PARTIAL |
-| Flashcards UI | In-app flashcard viewer | No | **GAP** |
-| Quiz UI | In-app quiz generator | No | **GAP** |
-| Chat history | Permanent, searchable | Per-session, basic list | **GAP** |
-| Chat personas | Yes (customizable) | No | **GAP** |
-| X-Ray / debug view | No visible equivalent | Yes (X-Ray Panel) | WE LEAD |
-| Settings / configuration | Limited | Full settings page | WE LEAD |
-| A/B playground | No | Yes (Playground) | WE LEAD |
-| Mobile experience | Dedicated app | Responsive web only | **GAP** |
-| Source filtering within notebook | Select/deselect sources per query | Collection routing only | **GAP** |
-| Suggested questions | Yes | No | **GAP** |
-
-### 4.5 Production Readiness
-
-| Capability | Notebook LM | Our System | Severity |
+| Capability | Notebook LM | Our System | Analysis |
 |-----------|-------------|------------|----------|
-| Authentication | Google IAM | None | **CRITICAL** |
-| Authorization | Per-source ACLs | None | **CRITICAL** |
-| Multi-tenant | Yes (workspace-based) | No | **HIGH** |
-| Rate limiting | Yes | No | **HIGH** |
-| Usage tracking | Yes (tier-based) | No | **MEDIUM** |
-| Structured logging | Cloud Logging | Basic Python logging | **HIGH** |
-| Monitoring / observability | Full stack | X-Ray panel only | **HIGH** |
-| RAG evaluation framework | Internal | Sanity check script | **HIGH** |
-| CI/CD quality gates | Yes | Manual | **HIGH** |
-| Deployment config | Cloud-native | No Docker/K8s | **HIGH** |
-| Data backup / export | Yes (Google Takeout) | No | **MEDIUM** |
-| Permission-aware retrieval | Yes (ACL filtering) | No | **HIGH** |
-| Caching (semantic, response) | Yes | Embedding cache only | **MEDIUM** |
-| Cost tracking | Yes (tier-based) | No | **MEDIUM** |
-| P95 latency budgeting | Yes | No | **MEDIUM** |
+| Format | `[1]` `[2]` numbered inline | `[Source 1]` `[Source 2]` | Different label format |
+| Hit target | Exact passage highlighted in source panel | Chunk text from database | NEAR PARITY |
+| Quote extraction | Direct quote from source | Jaccard overlap → LLM fallback | Our approach is more sophisticated but less reliable |
+| Click behavior | Opens Sources panel, scrolls to passage, highlights | HoverCard → CitationModal | Notebook LM: seamless; Us: modal overlay |
+| **Citation enforcement** | **Architectural: LLM prompted to cite every claim** | **Post-hoc: regex parse of free text** | **CRITICAL DIFFERENCE** |
+| Image citations | Yes | No | GAP |
+| No-evidence handling | Explicit refusal | GroundingService `is_sufficient` check | PARITY |
+| Citation in notes | Saved with citations retained | Saved in DB per turn | PARITY |
+| Source-to-citation tracking | Token-level chunk ID linking | `map_citations_to_chunks` by index/UUID | PARITY |
+
+**Our citation system (`backend/chat/citations.py:24-186`):**
+- Regex `\[Source\s+([^\]]+)\]` to find citation markers
+- Jaccard sentence overlap (threshold 0.5) for quote extraction
+- LLM fallback via `QUOTE_EXTRACTION_PROMPT`
+- Maps labels to chunks by integer index or UUID
+- Produces `CitationResponse` with `quote_text`, `chunk_id`, `document_id`, page info
+
+**Notebook LM citation flow:**
+- Chunks embedded with IDs
+- Reranker (BGE) selects top chunks
+- Prompt instructs model: *"For every factual claim, include the source chunk ID in brackets"*
+- Generated text has `[1]` tokens inline by construction
+- Clicking `[1]` references the chunk ID → highlights exact passage in source viewer
+- Citations persist when saving to notes
+
+### 3.3 Source Management
+
+| Feature | Notebook LM | Our System | Analysis |
+|---------|-------------|------------|----------|
+| Source types | PDF, Docs, Sheets, Slides, URL, YouTube, images, audio, EPUB, CSV | PDF, TXT, MD | **GAP — limited formats** |
+| Per-source checkbox | Yes (toggle per query) | Yes (`selectedDocumentIds` in WorkspaceContext) | PARITY |
+| Source viewer | Built-in: scrollable, citable, highlights | SourceBrowser component | PARITY |
+| Web search / Deep Research | Yes (agentic, sources from web) | No | **GAP** |
+| Suggested questions | Yes (auto-generated from sources) | No | **GAP** |
+| Source summaries | Auto-generated per document | Document understanding (meta-analysis) | PARITY |
+| Drive sync | Automatic (living docs) | No | **GAP** |
+| User annotations as sources | Yes (notes injected into knowledge base) | Yes (chunk_notes injected via `<source user_note="...">`) | PARITY |
+
+### 3.4 Chat UX / Flow
+
+| Feature | Notebook LM | Our System | Analysis |
+|---------|-------------|------------|----------|
+| 3-panel layout | Sources | Chat | Studio | Sources | Chat | Studio | PARITY |
+| Collapsible panels | Yes | Yes (panel-collapsed CSS) | PARITY |
+| Mobile responsive | Tab-bar | Tab-bar (Sources/Chat/Studio) | PARITY |
+| Session scoping | Per-notebook | Per-collection | PARITY |
+| Chat history | Permanent, searchable | Per-collection list | **GAP — no search** |
+| Suggested questions | Auto-suggested on session start | No | **GAP** |
+| Chat personas | Customizable tone/persona | No | **GAP** |
+| Non-speculative mode | Always (sources only) | Grounded prompt default | PARITY |
+| Streaming | Yes (SSE) | Yes (SSE via StreamingOrchestrator) | PARITY |
+| Cancellation | Yes | Yes (cancel endpoint + SSE cancellation) | PARITY |
+| X-Ray / debug | No | Yes (XRayPanel) | **WE LEAD** |
+
+### 3.5 Studio / Knowledge Products
+
+| Feature | Notebook LM (2026) | Our System | Analysis |
+|---------|-------------------|------------|----------|
+| Study Guide | Yes | Yes | PARITY |
+| Briefing Document | Yes | Yes | PARITY |
+| FAQ | Yes | Yes | PARITY |
+| Timeline | Yes | Yes | PARITY |
+| Glossary | Yes | Yes | PARITY |
+| Flashcards | Yes (interactive progress-tracking viewer) | Yes (text-based + FlashcardBlock reveal) | **GAP — no interactive viewer** |
+| Reports / PDF export | Yes (PDF, PPTX, XLSX) | No | **GAP** |
+| Data Tables | Yes | No | **GAP** |
+| Mind Maps | Yes | No | **GAP** |
+| Audio Overviews | Yes | No | Out of scope |
+| Video Overviews | Yes | No | Out of scope |
+| Streaming generation | Yes | No (loading spinner) | **GAP** |
+| Persona customization | Yes | No | **GAP** |
+| Editable outputs | Yes (edit after generation) | No | **GAP** |
+| Output export | PPTX, XLSX, PDF, DOC | No | **GAP** |
+
+### 3.6 Agents / Advanced Features (2026 Updates)
+
+| Feature | Notebook LM | Our System | Priority |
+|---------|-------------|------------|----------|
+| Agentic retrieval | Deep Research (web) + self-correction | No | P5 |
+| Multi-hop reasoning | Yes (Gemini 3.5) | Yes (`multi_hop.py` SequentialChain) | PARITY |
+| Code execution | Yes (cloud computer, 100+ skills) | No | P5 |
+| GraphRAG | Yes (Spanner) | No | P5 |
+| Multi-modal | Charts, tables, images | No | P5 |
 
 ---
 
-## 5. Test Coverage Assessment
+## 4. Critical UX Flow Comparison
 
-| Module | Test Coverage | Status |
-|--------|--------------|--------|
-| Citations + quote extraction | 142 lines | COVERED |
-| Conflict detection | 180 lines | COVERED |
-| Context annotations | 90 lines | COVERED |
-| Safety (3-layer) | 0 lines | **MISSING** |
-| Query Intelligence | 0 lines | **MISSING** |
-| Retrieval (all strategies) | 0 lines | **MISSING** |
-| Reranking | 0 lines | **MISSING** |
-| Grounding | 0 lines | **MISSING** |
-| Generation | 0 lines | **MISSING** |
-| Streaming | 0 lines | **MISSING** |
-| Multi-Hop | 0 lines | **MISSING** |
-| Collection Routing | 0 lines | **MISSING** |
-| Knowledge Products | 0 lines | **MISSING** |
-| Evaluation | 0 lines | **MISSING** |
-| Frontend | 0 component tests | **MISSING** |
-
-Only ~3 test files (21 test cases) for the entire chat pipeline. The 3-layer safety system (317 lines) has zero tests. This is a critical production gap.
-
----
-
-## 6. Preserved Behaviors (Don't Break)
-
-| ID | Invariant | Rationale |
-|----|-----------|-----------|
-| INV-001 | 3-layer safety must run before retrieval | Security boundary |
-| INV-002 | Hybrid search must remain default | Single-strategy is degraded mode |
-| INV-003 | SSE streams are append-only | Frontend renders incrementally |
-| INV-004 | Migration chain is append-only | 5 versions, never modify past |
-| INV-005 | Screen-Component separation | Components are screen-agnostic |
-| INV-006 | API calls at screen level | Not in reusable components |
-
----
-
-## 7. Architecture Recommendations
-
-### 7.1 UI Restructuring (Highest Priority)
-
-**Current:** Single-page, screen-to-screen navigation. Chat is a single column with sequential flow.
-
-**Recommended: Notebook LM-style 3-Panel Layout**
+### 4.1 Notebook LM Chat Flow
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  LEFT PANEL    │  CENTER PANEL   │  RIGHT PANEL     │
-│  (Sources)     │  (Chat)         │  (Studio)        │
-│                 │                  │                  │
-│  • Document     │  • Message       │  • Knowledge     │
-│    inventory    │    bubbles       │    Products      │
-│  • Per-source   │  • Streaming     │    (study guide, │
-│    selection    │    responses     │     FAQ, flash-  │
-│  • Source       │  • Citation      │     cards, etc.) │
-│    summaries    │    badges        │  • Custom outputs │
-│  • Notebook     │  • Hover cards   │  • Export tools  │
-│    switcher     │  • Conflict      │                  │
-│                 │    warnings      │                  │
-└─────────────────────────────────────────────────────┘
+1. User opens Notebook → sees 3-panel: Sources | Chat | Studio
+2. Sources panel auto-suggests questions based on uploaded docs
+3. User types question (or clicks suggested question)
+4. Response streams in with inline [1], [2] citations
+5. Every sentence has at least one citation
+6. User clicks [1] → Sources panel opens, exact passage highlighted
+7. User can verify, then save response as Note
+8. Saved Note becomes part of knowledge base
+9. User can uncheck sources in left panel → responses only use checked sources
 ```
 
-**Sub-recommendations:**
-1. **Sources Panel (left):** Move document library, collection management, per-source selection into a persistent left panel. Allow users to select/deselect sources per query (like Notebook LM).
-2. **Studio Panel (right):** New panel for knowledge products — study guides, flashcards, timelines, export. Also serves as output formatting / export space.
-3. **Responsive panel system:** Panels should collapse/expand based on screen size (Notebook LM-style adaptive layout).
-4. **Notebook metaphor:** Replace "collections" with "notebooks" — a notebook has sources, a chat history, and produced outputs.
+### 4.2 Our System Chat Flow
 
-### 7.2 RAG Pipeline Improvements
+```
+1. User navigates to /chat → WorkspaceLayout renders with collapsed panels
+2. User selects collection in SourcesPanel
+3. Documents auto-selected (all checked by default)
+4. User types question in ChatPanel
+5. Response streams with [Source 1], [Source 2] citations
+6. User hovers over [Source 1] → HoverCard shows snippet
+7. User clicks [Source 1] → CitationModal opens with full quote
+8. No "Save as Note" feature — history is per-session
+9. No auto-suggested questions
+10. User can toggle document checkboxes → affects next query
+```
 
-1. **Real reranker:** Replace the dummy-reranker with an actual cross-encoder (Cohere Rerank or BGE-Reranker-v2). This is the single highest-leverage retrieval improvement.
-2. **Agentic retrieval:** Add a self-correcting loop: if generation's groundedness is low or evidence is insufficient, re-retrieve with refined query.
-3. **Increase effective context:** Support larger chunk sizes (or hierarchical summarization) to approach Notebook LM's per-source context.
-4. **GraphRAG integration:** Add entity extraction + relationship graph for multi-hop questions about connected entities.
+### 4.3 Flow Gaps
 
-### 7.3 Production Infrastructure
-
-1. **Auth system:** Add authentication (Google OAuth or JWT) as a global middleware. Apply to all 8 routers.
-2. **Permission-aware retrieval:** Tag documents with access controls, filter retrieval results by user permissions.
-3. **Monitoring:** Add structured logging (JSON), request tracing, P95 latency tracking per pipeline stage.
-4. **RAG Evaluation:** Integrate RAGAS or similar framework; create a golden dataset and CI gate.
-5. **Docker/K8s deployment:** Containerize backend and frontend, provide docker-compose and Helm charts.
-6. **Rate limiting + usage tracking:** Add per-user/API-key rate limits and usage dashboards.
-
-### 7.4 Test Coverage
-
-- 3-layer safety: minimum 3 tests (one per layer)
-- Query intelligence: test each transformation
-- Retrieval strategies: test each strategy independently
-- Reranking: test with real and stub reranker
-- Streaming: test SSE event sequence
-- Frontend: add component tests for CitationBadge, HoverCard, SourceBrowser
+| Step | Notebook LM | Our System | Severity |
+|------|-------------|------------|----------|
+| Entry | Suggested questions greet user | Blank chat input | MEDIUM |
+| Citation click | Opens Sources panel, highlights passage | Opens modal overlay | **LOW** (different UX, not worse) |
+| Verify flow | See source in context with highlight | See quote in modal | NEUTRAL |
+| Save insight | Save to Note (persists across sessions) | History only (per-session) | **MEDIUM** |
+| Source as KB | Saved notes become sources | Chunk annotations only | **MEDIUM** |
+| Per-query source filter | Uncheck sources → immediate filter on next chat | Toggle docs → affects next query | PARITY |
 
 ---
 
-## 8. Preserved Contracts
+## 5. Structural Differences (Beyond Feature Parity)
 
-| Produces | Consumed By | Current Contract | Change Needed? |
-|----------|-------------|------------------|----------------|
-| Chat response (SSE) | Frontend Chat | `status -> token -> citations -> done` | Extend with `studio` events for real-time products |
-| Citations | CitationBadge / Modal | `{chunk_id, document_id, title, quote_text, ...}` | Add `quote_highlight_range` for precision |
-| Knowledge products | Frontend Studio | REST POST (sync) | Add SSE streaming for large collections |
-| Document list | SourceBrowser | REST GET | No change |
-| Chunk notes | CitationModal / SourceBrowser | REST GET/PUT | No change |
+### 5.1 Citation Enforcement Architecture
 
----
+This is the single most important design difference:
 
-## 9. Risk Assessment
+**Notebook LM:** Token-level citation enforcement in generation. The prompt is engineered so that the LLM *must* emit a citation token for every factual claim. This is an architectural constraint, not a post-processing step.
 
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| No auth = no deployment | **CRITICAL** | Add auth middleware as Phase 1 |
-| Re-ranking stub degrades quality | **HIGH** | Replace with cross-encoder reranker |
-| No tests on safety (317 LOC) | **HIGH** | Add safety test suite immediately |
-| 1K-token chunks vs 1M-token context | **HIGH** | Implement hierarchical chunking + summarization |
-| Single-column UI vs 3-panel | **HIGH** | Implement panel-based layout |
-| No monitoring = blind in prod | **HIGH** | Add structured logging + tracing |
-| No evaluation framework | **HIGH** | Integrate RAGAS |
-| Limited formats (4 vs 11) | **MEDIUM** | Add parsers incrementally |
+**Our system:** Free-text generation → regex extraction → chunk mapping. Citations are extracted after the fact. If the LLM doesn't emit `[Source N]`, the citation is lost. Our prompts do instruct the model to cite (`prompts.py:12-13`), but there's no enforcement mechanism.
 
----
+**Impact:** Notebook LM produces more reliable, more complete citations. Our system can miss citations or produce inaccurate ones (regex misses, wrong chunk mapping).
 
-## 10. Implementation Roadmap
+### 5.2 Reranker Gap
 
-### Phase 1 (Critical — Blockers for Any Deployment)
-2. Replace dummy-reranker with cross-encoder
-3. Safety test suite (minimum 3 tests)
-4. Docker + docker-compose
+**Notebook LM:** BGE-Reranker-v2 cross-encoder, which scores query-chunk pairs with deep semantic matching.
 
-### Phase 2 (High Impact — UX + Quality)
-5. 3-panel UI restructure (Sources + Chat + Studio)
-6. RAG evaluation framework + CI gate
-7. Structured logging + request tracing
-8. Agentic retrieval (re-retrieve loop)
+**Our system:** `reranking.py:24-26` — sorts by `similarity_score` (from hybrid search), no actual cross-encoder. This is a stub.
 
-### Phase 3 (Feature Parity)
-9. Additional format parsers (DOCX, EPUB, YouTube)
-10. Knowledge Product UI in Studio panel
-11. Notebook metaphor (rename collections → notebooks)
-12. Suggested questions + chat personas
+**Impact:** Our top-k chunks after "reranking" are just the same top-k from hybrid search. A real cross-encoder would re-order chunks, pushing more relevant chunks higher and eliminating noise. This directly affects generation quality.
 
-### Phase 4 (Scale)
-13. Permission-aware retrieval
-14. Multi-tenant support
-15. GraphRAG integration
-16. Rate limiting + usage dashboards
+### 5.3 Knowledge Base Loop
+
+**Notebook LM:** User insights → Saved as Note → Becomes source → Available for future chat. This creates a feedback loop where user-generated insights enrich the knowledge base.
+
+**Our system:** Chat history stays per-session. Chunk annotations (`chunk_notes` table) provide a similar but lower-fidelity mechanism — notes are attached to specific chunks, not entire turns.
+
+### 5.4 Source-to-Answer Provenance
+
+**Notebook LM:** Each token in the answer can theoretically be traced back to the source chunk that influenced it (token-level attribution via chunk ID in prompt).
+
+**Our system:** We track which chunks were used in context (`retrieved_chunks_json` on each turn) and extract citations post-hoc, but there's no token-level attribution. The X-Ray panel shows the retrieval trace, which is a debugging feature Notebook LM doesn't have.
 
 ---
 
-## 11. Conclusion
+## 6. Preserved Behaviors (Invariants)
 
-> Our system has a **high-quality RAG core** — hybrid search, multi-strategy retrieval, prompt injection defense, citation extraction, conflict detection, and user annotations are all production-grade. We are **not building from scratch**.
->
-> The critical gaps are: **(1) no authentication** (blocks any production deployment), **(2) dummy reranker** (degrades retrieval quality), **(3) single-column UI** (vs Notebook LM's 3-panel paradigm that enables the full workflow), **(4) no monitoring or evaluation framework** (blind in production), and **(5) sparse test coverage** (only 21 test cases for the chat pipeline).
->
-> The UI restructuring (3-panel layout) is the single biggest UX opportunity — it transforms the app from a "chat with documents" tool into a full "research and creation workspace" matching Notebook LM's workflow.
-
-**Route to:** `/spec-requirements` — scope is clear and bounded. Phase 1 (auth, reranker, Docker) is unambiguous. The UI panel restructure may benefit from an ADR on layout strategy before requirements.
+| ID | Invariant | Code Evidence |
+|----|-----------|---------------|
+| INV-001 | 3-layer safety runs before retrieval | `service.py:68-102` |
+| INV-002 | Hybrid search is default | `retrieval.py:38-46` (`retrieval_mode` defaults to hybrid) |
+| INV-003 | SSE streams are append-only | `streaming.py:50-294` |
+| INV-004 | Migration chain is append-only | 5 migration versions |
+| INV-005 | Screen-Component separation is strict | Screens import components, not vice versa |
+| INV-006 | API calls at screen level | WorkspaceContext mediates some calls |
+| INV-007 | Citations are extracted post-hoc | `citations.py:24-42` regex on generated text |
+| INV-008 | Chunk notes injected into `<source>` tag | `context.py:92-94` `user_note` attribute |
+| INV-009 | Intent classification drives prompt selection | `generation.py:60-71` intent→prompt mapping |
+| INV-010 | Grounding refusal blocks generation | `service.py:182-190` insufficient evidence → refusal |
 
 ---
 
-*Generated 2026-06-29 by Kit Research workflow*
+## 7. Gap Priority Matrix
+
+| Gap | Severity | Effort | Priority | Code Impact |
+|-----|----------|--------|----------|-------------|
+| No authentication | **CRITICAL** | High | **P0** | New middleware on all 9 routers |
+| No Docker / deployment config | **CRITICAL** | Medium | **P0** | New infra files |
+| Dummy reranker (BGE-replacement) | **HIGH** | Medium | **P1** | Replace `reranking.py`, add model dependency |
+| Citation generation-time enforcement | **HIGH** | Medium | **P1** | Modify prompts + citation extraction pipeline |
+| Safety module zero tests (317 LOC) | **HIGH** | Low | **P1** | New test file |
+| No monitoring / structured logging | **HIGH** | Medium | **P2** | New middleware + JSON formatter |
+| No CI/CD gates | **HIGH** | Low | **P2** | GitHub Actions config |
+| RAG evaluation framework | **HIGH** | Medium | **P2** | RAGAS integration |
+| Knowledge products: streaming generation | MEDIUM | Medium | **P3** | SSE for `/generate` routes |
+| Knowledge products: interactive flashcard viewer | MEDIUM | Low | **P3** | New component |
+| Chat history search | MEDIUM | Low | **P3** | New SQL query + UI |
+| Suggested questions | MEDIUM | Medium | **P3** | New endpoint + ChatPanel integration |
+| Save-to-note / notebook loop | MEDIUM | Medium | **P3** | New table + UI |
+| Additional ingestion formats (DOCX, EPUB, YouTube) | MEDIUM | High | **P4** | New extractors |
+| Output export (PDF, PPTX) | MEDIUM | Medium | **P4** | New generation routes |
+| Chat personas | LOW | Medium | **P4** | Prompt templates + settings |
+| Source auto-sync (like Drive sync) | LOW | High | **P5** | Webhook/polling system |
+| GraphRAG | LOW | Very High | **P5** | New architecture |
+| Deep Research / agentic web search | LOW | Very High | **P5** | New agent sub-system |
+
+---
+
+## 8. Risks & Migration Constraints
+
+### 8.1 Risks
+
+| Risk | Description | Mitigation |
+|------|-------------|------------|
+| **Auth retrofit** | Adding auth to 9 existing routers with no auth middleware may require breaking API changes | Use FastAPI middleware + dependency injection pattern |
+| **Reranker model dependency** | BGE-Reranker-v2 requires ~1GB model download + GPU for acceptable latency | Add as optional; keep dummy fallback |
+| **Citation redesign** | Moving from post-hoc to generation-time enforcement requires prompt redesign AND validation pipeline changes | Phase 1: improve post-hoc extraction. Phase 2: add enforcement. |
+| **Database migration** | Adding new features (notes, search, export) may require schema changes to the append-only migration chain | New migrations follow existing pattern (append-only) |
+| **Frontend state complexity** | Adding save-to-note, suggested questions, search will significantly increase `WorkspaceContext` complexity | Consider splitting context into domain-specific providers |
+
+### 8.2 Migration Constraints
+
+1. **Citation format:** If we change from `[Source N]` to `[N]`, existing chat history citations break. Must maintain backward compatibility.
+2. **API contract:** Adding auth must not break the streaming SSE contract (which works without auth today).
+3. **Migration append-only:** All new DB tables must use the existing migration runner pattern.
+4. **Provider abstraction:** LLM provider abstraction (`providers/`) must be preserved — Notebook LM uses Google models, but we support configurable providers.
+5. **X-Ray panel:** Our unique debug panel must not be broken by any changes.
+
+---
+
+## 9. Recommended Build Sequence
+
+### Phase 1 (P0 — Production Gate)
+1. **Authentication middleware** — JWT or OAuth2 on all 9 routers
+2. **Docker + docker-compose** — production deployment config
+
+### Phase 2 (P1 — Quality Parity)
+3. **Replace dummy reranker** — Integrate BGE-Reranker-v2
+4. **Safety module test suite** — Minimum 3 tests per layer (heuristic, fuzzy, LLM)
+5. **Citation enforcement** — Modify prompts to require citations per claim; add validation that all sentences have citations
+
+### Phase 3 (P2 — Observability)
+6. **Structured logging** — JSON + request tracing middleware
+7. **RAG evaluation framework** — RAGAS golden dataset + CI gate
+8. **Monitoring** — Health check endpoints + basic metrics
+
+### Phase 4 (P3 — Feature Parity with Notebook LM)
+9. **Suggested questions** — LLM-generated from source summaries on session open
+10. **Chat history search** — Full-text search across turns
+11. **Save-to-note / notebook loop** — Persist responses as notes; inject notes as sources
+12. **Knowledge product streaming** — SSE for generate routes
+13. **Interactive flashcard viewer** — Flip animation, progress tracking
+
+### Phase 5 (P4 — Expansion)
+14. **DOCX + EPUB ingestion**
+15. **Output export (PDF, PPTX)**
+16. **Chat personas**
+
+### Phase 6 (P5 — Advanced)
+17. **GraphRAG**
+18. **Deep Research / agentic retrieval**
+19. **Multi-modal understanding**
+20. **Source auto-sync**
+
+---
+
+## 10. Conclusion
+
+Our system has **strong parity with Notebook LM on the core 3-panel layout, knowledge products, hybrid search, citation mapping, source filtering, and streaming chat**. The 6 features shipped in late June 2026 closed the most visible UX gap (single-column → 3-panel workspace).
+
+**What we still lack to match Notebook LM as a document-chat product:**
+1. **Production foundation:** No auth, no Docker, no monitoring → blocks any real deployment
+2. **Reranker:** Dummy stub degrades retrieval quality
+3. **Citation architecture:** Post-hoc extraction is less reliable than generation-time enforcement
+4. **Knowledge loop:** No save-to-note → user insights don't feed back into the knowledge base
+5. **Proactive UX:** No suggested questions, no chat history search
+6. **Studio output parity:** No streaming, no export, no interactive flashcards
+
+**Where we lead:**
+- Debug/observability (X-Ray Panel with full pipeline trace)
+- Collection-scoped sessions (Notebook LM has weaker per-collection isolation)
+- Configurable query intelligence strategies (5 transformation types vs Notebook LM's Gemini-native pipeline)
+- Chunk-level user annotations injected into context
+
+Route to `/spec-requirements` for Phase 1 (auth + Docker), then `/spec-plan` for Phase 2 (reranker + citation enforcement). The scope is well-understood and the architecture clean enough to proceed directly.

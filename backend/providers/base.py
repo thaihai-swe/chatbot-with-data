@@ -1,7 +1,7 @@
 """Abstract base classes for LLM and embedding providers."""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 
 class BaseLLMProvider(ABC):
@@ -54,4 +54,32 @@ class BaseEmbeddingProvider(ABC):
             List of embedding vectors, one per input text
         """
         pass
+
+
+class BaseRerankingProvider(ABC):
+    """Abstract base class for reranking providers."""
+
+    @abstractmethod
+    def rerank(self, query: str, chunks: List[Dict[str, Any]], top_k: int) -> List[Dict[str, Any]]:
+        """Rerank a list of candidate chunks against a query.
+
+        Args:
+            query: The search query string
+            chunks: List of dictionaries containing chunk data (must include 'text' and 'chunk_id')
+            top_k: Number of top chunks to return
+
+        Returns:
+            List of sorted chunks, potentially with a 'rerank_score' added
+        """
+        pass
+
+    @abstractmethod
+    def get_model_name(self) -> str:
+        """Get the name of the active reranking model.
+
+        Returns:
+            String representing the model name
+        """
+        pass
+
 
