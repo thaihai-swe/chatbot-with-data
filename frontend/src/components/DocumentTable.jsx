@@ -1,4 +1,90 @@
+import React, { useState, useEffect } from "react";
 import StatusBadge from "./StatusBadge";
+
+function IngestionStepper({ status, createdAt }) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (status === "processing" || status === "submitted") {
+      const interval = setInterval(() => {
+        setNow(Date.now());
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, [status]);
+
+  const elapsedSec = (now - new Date(createdAt).getTime()) / 1000;
+
+  const stages = [
+    { name: "Submitted", key: "submitted" },
+    { name: "Parsing", key: "parsing" },
+    { name: "Chunking", key: "chunking" },
+    { name: "Embedding", key: "embedding" },
+    { name: "Ready", key: "ready" }
+  ];
+
+  let activeIndex = 0;
+  let isFailed = status === "failed";
+  let isComplete = status === "completed";
+
+  if (isComplete) {
+    activeIndex = 5;
+  } else if (isFailed) {
+    if (elapsedSec < 1.5) activeIndex = 1;
+    else if (elapsedSec < 3.0) activeIndex = 2;
+    else activeIndex = 3;
+  } else if (status === "submitted") {
+    activeIndex = 0;
+  } else if (status === "processing") {
+    if (elapsedSec < 1.5) activeIndex = 1;
+    else if (elapsedSec < 3.0) activeIndex = 2;
+    else activeIndex = 3;
+  }
+
+  return (
+    <div className="ingestion-stepper" style={{ display: "flex", alignItems: "center", gap: "4px", width: "100%", maxWidth: "160px" }}>
+      {stages.map((stage, idx) => {
+        let stepClass = "pending";
+        let titleText = `${stage.name} - Pending`;
+
+        if (isComplete || idx < activeIndex) {
+          stepClass = "done";
+          titleText = `${stage.name} - Completed`;
+        } else if (idx === activeIndex) {
+          if (isFailed) {
+            stepClass = "failed";
+            titleText = `${stage.name} - Failed`;
+          } else {
+            stepClass = "active";
+            titleText = `${stage.name} - Active`;
+          }
+        }
+
+        return (
+          <React.Fragment key={stage.key}>
+            {idx > 0 && (
+              <div 
+                className={`stepper-line ${idx <= activeIndex ? (isComplete || idx < activeIndex ? "line-done" : "line-active") : "line-pending"}`}
+                style={{ flex: 1, height: "2px", transition: "all 0.3s ease" }}
+              />
+            )}
+            <div 
+              className={`stepper-dot dot-${stepClass}`}
+              title={titleText}
+              style={{
+                width: "12px",
+                height: "12px",
+                borderRadius: "50%",
+                transition: "all 0.3s ease",
+                cursor: "help"
+              }}
+            />
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
 
 function DocumentTable({
   collections,
@@ -10,7 +96,7 @@ function DocumentTable({
 }) {
   if (!documents.length) {
     return (
-      <section className="panel">
+      <section className="panel glassmorphic">
         <div className="empty-state">
           <h3 style={{ fontSize: "20px", marginBottom: "12px", color: "var(--text-primary)" }}>No documents found</h3>
           <p style={{ color: "var(--text-secondary)", fontSize: "15px" }}>Upload a source above to populate your library.</p>
@@ -20,7 +106,7 @@ function DocumentTable({
   }
 
   return (
-    <section className="panel" style={{ padding: "0", overflow: "hidden" }}>
+    <section className="panel glassmorphic" style={{ padding: "0", overflow: "hidden" }}>
       <div style={{ padding: "32px 32px 0" }}>
         <h2 style={{ fontSize: "20px", marginBottom: "8px" }}>Library Inventory</h2>
         <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "24px" }}>Manage and organize your indexed source documents.</p>
@@ -46,7 +132,11 @@ function DocumentTable({
                     "None"}
                 </td>
                 <td>
-                  <StatusBadge status={document.latest_status} />
+                  {document.is_attempt ? (
+                    <IngestionStepper status={document.latest_status} createdAt={document.created_at} />
+                  ) : (
+                    <StatusBadge status={document.latest_status || "completed"} />
+                  )}
                 </td>
                 <td>
                   <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>

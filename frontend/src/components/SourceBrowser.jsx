@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { getDocument, getChunkNote, upsertChunkNote, reindexDocument } from "../api/knowledgeApi";
 import { useWorkspace } from "../context/WorkspaceContext";
 
@@ -147,7 +148,7 @@ function NoteEditor({ chunkId, onNoteChange }) {
 function ChunkModal({ chunk, documentTitle, onClose }) {
   if (!chunk) return null;
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "680px" }}>
         <div className="modal-header">
@@ -194,7 +195,8 @@ function ChunkModal({ chunk, documentTitle, onClose }) {
           <button className="button button-primary" onClick={onClose}>Done</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useWorkspace } from "../../context/WorkspaceContext";
 
 import {
   createCollection,
@@ -12,6 +14,8 @@ import CollectionCard from "../../components/CollectionCard";
 import CollectionForm from "../../components/CollectionForm";
 
 function CollectionsScreen() {
+  const navigate = useNavigate();
+  const { selectCollection } = useWorkspace();
   const [collections, setCollections] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [error, setError] = useState("");
@@ -49,8 +53,7 @@ function CollectionsScreen() {
     await refreshData();
   }
 
-  async function handleRename(collection) {
-    const nextName = window.prompt("Rename collection", collection.name);
+  async function handleRename(collection, nextName) {
     if (!nextName || nextName === collection.name) {
       return;
     }
@@ -66,6 +69,12 @@ function CollectionsScreen() {
   async function handleMoveDocument(documentId, collectionIds) {
     await moveDocument(documentId, collectionIds);
     await refreshData();
+  }
+
+  async function handleStartChat(collection) {
+    const docs = documentsByCollection[collection.id] || [];
+    selectCollection(collection.id, collection.name, docs);
+    navigate("/chat");
   }
 
   return (
@@ -97,10 +106,11 @@ function CollectionsScreen() {
               onDelete={handleDelete}
               onMoveDocument={handleMoveDocument}
               onRename={handleRename}
+              onStartChat={handleStartChat}
             />
           ))
         ) : (
-          <section className="panel" style={{ gridColumn: "1 / -1" }}>
+          <section className="panel glassmorphic" style={{ gridColumn: "1 / -1" }}>
             <div className="empty-state">
               <h3 style={{ fontSize: "20px", marginBottom: "12px" }}>No collections yet</h3>
               <p style={{ color: "var(--text-secondary)", fontSize: "15px" }}>Create your first collection to start organizing ingested documents.</p>

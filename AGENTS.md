@@ -28,11 +28,11 @@ If a provider is active, read `core-zero/project/code-intelligence.md` to resolv
 
 ### Fallback Rules (when provider is active but a capability is unavailable)
 
-| Situation                            | Action                                                             |
-|--------------------------------------|--------------------------------------------------------------------|
+| Situation                             | Action                                                           |
+| ------------------------------------- | ---------------------------------------------------------------- |
 | Capability is `N/A` for this provider | Use `grep -rn`, `git log --follow`, or read the file directly    |
-| Index is stale                        | Re-run the setup command once; if it fails, proceed without tool  |
-| Tool unavailable or times out         | Skip call; note `[CI tool unavailable]` in task summary           |
+| Index is stale                        | Re-run the setup command once; if it fails, proceed without tool |
+| Tool unavailable or times out         | Skip call; note `[CI tool unavailable]` in task summary          |
 
 ### Skill Files
 
@@ -63,6 +63,7 @@ When a rule uses one of these keywords, treat it with the corresponding weight.
 * Preserve behavior: Existing observable behavior is a contract. You MUST NOT change it unless the user explicitly asks.
 * Apply architectural rules: For object-oriented design (OOP), SOLID principles, and preventing cross-cutting overengineering (duplicate spellings, hidden coupling, premature seams), see `core-zero/policies/code-design.md`. Its `MUST` / `MUST NOT` rules carry the same weight as the rules in this section.
 * Read the Master Index: Before non-trivial work, SHOULD consult `MASTER_INDEX.md` routes on-demand context indexes and key memory files (such as `core-zero/memories/repo/core-policies.md` which declares active status and limits).
+* Read DESIGN.md for UI: If a `DESIGN.md` exists in the repository root, read it before any visual or component work. It defines the design system — colors, typography, spacing, components, and interaction patterns — and instructs coding agents how the project should look and feel.
 
 ## 1. Operating Loop
 
@@ -185,7 +186,7 @@ Before responding, ensure the final message includes:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **chatbot-with-data** (5417 symbols, 8431 relationships, 270 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **chatbot-with-data** (5582 symbols, 8593 relationships, 268 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { getChunkNote, upsertChunkNote } from "../api/knowledgeApi";
 
 function getQuoteText(citation) {
@@ -38,7 +39,7 @@ export default function CitationModal({ citation, chunk, onClose }) {
     }
   };
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
@@ -156,6 +157,7 @@ export default function CitationModal({ citation, chunk, onClose }) {
           <button className="button button-primary" onClick={onClose}>Done</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

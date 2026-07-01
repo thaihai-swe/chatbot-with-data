@@ -15,7 +15,7 @@ function CollectionForm({ onSubmit }) {
   }
 
   return (
-    <section className="panel" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent)", boxShadow: "var(--shadow-sm)" }}>
+    <section className="panel glassmorphic" style={{ border: "1px solid var(--accent)", boxShadow: "var(--shadow-sm)" }}>
       <div className="panel-heading" style={{ marginBottom: "24px" }}>
         <div>
           <h2 style={{ fontSize: "20px", fontWeight: "750" }}>Create Architecture</h2>
