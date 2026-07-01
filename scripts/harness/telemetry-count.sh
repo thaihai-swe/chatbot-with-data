@@ -30,7 +30,7 @@ ROOT_DIR=$(resolve_repo_root "${ROOT_DIR:-}") || {
   echo "ERROR: Could not resolve repository root." >&2; exit 1
 }
 
-TELEMETRY_FILE="$ROOT_DIR/memories/repo/harness-telemetry.jsonl"
+TELEMETRY_FILE="$ROOT_DIR/core-zero/memories/repo/harness-telemetry.jsonl"
 [[ -f "$TELEMETRY_FILE" ]] || { echo "0"; exit 0; }
 
 python3 -c "

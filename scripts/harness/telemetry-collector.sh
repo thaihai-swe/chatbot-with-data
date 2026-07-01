@@ -42,7 +42,7 @@ RESOLVED_ROOT=$(resolve_repo_root "${ROOT_DIR:-${HARNESS_REPO_ROOT:-}}") || {
   echo "ERROR: Could not resolve repository root." >&2; exit 1
 }
 
-TELEMETRY_FILE="$RESOLVED_ROOT/memories/repo/harness-telemetry.jsonl"
+TELEMETRY_FILE="$RESOLVED_ROOT/core-zero/memories/repo/harness-telemetry.jsonl"
 mkdir -p "$(dirname "$TELEMETRY_FILE")"
 
 NEXT_ID=$(python3 -c "

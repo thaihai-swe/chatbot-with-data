@@ -10,8 +10,8 @@
 | `core-zero/project/code-map.md` | Generated map of code locations, file structures, counts, roots, and component domains. | Before any implementation task: new file, new route, new component. |
 | `core-zero/rules/*.md` | Per-domain coding and policy rules (security, simplicity, etc.). | When the active task touches a security-sensitive domain or when loading a specific rule set. |
 | `manifest.json` | Installation manifest listing kit-managed (overwrite) and adopter-owned (copyIfMissing/preserve) files. | When auditing or modifying the kit file structure or installation behavior. |
-| memories/repo/core-policies.md | Repo-wide normative rules (CC-* identifiers), security policy, and memory promotion thresholds. | Read at session start and before changing core policies or security rules. |
-| memories/repo/harness-config.md | Adopter-tailored seed: repository identity, work tracking, artifact routing, verification commands, session defaults, lifecycle. | Load when the task touches setup, bootstrap, commands, session defaults, or lifecycle configuration. |
+| core-zero/memories/repo/core-policies.md | Repo-wide normative rules (CC-* identifiers), security policy, and memory promotion thresholds. | Read at session start and before changing core policies or security rules. |
+| core-zero/memories/repo/harness-config.md | Adopter-tailored seed: repository identity, work tracking, artifact routing, verification commands, session defaults, lifecycle. | Load when the task touches setup, bootstrap, commands, session defaults, or lifecycle configuration. |
 
 ## 2. Memory Router
 
@@ -26,7 +26,7 @@
 
 ### Always (load every session)
 
-- `memories/repo/core-policies.md` — repo-wide normative rules (CC-* identifiers), security policy, memory promotion thresholds. Loaded every session.
+- `core-zero/memories/repo/core-policies.md` — repo-wide normative rules (CC-* identifiers), security policy, memory promotion thresholds. Loaded every session.
 
 ### By Intent — Config
 
@@ -34,7 +34,7 @@ Broad Intent Keywords: `setup`, `bootstrap`, `install`, `repository identity`, `
 
 *(Evaluate individually; do not block-load the group)*
 
-- `memories/repo/harness-config.md` — adopter-tailored seed: repository identity, work tracking, artifact routing, verification commands, session defaults, delivery lifecycle, known limits.
+- `core-zero/memories/repo/harness-config.md` — adopter-tailored seed: repository identity, work tracking, artifact routing, verification commands, session defaults, delivery lifecycle, known limits.
 
 ### By Intent — Knowledge
 
@@ -42,12 +42,12 @@ Broad Intent Keywords: `architecture`, `pattern`, `convention`, `stack`, `module
 
 *(Evaluate files individually; do not block-load the group)*
 
-- `memories/repo/project-knowledge-base.md` — durable patterns, watchouts, project continuity facts.
-- `memories/repo/adr-log.md` — index of architecture decisions; load when the task touches prior decisions or architectural tradeoffs. *(Skip if the file does not exist yet.)*
+- `core-zero/memories/repo/project-knowledge-base.md` — durable patterns, watchouts, project continuity facts.
+- `core-zero/memories/repo/adr-log.md` — index of architecture decisions; load when the task touches prior decisions or architectural tradeoffs. *(Skip if the file does not exist yet.)*
 - `core-zero/project/architecture.md` — durable system structure, boundaries, integration seams.
 - `core-zero/project/product-sense.md` — product vision, target users, success metrics. Load on product/scoping work.
 - `core-zero/project/glossary.md` — shared vocabulary and naming conventions. Load when naming or terminology matters.
-- `core-zero/project/tech-stack.md` — dependencies, APIs, tools, conventions. Load before adding deps or touching integrations. If gitnexus is listed under Development Tools, the project's code graph is available via MCP.
+- `core-zero/project/tech-stack.md` — dependencies, APIs, tools, conventions. Load before adding deps or touching integrations. Also read `core-zero/project/code-intelligence.md` to see which code intelligence MCP provider is active and how to call its tools.
 - `core-zero/project/project-constraints.md` — budgets, compliance, deploy, security constraints. Load when constraints bound the change.
 - `core-zero/project/code-map.md` — generated map of code locations.
 
@@ -67,12 +67,12 @@ Broad Intent Keywords: `heuristic`, `instinct`, `recurring`, `lesson`, `we alway
 
 *(Evaluate files individually; do not block-load the group)*
 
-- `memories/repo/learned-heuristics.md` — evidence-backed instincts that improve future execution.
-- `memories/archive/deprecated-heuristics.md` — Cold storage for decayed LH-* heuristics. Not loaded into context by default.
+- `core-zero/memories/repo/learned-heuristics.md` — evidence-backed instincts that improve future execution.
+- `core-zero/memories/archive/deprecated-heuristics.md` — Cold storage for decayed LH-* heuristics. Not loaded into context by default.
 
 ### By Domain Packs
 
-Domain packs live in `memories/domain/`. Trigger keywords are declared in `glossary.md` frontmatter.
+Domain packs live in `core-zero/memories/domain/`. Trigger keywords are declared in `glossary.md` frontmatter.
 
 - **`glossary.md`:** Load whenever 1+ trigger keywords match (establishes baseline vocabulary).
 - **`boundaries.md`:** Load ONLY when the task involves cross-domain API calls, schema migrations, or multi-feature integration.
@@ -82,15 +82,13 @@ Domain packs live in `memories/domain/`. Trigger keywords are declared in `gloss
 - **No packs installed:** Skip this section entirely.
 
 Installed packs:
-- **RAG Pipeline** (`memories/domain/rag/`) — triggers: `rag`, `retrieval`, `generation`, `rerank`, `hybrid search`, `bm25`, `vector search`, `query`, `context assembly`, `streaming`, `citation`, `grounding`, `candidate merger`, `rrf`, `safety`, `prompt injection`. Core query processing pipeline.
-- **Document Ingestion** (`memories/domain/ingestion/`) — triggers: `ingestion`, `chunking`, `embedding`, `indexing`, `upload`, `extract`, `duplicate detection`, `document`, `weaviate`, `pdf`, `migration`. Document upload, extraction, chunking, and indexing.
-- **Frontend UI** (`memories/domain/frontend/`) — triggers: `frontend`, `react`, `ui`, `screen`, `component`, `vite`, `x-ray`, `chat ui`, `document library`, `settings`, `evaluation`, `playground`. React SPA screens and components.
+- **example** (`core-zero/memories/domain/`) — triggers: `example`, `sample`, `demo`, `template`, `walkthrough`. Worked-example pack shipped as a schema demo; replace with a real domain pack.
 
 ### By Debug (load on debug, retro, or failure)
 
 Trigger keywords: `debug`, `failure`, `regression`, `incident`, `retro`, `flaky`, `why did`, `root cause`.
 
-- `memories/repo/harness-telemetry.jsonl` + `.md` — JSONL records written by `telemetry-collector.sh`, human view rendered by `telemetry-render.sh`. Triaged by `/harness-maintain`.
+- `core-zero/memories/repo/harness-telemetry.jsonl` + `.md` — JSONL records written by `telemetry-collector.sh`, human view rendered by `telemetry-render.sh`. Triaged by `/harness-maintain`.
 - `artifacts/features/<slug>/session-extracts.md` — per-feature distillation, candidate-only until triaged.
 
 ## 3. Phase × Guidance Matrix
@@ -115,16 +113,21 @@ The Always group loads every session. This matrix says what to **add** at each p
 | `domain/boundaries.md` (on match) | Should | Should | Skip | Should |
 | `domain/patterns.md` (on match) | Skip | Should | Must | Skip |
 | `domain/anti-patterns.md` (on match) | Skip | Skip | Skip | Must |
-| `gitnexus` MCP (if installed) | Skip | Should | Should | Should | — Use `gitnexus impact` / `gitnexus context` before planning changes. If not installed, skip. |
-
+| Code intelligence MCP (if installed) | Should | Should | Should | Should | — Read `core-zero/project/code-intelligence.md` to resolve tool names for **explore/query**, **impact analysis**, and **symbol context**. Use during research and before planning changes. If not installed, skip. |
 | `harness-telemetry.md` | Skip | Skip | Skip | Should |
 | Prior `session-extracts.md` | Skip | Should | Skip | Skip |
+
+> **When any memory file hits the Early Warning threshold (≥ 100 lines):**
+> Run `/context-compact` before continuing. This applies at any phase.
+> Do not wait for post-ship audit mode to discover bloat.
 
 Phase definitions (Mapped to the canonical 7-Phase Delivery Loop):
 - **Bootstrap**: Initializing workspace via `starter-init`.
 - **Session START**: Starting session via `context-session START`.
 - **Requirements Intake (Spec)**: Defining requirements via `spec-requirements`.
 - **Planning (Plan)**: Designing features and drafting task lists via `spec-plan`.
+- **Testing Scenarios (Optional)**: Drafting manual test scenario guides via `spec-testing-scenario`. Fully user-optional; invoke at any point before or after implementation.
+- **Compaction (any phase)**: Triggered when a memory file hits Early Warning. Run `/context-compact` to shrink the file before context budget is impacted.
 - **Implementation (Implement)**: Coding, proving tasks, and evicting context via `spec-implement`.
 - **Verification (Verify)**: Running mechanical test runners and audits via `harness-verify`.
 - **Memory Sync**: Triaging and promoting heuristics via `context-memory` and closing session via `context-session END`.
@@ -133,7 +136,7 @@ Phase definitions (Mapped to the canonical 7-Phase Delivery Loop):
 
 Domain packs add project-specific semantic context to the memory router. Each pack captures the ubiquitous language, proven patterns, anti-patterns, and boundary rules for a specific business or technical domain.
 
-Domain packs live in `memories/domain/`. The memory router loads a pack when the active task's keywords match the pack's declared triggers.
+Domain packs live in `core-zero/memories/domain/`. The memory router loads a pack when the active task's keywords match the pack's declared triggers.
 
 > [!NOTE]
 > Domain packs represent context for a specific *bounded subdomain* within the app. They do not replace or duplicate project-wide documentation. Use `core-zero/project/glossary.md` for project-wide dictionary terms, `core-zero/project/architecture.md` for top-level component maps, and `core-zero/project/tech-stack.md` for global dependencies.
@@ -145,16 +148,6 @@ Domain packs live in `memories/domain/`. The memory router loads a pack when the
 - Once activated, use the Phase × Guidance Matrix to determine which files from the pack to load.
 - With 0 matches, the pack is skipped entirely.
 
-See `memories/domain/README.md` for the full file schema, creation steps, and lifecycle guidance.
+See `core-zero/memories/domain/README.md` for the full file schema, creation steps, and lifecycle guidance.
 
-## 5. Promotion Watchlist
 
-Files flagged for structural action (split, extract, or retire) when they exceed the thresholds in `core-policies.md ## Memory Promotion Thresholds`. Written by `/context-memory` post-ship sync; read by `/context-compact` to abort if a file is flagged for splitting rather than compaction.
-
-| File | Proposal | Proposed action | Date | Status |
-|------|----------|-----------------|------|--------|
-| (path to file) | artifacts/features/<slug>/promotions.md | split / extract / retire | YYYY-MM-DD | open / approved / done |
-
-- **open**: proposal submitted, awaiting review.
-- **approved**: user approved the action; `/context-compact` or manual split may proceed.
-- **done**: action completed; row retained for audit trail.

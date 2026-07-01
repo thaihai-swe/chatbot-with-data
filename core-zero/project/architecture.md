@@ -1,75 +1,46 @@
 # Architecture
 
-> Pre-filled from archaeology sweep evidence (2026-06-28).
+> Ownership: `Adopter-owned`
 
-## System Overview
+Living architecture doc for the installed CoreZero surface.
 
-Two-tier web application: FastAPI Python backend + React SPA frontend. Weaviate vector DB runs as a separate Docker container.
+## System Snapshot
 
-```
-┌─────────────┐      HTTP/SSE      ┌──────────────┐      ┌──────────┐
-│  React SPA  │ ──────────────────▶│  FastAPI      │─────▶│ SQLite   │
-│  (Vite dev) │◀───────────────────│  Backend      │◀─────│ (16 tbls)│
-└─────────────┘                   │  (:8000)      │      └──────────┘
-                                   │               │      ┌──────────┐
-                                   │               │─────▶│ Weaviate │
-                                   │               │      │ (:8080)  │
-                                   │               │      └──────────┘
-                                   │               │      ┌──────────┐
-                                   │               │─────▶│ OpenAI   │
-                                   │               │      │ endpoint │
-                                   └──────────────┘      └──────────┘
-```
+- Repository type: Adopter-facing harness package
+- Primary runtime(s): Markdown, Bash, optional Python 3 for validation helpers
+- Main entrypoints: `AGENTS.md`, `MASTER_INDEX.md`, `scripts/install.sh`, `skills/*/SKILL.md`
+- Deployment shape: Installed workflow layer inside a downstream repository
+- Confidence: High
 
-## Component Boundaries
+## Top-Level Components
 
-### Backend (`backend/`)
-- **`app.py`** — FastAPI app factory (CORS, middleware, routers, error handlers, migrations)
-- **`routers/`** — 7 route modules (health, chat, documents, collections, ingestion, settings, duplicate_decisions)
-- **`chat/`** — Core RAG pipeline (safety → query intelligence → retrieval → reranking → context assembly → generation → streaming → citations → grounding)
-- **`chunking/`** — 5 strategies (fixed-size, heading-aware, page-aware, semantic, parent-child)
-- **`extractors/`** — Document extraction (PDF, text, web)
-- **`ingestion/`** — Document ingestion orchestration + URL ingestion
-- **`indexing/`** — Vector DB integration (Weaviate store, indexing service)
-- **`embeddings/`** — OpenAI embedding client
-- **`providers/`** — LLM/embedding provider abstraction (base, OpenAI, factory)
-- **`repositories/`** — Data access layer (SQLite, 6 repositories)
-- **`models/`** — Data models (chat, embedding, enums, index_entry, index_generation)
-- **`schemas/`** — Pydantic request/response schemas
-- **`migrations/`** — Database migration runner (4 versions, 16 tables)
-- **`config/`** — Runtime config (settings.json, injection patterns, injection corpus)
-- **`duplicate_detection/`** — Dedup by file hash, text hash, similarity
+| Component | Responsibility | Key Paths | Notes |
+| --- | --- | --- | --- |
+| Router and policy entrypoints | Load-order and operating defaults | `AGENTS.md`, `core-zero/memories/repo/*` | Router stays thin; durable rules live in memory files |
+| Installed docs | User-facing operating guidance | `core-zero/project/*`, `core-zero/policies/code-design.md`, `core-zero/generated/*` | Must match shipped files exactly |
+| Skill contracts | Canonical workflow behavior | `skills/*/SKILL.md`, `skills/*/references/` | Behavioral source of truth |
+| Maintenance scripts | Install helpers | `scripts/install.sh` | Used for install and upgrades |
 
-- **6 screens**: Chat, Collections, DocumentLibrary, DuplicateDecision, Evaluation, SettingsScreen
-- **11 reusable components**: XRayPanel, UploadForm, DocumentTable, etc.
-- **4 API client modules**: client.js, chat.js, knowledgeApi.js, settings.js
-- Single-page app using React Router v6 for client-side routing
+## Runtime Boundaries
 
-## Data Flow
+- Boundary: Installed docs vs source-repo maintainer docs
+  Owner: `core-zero/` in the installed repo; `documents/` in the source repo
+  Crossing rule: installed docs must never depend on nonexistent local maintainer files
 
-### Ingestion Pipeline
-```
-Upload → Extraction (PDF/TXT/Web) → Duplicate Detection 
-  → Chunking (auto-select strategy) → Embedding (cached) 
-  → Indexing (Weaviate + SQLite)
-```
+- Boundary: Skill behavior vs explanation surfaces
+  Owner: `skills/*/SKILL.md`
+  Crossing rule: when a command or artifact contract changes, update `skills/`, `core-zero/`, `documents/`, and generated references together
 
-### Query Pipeline
-```
-Query → Safety Check (heuristic + fuzzy + LLM) 
-  → Query Intelligence (classify, expand, decompose, HyDE, synonym, dynamic route) 
-  → Multi-Strategy Retrieval (BM25 + semantic + HyDE in parallel) 
-  → RRF Merge → Rerank → Context Assembly 
-  → Grounded Generation with Streaming → Citation Extraction 
-  → Persist to SQLite
-```
+- Boundary: Kit-managed vs adopter-owned files
+  Owner: `manifest.json` in the source repo
+  Crossing rule: overwrite only kit-managed files; preserve adopter-owned seeded content and artifacts. Posture detail (`overwrite` / `copyIfMissing` / `preserve`) is explained in `core-zero/memories/repo/project-knowledge-base.md` §1.
 
-## Integration Points
+## Safe Change Guidance
 
-| Integration | Type | Details |
-|-------------|------|---------|
-| Weaviate | Vector DB | gRPC :50051, HTTP :8080 |
-| OpenAI LLM | External API | Configurable base URL, API key from env |
-| OpenAI Embedding | External API | Configurable base URL, API key from env |
-| Web URLs | HTTP fetch | Document ingestion from URLs |
-| SQLite | File DB | `data/knowledge_ingestion/app.db` |
+- High-risk areas: `scripts/install.sh`, `core-zero/generated/*`, shipped path claims in `core-zero/project/*`, and `core-zero/policies/code-design.md`
+- Required proof: installer dry-run and install smoke test
+
+## Architectural Decision Records (ADRs)
+
+All architectural decisions for this project are documented individually to maintain context over time.
+See the [ADR Master Index](adr/index.md) for a complete log of decisions.

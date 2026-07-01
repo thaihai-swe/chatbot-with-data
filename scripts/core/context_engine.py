@@ -17,12 +17,12 @@ from core._lib.yaml_reader import load as load_yaml
 def resolve_root(root_flag):
     if root_flag:
         p = Path(root_flag).resolve()
-        if (p / "AGENTS.md").exists() and (p / "memories/repo").exists():
+        if (p / "AGENTS.md").exists() and (p / "core-zero/memories/repo").exists():
             return p
         if (p / "kit/AGENTS.md").exists():
             return p / "kit"
     for d in [Path.cwd()] + list(Path.cwd().parents):
-        if (d / "AGENTS.md").exists() and (d / "memories/repo").exists():
+        if (d / "AGENTS.md").exists() and (d / "core-zero/memories/repo").exists():
             return d
         if (d / "kit/AGENTS.md").exists():
             return d / "kit"
@@ -189,12 +189,12 @@ def _path_for_source(source):
     if source.startswith("core-zero/") or source.startswith("skills/") or source.startswith("scripts/"):
         return source
     if source.startswith("domain/"):
-        return f"memories/{source}"
+        return f"core-zero/memories/{source}"
     if source in ("harness-telemetry.md",):
-        return f"memories/repo/{source}"
+        return f"core-zero/memories/repo/{source}"
     if source in ("session-extracts.md", "Prior `session-extracts.md`"):
         return None
-    return f"memories/repo/{source}"
+    return f"core-zero/memories/repo/{source}"
 
 
 def parse_phase_matrix(text):

@@ -10,7 +10,7 @@
 #   - Backs up existing kit-managed files to <target>/.corezero-backup-<timestamp>/.
 #   - Overwrites kit content (skills, scripts, rules, doc references).
 #   - Copies user-content files (memory, templates, architecture) only if missing.
-#   - Preserves user state (memories/repo content, artifacts/, local settings).
+#   - Preserves user state (core-zero/memories/repo content, artifacts/, local settings).
 #   - Idempotent. Re-running upgrades the kit and preserves your content.
 #
 # Curl-pipe support:
@@ -77,12 +77,6 @@ for k in sys.argv[2].split('.'):
 print(cur)
 PY
 }
-
-if sed --version >/dev/null 2>&1; then
-  SED_INPLACE=(sed -i)
-else
-  SED_INPLACE=(sed -i '')
-fi
 
 expand_glob() {
   local pattern="$1"
@@ -333,7 +327,6 @@ warn_orphans() {
     "skills/context-memory/references/architecture-template.md"
     "skills/context-memory/references/constitution-template.md"
     "skills/context-memory/references/index-template.md"
-    "skills/context-memory/references/project-knowledge-base-template.md"
     "skills/context-memory/references/security-policy-template.md"
     "skills/context-memory/references/observability-log-template.md"
     "skills/context-memory/references/adr-log-template.md"
@@ -343,6 +336,9 @@ warn_orphans() {
     "skills/harness-maintain/references/references-index-template.md"
     "core-zero/generated/references-index.md"
     "memories/repo/security-policy.md"
+    "memories/repo"
+    "memories/domain"
+    "memories/archive"
     "INDEX.md"
     "core-zero/README.md"
     "skills/context-status/references/dashboard-template.html"
@@ -376,15 +372,14 @@ if [[ "$DRY_RUN" != "true" ]]; then
   validate_path "skills/context-status/SKILL.md" "Context-status skill"
   validate_path "skills/harness-maintain/SKILL.md" "Harness-maintain skill"
   validate_path "skills/spec-adr/SKILL.md" "Spec-ADR skill"
-  validate_path "skills/technical-core-zero/SKILL.md" "Technical-docs skill"
+  validate_path "skills/technical-docs/SKILL.md" "Technical-docs skill"
   validate_path "skills/codebase-documenter/SKILL.md" "Codebase-documenter skill"
   validate_path "skills/visualize/SKILL.md" "Visualize skill"
   validate_path "skills/visualize/scripts/validate_mermaid.py" "Visualize Mermaid validator"
   validate_path "skills/visualize/templates/architecture.svg" "Visualize SVG template"
-  validate_path "memories/repo" "Memory layer"
-  validate_path "memories/repo/core-policies.md" "Core policies"
-  validate_path "memories/repo/core-policies.md" "Core policies"
-  validate_path "memories/repo/harness-config.md" "Harness config"
+  validate_path "core-zero/memories/repo" "Memory layer"
+  validate_path "core-zero/memories/repo/core-policies.md" "Core policies"
+  validate_path "core-zero/memories/repo/harness-config.md" "Harness config"
   validate_path "AGENTS.md" "Runtime entrypoint"
   validate_path "core-zero/rules/security.md" "Security rules"
   validate_path "core-zero/rules/ponytail.md" "Ponytail rules"
@@ -396,7 +391,7 @@ if [[ "$DRY_RUN" != "true" ]]; then
   validate_path "scripts/harness/doctor.sh" "Harness Doctor"
   log ""
   log "Running kit doctor..."
-  if bash "$TARGET_DIR/scripts/harness/doctor.sh"; then
+  if (cd "$TARGET_DIR" && bash "$TARGET_DIR/scripts/harness/doctor.sh"); then
     log "  [OK]   All doctor checks passed"
   else
     errors=$((errors + 1))

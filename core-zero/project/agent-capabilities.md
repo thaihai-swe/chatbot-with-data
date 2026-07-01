@@ -1,23 +1,25 @@
 # Agent Capabilities
 
-## Required (must-have)
+This file documents the capabilities the AI agent requires to operate this kit effectively.
 
-| Capability | Available | Notes |
-|------------|-----------|-------|
-| Shell execution | ✓ | bash tool |
-| File editing | ✓ | edit/write tools |
-| Skill invocation | ✓ | skill tool |
+## Required
+
+| Capability | Used by |
+|---|---|
+| Shell execution | All skills — gate-runner, telemetry, scripts |
+| File editing (read/write) | All skills — status.md, spec.md, code changes |
+| Slash-command / skill invocation | All skills — routed via AGENTS.md |
 
 ## Recommended
 
-| Capability | Available | Notes |
-|------------|-----------|-------|
-| Subagent (task tool) | ✓ | Available as `task` |
-| Web fetch/search | ✓ | webfetch, websearch tools |
+| Capability | Used by |
+|---|---|
+| Subagent spawning | `starter-init` (Phase A archaeology sweep), `spec-research` (structural feature exploration) |
 
 ## Optional
 
-| Capability | Available | Notes |
-|------------|-----------|-------|
-| Python 3 | ✓ | Detected via `.venv/` |
-| Mermaid CLI (mmdc) | [UNKNOWN] | Not verified during init |
+| Capability | Used by |
+|---|---|
+| Python 3 | `visualize`, `scripts/context-loader.py`, `scripts/generate-dashboard.py` |
+| `mmdc` (Mermaid CLI) | `visualize` — SVG diagram export |
+| Code intelligence MCP (optional) | All skills — provides code knowledge graph (call chains, impact analysis, dependency maps). Active provider declared in `core-zero/project/code-intelligence.md`. Supports: gitnexus, codebase-memory-mcp, or any compatible tool. |

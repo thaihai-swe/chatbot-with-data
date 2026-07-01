@@ -18,8 +18,8 @@ RESOLVED_ROOT=$(resolve_repo_root "${ROOT_DIR:-${HARNESS_REPO_ROOT:-}}") || {
   echo "ERROR: Could not resolve repository root." >&2; exit 1
 }
 
-JSONL_FILE="$RESOLVED_ROOT/memories/repo/harness-telemetry.jsonl"
-MD_FILE="$RESOLVED_ROOT/memories/repo/harness-telemetry.md"
+JSONL_FILE="$RESOLVED_ROOT/core-zero/memories/repo/harness-telemetry.jsonl"
+MD_FILE="$RESOLVED_ROOT/core-zero/memories/repo/harness-telemetry.md"
 
 if [[ ! -f "$JSONL_FILE" ]]; then
   echo "# Harness Telemetry" > "$MD_FILE"

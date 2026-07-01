@@ -1,45 +1,72 @@
-# Tech Stack
+# Project Tech Stack
 
-> Pre-filled from archaeology sweep evidence (2026-06-28).
+> Note: This is a seeded placeholder for your project's technical stack.
+> The `/starter-init` skill will attempt to automatically pre-fill this document by scanning your package and configuration files (e.g., `package.json`, `pyproject.toml`, etc.).
+> You and the kit's skills should collaboratively maintain this document as your dependencies and conventions evolve.
+
+<!-- LLM-friendly reference of your project's dependencies, APIs, tools, and conventions. Designed for agent consumption — agents read this to understand what's available without searching the codebase. /spec-research, /spec-plan, and /spec-implement use this for context. -->
 
 ## Languages & Runtimes
 
-| Layer | Language | Runtime |
-|-------|----------|---------|
-| Backend | Python 3.10+ | CPython |
-| Frontend | JavaScript (not TypeScript) | Node.js (Vite dev server) |
+| Language | Version | Purpose | Package Manager |
+| -------- | ------- | ------- | --------------- |
+|          |         |         |                 |
 
-## Frameworks & Libraries
+## Frameworks
 
-### Backend
-- **FastAPI** — async web framework (auto-docs at `/docs`, `/redoc`)
-- **Weaviate 1.27.0** — vector database (Docker, hybrid search BM25 + semantic)
-- **SQLite** — metadata and cache storage (16 tables)
-- **OpenAI SDK** — LLM and embedding API client
-- **python-dotenv** — env file loading
-- **pdfplumber + PyPDF2** — PDF text extraction
-- **beautifulsoup4 + requests** — web page extraction
-- **httpx** — async HTTP client
-- **python-multipart** — file upload handling
-- **pydantic** — schema validation (via FastAPI)
-- **tenacity** — retry logic
-- **pytest + pytest-mock** — test framework (no tests written yet)
+| Framework | Version | Purpose | Docs |
+| --------- | ------- | ------- | ---- |
+|           |         |         |      |
 
-### Frontend
-- **React 18** — UI framework
-- **Vite** — build tool and dev server
-- **React Router v6** — client-side routing
-- **Vitest + jsdom + @testing-library/react + @testing-library/jest-dom** — test framework (no tests written yet)
+## Key Dependencies
 
-## Infrastructure & Deploy
+| Package | Version | Purpose | Notes |
+| ------- | ------- | ------- | ----- |
+|         |         |         |       |
 
-- **Docker Compose** — Weaviate 1.27.0 only (no app containers)
-- **No CI pipeline** — no `.github/`, `.gitlab-ci.yml`, or similar
-- **No Makefile** — manual commands
+## Internal Libraries & Utilities
+
+<!-- Project-specific utilities that agents should reuse rather than reinvent. -->
+
+| Module | Path | Purpose | Key Exports |
+| ------ | ---- | ------- | ----------- |
+|        |      |         |             |
+
+## External APIs
+
+| API | Base URL | Auth | Rate Limit | SDK |
+| --- | -------- | ---- | ---------- | --- |
+|     |          |      |            |     |
+
+## Databases & Storage
+
+| Store | Type | Purpose | Access Pattern |
+| ----- | ---- | ------- | -------------- |
+|       |      |         |                |
+
+## Infrastructure & Services
+
+| Service | Provider | Purpose | Config Location |
+| ------- | -------- | ------- | --------------- |
+|         |          |         |                 |
 
 ## Development Tools
 
-- **GitNexus** — code intelligence (MCP tools, indexed 2998 symbols)
-- **opencode** — primary AI agent framework
-- **VS Code** — `.vscode/launch.json` with debug config for FastAPI via debugpy
-- **No linters/formatters** — no ruff, black, flake8, eslint, prettier, mypy, pyright
+| Tool                  | Purpose                                                                                                                  | Config File                                                      | Key Commands               |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- | -------------------------- |
+| Code intelligence MCP | Optional code knowledge graph — provides explore, impact, context, and rename capabilities for for AI code-aware context | provider-specific (see `core-zero/project/code-intelligence.md`) | See `code-intelligence.md` |
+
+## Environment Variables
+
+<!-- List required env vars without values. Reference .env.example if it exists. -->
+
+| Variable | Purpose | Required | Default |
+| -------- | ------- | -------- | ------- |
+|          |         |          |         |
+
+## Version Pinning Policy
+
+- Production deps:
+- Dev deps:
+- Upgrade cadence:
+- Security patches:

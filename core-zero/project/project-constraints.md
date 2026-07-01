@@ -1,33 +1,97 @@
 # Project Constraints
 
-> Pre-filled from archaeology sweep evidence (2026-06-28). Sections marked `[USER REVIEW NEEDED]` need adopter input.
+> Ownership: `Adopter-owned`
 
-## Runtime Constraints
+<!-- Non-negotiable rules and budgets that every feature must respect. Commands like /spec-requirements, /spec-plan, and /harness-verify use these as hard boundaries — acceptance criteria and verification gates are checked against them. -->
 
-- **Python 3.10+** required (no version pin in `requirements.txt`)
-- **Weaviate 1.27.0** required via Docker Compose
-- **SQLite** file-based at `data/knowledge_ingestion/app.db`
-- **OpenAI-compatible LLM endpoint** required (default: `http://localhost:20128/v1`)
-- **OpenAI-compatible embedding endpoint** required (default: `http://localhost:20128/v1`)
+## Performance Budgets
 
-## Compliance & Security
+<!-- Measurable limits that must not be exceeded. -->
 
-- **Hardcoded API keys in `.env` files** — committed to repo (CRITICAL, must address)
-- **No authentication/authorization** on any API endpoint — open access
-- **No output moderation** on generated content
-- **No PII redaction** (roadmap item, not implemented)
-- **No SSRF protection** on URL ingestion (`backend/extractors/web_extractor.py`)
-- **Prompt injection defense** implemented (3-layer: heuristic + fuzzy + LLM)
-- [UNKNOWN] — Compliance requirements (SOC2, GDPR, etc.) — no evidence in codebase
-- [UNKNOWN] — Data retention policies — no evidence in codebase
+| Metric | Budget | Measurement | Enforcement |
+|--------|--------|-------------|-------------|
+| API response time (p95) | | | |
+| Page load time | | | |
+| Bundle size | | | |
+| Memory usage | | | |
+| Database query time | | | |
 
-## Resource Limits
+## Compliance Requirements
 
-[UNKNOWN] — No evidence of resource limits in code or config.
+<!-- Regulatory or standards compliance that affects implementation. -->
 
-## Deployment Constraints
+| Standard | Scope | Key Requirements | Verification |
+|----------|-------|-----------------|--------------|
+| | | | |
 
-- **No Dockerfiles for app containers** — only Weaviate in Docker
-- **No CI/CD pipeline**
-- [UNKNOWN] — Deployment environment (cloud, self-hosted, etc.) — no evidence in codebase
-- [UNKNOWN] — Expected scale (users, QPS, document volume) — no evidence in codebase
+<!-- Examples: GDPR, SOC2, HIPAA, WCAG 2.1 AA, PCI-DSS -->
+
+## Security Requirements
+
+<!-- Security constraints that apply to all features. -->
+
+- Authentication model:
+- Authorization model:
+- Data classification:
+- Encryption requirements:
+- Secret management:
+- Audit logging:
+
+## Deployment Model
+
+<!-- How software gets to production. -->
+
+- Environments:
+- Release cadence:
+- Deployment method:
+- Rollback strategy:
+- Feature flags:
+
+## Technology Constraints
+
+### Approved
+
+<!-- Technologies and dependencies that are approved for use. -->
+
+| Category | Approved Options |
+|----------|-----------------|
+| Languages | |
+| Frameworks | |
+| Databases | |
+| Infrastructure | |
+
+### Forbidden
+
+<!-- Technologies explicitly not allowed, with reason. -->
+
+| Technology | Reason |
+|------------|--------|
+| | |
+
+### Version Requirements
+
+<!-- Minimum versions or pinning requirements. -->
+
+-
+
+## Operational Constraints
+
+- Uptime SLA:
+- Monitoring:
+- Alerting:
+- On-call:
+- Incident response:
+
+## Accessibility Requirements
+
+<!-- Accessibility standards and testing requirements. -->
+
+- Standard:
+- Testing tools:
+- Key requirements:
+
+## Budget & Resource Constraints
+
+<!-- Non-technical constraints that affect scope and approach. -->
+
+-

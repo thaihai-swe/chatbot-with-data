@@ -2,84 +2,78 @@
 
 This file is the agent entrypoint and instruction router for this repository. Read it every session before any other file.
 
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
+<!-- code-intelligence:start -->
+## Code Intelligence (optional MCP companion)
 
-This project is indexed by GitNexus as **chatbot-with-data** (5214 symbols, 8225 relationships, 268 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+**Skip this entire section if `core-zero/project/code-intelligence.md` has `active_provider: none` or no provider with `enabled: true`.** The kit operates fully without it.
 
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+If a provider is active, read `core-zero/project/code-intelligence.md` to resolve the concrete tool call for each capability intent. Use the numbered capability index in that file to look up the right function.
 
-## Always Do
+### Always Do (when provider is active)
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
+- MUST run **[3] Impact — upstream callers** before editing any symbol. Report blast radius (direct callers, affected processes, risk level) to the user before proceeding.
+- MUST also check **[4] Impact — downstream deps** for any change that touches a shared utility or interface.
+- MUST run **[6] Detect changed symbols** before committing to verify changes only touch expected symbols.
+- MUST warn the user and STOP if impact analysis returns HIGH or CRITICAL risk.
+- When exploring unfamiliar code, prefer **[1] Explore / query concept** over grepping files.
+- When you need full context on a symbol, use **[2] Symbol context**.
+- When asked "what does this file do?", use **[5] Summarize file or module** before reading the file.
 
-## Never Do
+### Never Do (when provider is active)
 
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
+- NEVER edit a symbol without first running **[3] upstream impact analysis** on it.
+- NEVER rename symbols with find-and-replace — use **[7] Safe rename**. If the provider marks it N/A, use the Fallback Rules below.
+- NEVER commit without running **[6] Detect changed symbols**.
+- NEVER ignore HIGH or CRITICAL impact warnings.
 
-## Resources
+### Fallback Rules (when provider is active but a capability is unavailable)
 
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/chatbot-with-data/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/chatbot-with-data/clusters` | All functional areas |
-| `gitnexus://repo/chatbot-with-data/processes` | All execution flows |
-| `gitnexus://repo/chatbot-with-data/process/{name}` | Step-by-step execution trace |
+| Situation                            | Action                                                             |
+|--------------------------------------|--------------------------------------------------------------------|
+| Capability is `N/A` for this provider | Use `grep -rn`, `git log --follow`, or read the file directly    |
+| Index is stale                        | Re-run the setup command once; if it fails, proceed without tool  |
+| Tool unavailable or times out         | Skip call; note `[CI tool unavailable]` in task summary           |
 
-## CLI
+### Skill Files
 
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+Resolve skill file paths from `code-intelligence.md` → "Skill Files" section for the active provider.
 
-<!-- gitnexus:end -->
+<!-- code-intelligence:end -->
 
 ## 0. Priority Rules
 
 These rules override all other guidance in this file when they conflict.
 
 
-**Language convention.** These keywords carry consistent meaning across this file, skill files, and memory files:
+Language convention. These keywords carry consistent meaning across this file, skill files, and memory files:
 
-* **MUST / MUST NOT** — absolute requirement or prohibition. Never deviate.
-* **SHOULD / SHOULD NOT** — strong recommendation. Deviate only with a documented reason.
-* **MAY** — optional, at the agent's discretion.
+* MUST / MUST NOT — absolute requirement or prohibition. Never deviate.
+* SHOULD / SHOULD NOT — strong recommendation. Deviate only with a documented reason.
+* MAY — optional, at the agent's discretion.
 
 When a rule uses one of these keywords, treat it with the corresponding weight.
 
-* **No flattery, no filler:** Start with the answer, action, blocker, or decision. You **MUST NOT** add ceremonial openers.
-* **Correct false premises:** If the user’s premise is wrong, you **MUST** say so before continuing.
-* **Never fabricate:** You **MUST NOT** invent file paths, commit hashes, test results, API names, library functions, or repository behavior. Read files, run commands, or say what is unknown.
-* **Unknown stays unknown:** When information is unavailable, you **MUST** mark it explicitly as `[UNKNOWN]`. **MUST NOT** fill gaps with plausible-sounding guesses. An honest `[UNKNOWN]` is more valuable than a confident hallucination.
-* **Ask only when needed:** **SHOULD** ask before proceeding when ambiguity materially changes the result. Otherwise resolve ambiguity by inspecting the repo.
-* **Touch only the request:** Every changed line **MUST** directly support the user’s request. No drive-by refactors, formatting churn, or unrelated cleanup.
-* **Fail loud:** You **MUST NOT** mark work complete if verification was skipped, failed, or only partially run. State exactly what was and was not verified.
-* **Preserve behavior:** Existing observable behavior is a contract. You **MUST NOT** change it unless the user explicitly asks.
-* **Apply architectural rules:** For object-oriented design (OOP), SOLID principles, and preventing cross-cutting overengineering (duplicate spellings, hidden coupling, premature seams), see `core-zero/policies/code-design.md`. Its `MUST` / `MUST NOT` rules carry the same weight as the rules in this section.
-* **Read the Master Index:** Before non-trivial work, **SHOULD** consult `MASTER_INDEX.md` routes on-demand context indexes and key memory files (such as `memories/repo/core-policies.md` which declares active status and limits).
+* No flattery, no filler: Start with the answer, action, blocker, or decision. You MUST NOT add ceremonial openers.
+* Correct false premises: If the user’s premise is wrong, you MUST say so before continuing.
+* Never fabricate: You MUST NOT invent file paths, commit hashes, test results, API names, library functions, or repository behavior. Read files, run commands, or say what is unknown.
+* Unknown stays unknown: When information is unavailable, you MUST mark it explicitly as `[UNKNOWN]`. MUST NOT fill gaps with plausible-sounding guesses. An honest `[UNKNOWN]` is more valuable than a confident hallucination.
+* Ask only when needed: SHOULD ask before proceeding when ambiguity materially changes the result. Otherwise resolve ambiguity by inspecting the repo.
+* Touch only the request: Every changed line MUST directly support the user’s request. No drive-by refactors, formatting churn, or unrelated cleanup.
+* Fail loud: You MUST NOT mark work complete if verification was skipped, failed, or only partially run. State exactly what was and was not verified.
+* Preserve behavior: Existing observable behavior is a contract. You MUST NOT change it unless the user explicitly asks.
+* Apply architectural rules: For object-oriented design (OOP), SOLID principles, and preventing cross-cutting overengineering (duplicate spellings, hidden coupling, premature seams), see `core-zero/policies/code-design.md`. Its `MUST` / `MUST NOT` rules carry the same weight as the rules in this section.
+* Read the Master Index: Before non-trivial work, SHOULD consult `MASTER_INDEX.md` routes on-demand context indexes and key memory files (such as `core-zero/memories/repo/core-policies.md` which declares active status and limits).
 
 ## 1. Operating Loop
 
 For every task, follow this loop:
 
-1. **Understand the goal.** Identify the real success condition in repository-specific terms.
-2. **Inspect before building.** Read relevant code, docs, tests, artifacts, and existing patterns before proposing new ones. If `gitnexus` MCP tools are available, prefer `gitnexus context` / `gitnexus impact` for codebase awareness before reading source files directly.
-3. **Plan the smallest safe change.** Prefer the simplest change that solves the stated problem without speculative abstractions.
-4. **Implement surgically.** Change only what is required and match the project’s existing style.
-5. **Verify.** Run the most relevant available checks and read their output.
-6. **Report clearly.** Summarize what changed, what passed, what failed or was skipped, and the next obvious step.
+1. Understand the goal. Identify the real success condition in repository-specific terms.
+2. Inspect before building. Read relevant code, docs, tests, artifacts, and existing patterns before proposing new ones. If a code intelligence MCP tool is available (see `core-zero/project/code-intelligence.md`), prefer the **symbol context** and **impact analysis** capabilities for codebase awareness before reading source files directly.
+3. Plan the smallest safe change. Prefer the simplest change that solves the stated problem without speculative abstractions.
+4. Implement surgically. Change only what is required and match the project’s existing style.
+5. Verify. Run the most relevant available checks and read their output.
+6. Report clearly. Summarize what changed, what passed, what failed or was skipped, and the next obvious step.
 
 ## 2. Planning and Alignment
 
@@ -102,13 +96,13 @@ When there are multiple viable approaches, present the tradeoff briefly and choo
 
 ## 3. Engineering Standards
 
-* **Simplicity first (Ponytail Rule):** Implement the minimum code that solves the stated problem. You MUST adopt a "lazy senior developer" mindset: question if a task needs to exist at all (YAGNI), use standard libraries and native platform features before custom code, and prefer one-liners. See `core-zero/rules/ponytail.md` for the full ladder.
-* **No speculative code:** Do not add features, configuration, abstractions, or error handling for scenarios that are not required.
-* **Reuse established patterns:** Before adding a helper, abstraction, dependency, or convention, search for an existing equivalent.
-* **Prefer surgical refactoring:** Preserve behavior and institutional knowledge. Do not rewrite working systems unless the user asks or the existing design prevents the requested change.
-* **Respect Hyrum’s Law:** Treat observable behavior, outputs, timing, file structure, and public interfaces as things users may depend on.
-* **Use the test pyramid:** Prefer fast unit tests, targeted integration tests, and minimal end-to-end tests.
-* **Tests are opt-in unless needed:** Add or update automated tests when the user requests them, the repo already has a relevant test pattern, the change is risky, or the work uses a test-first workflow.
+* Simplicity first (Ponytail Rule): Implement the minimum code that solves the stated problem. You MUST adopt a "lazy senior developer" mindset: question if a task needs to exist at all (YAGNI), use standard libraries and native platform features before custom code, and prefer one-liners. See `core-zero/rules/ponytail.md` for the full ladder.
+* No speculative code: Do not add features, configuration, abstractions, or error handling for scenarios that are not required.
+* Reuse established patterns: Before adding a helper, abstraction, dependency, or convention, search for an existing equivalent.
+* Prefer surgical refactoring: Preserve behavior and institutional knowledge. Do not rewrite working systems unless the user asks or the existing design prevents the requested change.
+* Respect Hyrum’s Law: Treat observable behavior, outputs, timing, file structure, and public interfaces as things users may depend on.
+* Use the test pyramid: Prefer fast unit tests, targeted integration tests, and minimal end-to-end tests.
+* Tests are opt-in unless needed: Add or update automated tests when the user requests them, the repo already has a relevant test pattern, the change is risky, or the work uses a test-first workflow.
 
 ## 4. Implementation Rules
 
@@ -155,7 +149,7 @@ Rules:
 * Always review subagent output before relying on it.
 * You remain responsible for final decisions and merge quality.
 * Do not hide uncertainty behind subagent output.
-* **Context Indexes:** Do not read all documentation, memory, or rule files. Instead, consult the master routing index `MASTER_INDEX.md` at session start to locate and load specific sub-indexes (e.g. `core-zero/rules/`) only when the active task warrants it.
+* Context Indexes: Do not read all documentation, memory, or rule files. Instead, consult the master routing index `MASTER_INDEX.md` at session start to locate and load specific sub-indexes (e.g. `core-zero/rules/`) only when the active task warrants it.
 
 ## 7. Communication Style
 

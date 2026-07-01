@@ -1,26 +1,63 @@
 # Product Sense
 
-> Pre-filled from archaeology sweep evidence (2026-06-28). Product vision and business context require adopter input for full accuracy.
+> Ownership: `Adopter-owned`
 
-## Target Users
+<!-- This template gives AI agents product awareness. It is initially seeded during /starter-init (via targeted clarifying questions) and refined over time. Commands like /spec-requirements and /spec-research use this context to ask better questions and make better decisions. -->
 
-Primary: Developers and AI enthusiasts exploring production-grade RAG implementations. This is a portfolio/learning project demonstrating end-to-end RAG system architecture.
+## Product Vision
 
-Secondary: End-users who need to query a private document corpus via natural language, with full transparency into retrieval and generation internals.
+<!-- One sentence: what does this product do and for whom? -->
 
-## Core Problem
+## Problem Statement
 
-Querying unstructured documents (PDFs, text files, web pages) using natural language, with:
-- Accurate, grounded answers with citations
-- Transparent retrieval internals (X-Ray Panel)
-- Protection against prompt injection and adversarial inputs
-- Support for multiple chunking and retrieval strategies
+<!-- What pain point or opportunity does this product address? Why does it need to exist? -->
+
+## Target Users & Personas
+
+<!-- Who uses this product? List 2-4 personas with their goals and pain points. -->
+
+| Persona | Role | Primary Goal | Key Pain Point |
+|---------|------|--------------|----------------|
+| | | | |
+| | | | |
 
 ## Success Metrics
 
-- **Correctness**: Answers are grounded in retrieved chunks with verifiable citations
-- **Safety**: Prompt injection attacks are detected and blocked (3-layer defense)
-- **Transparency**: Users can inspect which chunks were retrieved and how scores were computed
-- **Portfolio Value**: Demonstrates competency in FastAPI, React, vector databases, LLM integration, and production RAG patterns
+<!-- How do you measure whether this product is working? -->
 
-> [USER REVIEW NEEDED] — Refine user personas, success metrics, and business goals.
+| Metric | Current | Target | Measurement Method |
+|--------|---------|--------|-------------------|
+| | | | |
+| | | | |
+
+## Domain Context & Business Rules
+
+<!-- What domain-specific rules or logic does the product enforce? What business constraints exist? -->
+
+## Competitive / Market Context
+
+<!-- What alternatives exist? What differentiates this product? -->
+
+## Product Principles
+
+<!-- Decision tiebreakers: when two valid approaches conflict, which principle wins? List 3-5 ordered by priority. -->
+
+1. 
+2. 
+3. 
+
+## User Journeys
+
+<!-- The 2-3 most important paths a user takes through the product. -->
+
+### Journey 1: [Name]
+
+1. 
+2. 
+3. 
+
+## Open Questions
+
+<!-- Product decisions that haven't been made yet. The /spec-requirements command will surface these during grilling waves. -->
+
+- 
