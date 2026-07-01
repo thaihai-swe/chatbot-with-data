@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getDocument, getChunkNote, upsertChunkNote } from "../api/knowledgeApi";
+import { getDocument, getChunkNote, upsertChunkNote, reindexDocument } from "../api/knowledgeApi";
 
 const overlayStyle = {
   position: "fixed",
@@ -146,6 +146,7 @@ function NoteEditor({ chunkId, onNoteChange }) {
 function SourceBrowser({ documentId, onClose, inline }) {
   const [document, setDocument] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [rechunking, setRechunking] = useState(false);
   const [selectedChunk, setSelectedChunk] = useState(null);
 
   useEffect(() => {
@@ -163,6 +164,19 @@ function SourceBrowser({ documentId, onClose, inline }) {
 
   const chunks = document?.chunks || [];
 
+  const handleRechunk = async () => {
+    setRechunking(true);
+    try {
+      await reindexDocument(documentId);
+      const data = await getDocument(documentId);
+      setDocument(data);
+    } catch {
+      alert("Re-chunk failed. The document retains its previous chunks.");
+    } finally {
+      setRechunking(false);
+    }
+  };
+
   if (inline) {
     return (
       <div className="source-browser-inline" onClick={(e) => e.stopPropagation()}>
@@ -170,9 +184,20 @@ function SourceBrowser({ documentId, onClose, inline }) {
           <h2 style={{ fontSize: "14px", margin: 0, color: "var(--text-primary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {document?.title || "Document"}
           </h2>
-          <button style={{ ...closeButtonStyle, fontSize: "16px" }} onClick={onClose} type="button">
-            ✕
-          </button>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <button
+              className="button button-ghost"
+              style={{ height: "28px", padding: "0 8px", fontSize: "11px" }}
+              type="button"
+              disabled={rechunking}
+              onClick={handleRechunk}
+            >
+              {rechunking ? "..." : "Re-chunk"}
+            </button>
+            <button style={{ ...closeButtonStyle, fontSize: "16px" }} onClick={onClose} type="button">
+              ✕
+            </button>
+          </div>
         </div>
         {loading ? (
           <div style={{ flex: 1, display: "grid", placeItems: "center" }}>
@@ -225,9 +250,20 @@ function SourceBrowser({ documentId, onClose, inline }) {
           <h2 style={{ fontSize: "16px", margin: 0, color: "var(--text-primary)" }}>
             {document?.title || "Document"}
           </h2>
-          <button style={closeButtonStyle} onClick={onClose} type="button">
-            ✕
-          </button>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <button
+              className="button button-ghost"
+              style={{ height: "32px", padding: "0 10px", fontSize: "12px" }}
+              type="button"
+              disabled={rechunking}
+              onClick={handleRechunk}
+            >
+              {rechunking ? "Re-chunking..." : "Re-chunk"}
+            </button>
+            <button style={closeButtonStyle} onClick={onClose} type="button">
+              ✕
+            </button>
+          </div>
         </div>
         {loading ? (
           <div style={{ flex: 1, display: "grid", placeItems: "center" }}>

@@ -1,7 +1,7 @@
 # API Flows & Endpoint Reference
 
 **Status:** 🟢 Implemented  
-**Last verified:** 2026-05-29  
+**Last verified:** 2026-06-30  
 **Source files:** `backend/routers/`, `backend/schemas/`, `backend/app.py`
 
 ---
@@ -312,18 +312,18 @@ curl -X POST http://localhost:8000/documents/doc-uuid/reindex
 **Response (200 OK):**
 ```json
 {
-  "message": "Reindexing started",
   "document_id": "doc-uuid",
-  "generation_id": "gen-uuid"
+  "status": "completed",
+  "message": "Document re-indexed successfully."
 }
 ```
 
 **Internal flow:**
-1. Create new `index_generation` record
-2. Re-chunk document with current strategy
-3. Re-embed chunks
-4. Update Weaviate index
-5. Mark old generation as inactive
+1. Save existing chunks (atomic restore on failure)
+2. Delete old chunks and Weaviate vectors
+3. Re-run chunk-and-index pipeline with current strategy and settings (including adaptive tiering)
+4. If failure: restore saved chunks from step 1
+5. Return success
 
 ---
 
@@ -734,7 +734,10 @@ curl http://localhost:8000/settings
     "chunking_strategy": "fixed_size",
     "chunk_size": 1000,
     "chunk_overlap": 200,
-    "embedding_model": "text-embedding-3-small"
+    "embedding_model": "text-embedding-3-small",
+    "adaptive_tiering_enabled": true,
+    "adaptive_tiering_threshold": null,
+    "adaptive_tiering_ratio": 0.3
   },
   "retrieval": {
     "retrieval_mode": "hybrid",

@@ -49,6 +49,12 @@ export function moveDocument(documentId, collectionIds) {
   });
 }
 
+export function reindexDocument(documentId) {
+  return apiRequest(`/documents/${documentId}/reindex`, {
+    method: "POST",
+  });
+}
+
 export function reingestDocument(documentId, collectionIds) {
   return apiRequest(`/documents/${documentId}/reingest`, {
     method: "POST",

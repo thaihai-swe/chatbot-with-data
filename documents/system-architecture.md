@@ -1,7 +1,7 @@
 # System Architecture
 
 **Status:** 🟢 Implemented  
-**Last verified:** 2026-05-29  
+**Last verified:** 2026-06-30  
 **Source files:** `backend/app.py`, `backend/routers/`, `backend/chat/`, `backend/chunking/`, `backend/ingestion/`, `backend/indexing/`, `backend/migrations/runner.py`
 
 ---
@@ -56,7 +56,7 @@ Query → Safety Check → Query Intelligence → Retrieval → Reranking → Ge
 | **Collection Routing** | `backend/chat/collection_routing.py` | Infer relevant collections from query |
 | **Ingestion** | `backend/ingestion/service.py` | File upload, URL ingestion, duplicate detection, chunking, indexing |
 | **Extractors** | `backend/extractors/` | PDF, text, web extraction (dispatcher auto-selects) |
-| **Chunking** | `backend/chunking/` | Five strategies: fixed-size, heading-aware, page-aware, semantic, parent-child |
+| **Chunking** | `backend/chunking/` | Adaptive tiering + 5 strategies: fixed-size, heading-aware, page-aware, semantic, parent-child |
 | **Duplicate Detection** | `backend/duplicate_detection/detector.py` | File hash, text hash, URL canonicalization, similarity-based detection |
 | **Embeddings** | `backend/embeddings/openai_client.py` | Generate and cache embeddings |
 | **Indexing** | `backend/indexing/weaviate_store.py` | Weaviate integration (hybrid search, SOLID abstraction) |
@@ -220,11 +220,12 @@ Query → Safety Check → Query Intelligence → Retrieval → Reranking → Ge
 - **Parent-Child Retrieval:** Hierarchical indexing for precision + context
 
 ### Chunking
+- **Adaptive Tiering:** Full-doc injection for small docs (Notebook LM style); configurable threshold
 - **Fixed-Size:** Plain text with configurable overlap
-- **Heading-Aware:** Markdown/structured docs; preserves section context
+- **Heading-Aware:** Heading paths prepended to chunk text via recursive extraction; preserves full section lineage
 - **Page-Aware:** PDFs; respects page boundaries
-- **Semantic:** Narrative text; splits at topic boundaries
-- **Parent-Child:** Hierarchical indexing
+- **Semantic:** Embedding-based cosine similarity for boundary detection; Jaccard fallback on >5s timeout
+- **Parent-Child:** Boundary-aware grouping (aligns parents with heading boundaries)
 
 ### Safety
 - **Heuristic Scanner:** 49 regex patterns across 8 attack categories

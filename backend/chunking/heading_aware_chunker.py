@@ -22,8 +22,8 @@ class HeadingAwareChunker(BaseChunker):
 
         The approach:
         1. Identify heading levels (# ## ### etc for Markdown, or TXT headings)
-        2. Group content under each heading
-        3. Create chunks that don't cross heading boundaries when possible
+        2. Group content under each heading, tracking full heading hierarchy
+        3. Prepend heading path to every chunk's text
         4. Fall back to fixed-size if no heading structure
         """
         if not text or not text.strip():
@@ -35,7 +35,6 @@ class HeadingAwareChunker(BaseChunker):
         sections = self._extract_sections(text)
 
         if not sections:
-            # No heading structure found, fall back to fixed-size
             from chunking.fixed_size_chunker import FixedSizeChunker
             fallback = FixedSizeChunker(
                 chunk_size=self.chunk_size,
@@ -55,15 +54,16 @@ class HeadingAwareChunker(BaseChunker):
 
         for section in sections:
             section_title = section.get("heading")
+            heading_path = section.get("heading_path")
             section_text = section.get("content", "").strip()
 
             if not section_text:
                 continue
 
-            # Break section into chunks if it's too large
             section_chunks = self._chunk_section(
                 section_text,
                 section_title=section_title,
+                heading_path=heading_path,
                 chunk_order=chunk_order
             )
 
@@ -71,7 +71,6 @@ class HeadingAwareChunker(BaseChunker):
                 chunk.title = title
                 chunk.page_number = page_number
                 chunk.source_url = source_url
-                # Merge metadata
                 chunk.metadata = {**metadata, **chunk.metadata}
                 chunks.append(chunk)
                 chunk_order += 1
@@ -79,33 +78,38 @@ class HeadingAwareChunker(BaseChunker):
         return chunks
 
     def _extract_sections(self, text: str) -> list[dict]:
-        """Extract sections based on heading structure."""
+        """Extract sections based on heading structure with recursive hierarchy."""
         lines = text.split("\n")
         sections = []
         current_section = None
+        heading_stack: list[tuple[int, str]] = []  # (level, heading_name)
 
         for line in lines:
-            # Check for Markdown heading
             heading_match = re.match(r'^(#{1,6})\s+(.+)$', line)
 
             if heading_match:
-                # Save previous section if any
                 if current_section:
                     sections.append(current_section)
 
-                # Start new section
                 level = len(heading_match.group(1))
                 heading = heading_match.group(2).strip()
+
+                # Pop headings at deeper or equal levels
+                while heading_stack and heading_stack[-1][0] >= level:
+                    heading_stack.pop()
+                heading_stack.append((level, heading))
+
+                heading_path = " > ".join(h[1] for h in heading_stack)
+
                 current_section = {
                     "heading": heading,
                     "level": level,
+                    "heading_path": heading_path,
                     "content": ""
                 }
             elif current_section is not None:
-                # Add line to current section
                 current_section["content"] += line + "\n"
 
-        # Don't forget the last section
         if current_section:
             sections.append(current_section)
 
@@ -115,24 +119,27 @@ class HeadingAwareChunker(BaseChunker):
         self,
         text: str,
         section_title: str | None = None,
+        heading_path: str | None = None,
         chunk_order: int = 1
     ) -> list[ChunkData]:
-        """Chunk a single section, respecting size limits."""
+        """Chunk a single section, prepending heading path to every chunk."""
         chunks = []
 
-        # If section is smaller than chunk_size, keep it whole
         text_tokens = self.estimate_tokens(text)
 
         if text_tokens <= self.chunk_size:
+            chunk_text = text.strip()
+            if heading_path:
+                chunk_text = f"[{heading_path}] {chunk_text}"
             chunk = ChunkData(
                 chunk_order=chunk_order,
-                text=text.strip(),
+                text=chunk_text,
                 section_title=section_title,
+                heading_path=heading_path,
                 metadata={"section_title": section_title} if section_title else {}
             )
             chunks.append(chunk)
         else:
-            # Break section into smaller chunks
             sentences = text.split(". ")
             current_chunk_tokens = []
             current_token_count = 0
@@ -142,19 +149,20 @@ class HeadingAwareChunker(BaseChunker):
                 if not sentence:
                     continue
 
-                # Add period back if not present
                 if not sentence.endswith("."):
                     sentence += "."
 
                 sentence_tokens = self.estimate_tokens(sentence)
 
                 if current_token_count + sentence_tokens > self.chunk_size and current_chunk_tokens:
-                    # Create chunk
                     chunk_text = " ".join(current_chunk_tokens)
+                    if heading_path:
+                        chunk_text = f"[{heading_path}] {chunk_text}"
                     chunk = ChunkData(
                         chunk_order=chunk_order,
                         text=chunk_text.strip(),
                         section_title=section_title,
+                        heading_path=heading_path,
                         metadata={"section_title": section_title} if section_title else {}
                     )
                     chunks.append(chunk)
@@ -165,13 +173,15 @@ class HeadingAwareChunker(BaseChunker):
                 current_chunk_tokens.append(sentence)
                 current_token_count += sentence_tokens
 
-            # Add final chunk
             if current_chunk_tokens:
                 chunk_text = " ".join(current_chunk_tokens)
+                if heading_path:
+                    chunk_text = f"[{heading_path}] {chunk_text}"
                 chunk = ChunkData(
                     chunk_order=chunk_order,
                     text=chunk_text.strip(),
                     section_title=section_title,
+                    heading_path=heading_path,
                     metadata={"section_title": section_title} if section_title else {}
                 )
                 chunks.append(chunk)

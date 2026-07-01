@@ -7,6 +7,17 @@ import uuid
 import asyncio
 from typing import Optional, Dict, Any, AsyncIterator
 
+
+def _json_safe(obj: Any) -> Any:
+    """Recursively convert numpy types to native Python types for JSON serialization."""
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_json_safe(v) for v in obj]
+    elif hasattr(obj, "item"):  # numpy scalars (float32, float64, int64, etc.)
+        return obj.item()
+    return obj
+
 from chat.advanced_retrieval import AdvancedRetrievalService
 from chat.context import ContextService, load_chunk_notes
 from chat.generation import GenerationService
@@ -145,8 +156,8 @@ class StreamingOrchestrator:
                 id=turn_id,
                 session_id=session_id,
                 query_text=query_text,
-                retrieved_chunks_json=json.dumps(retrieved_chunks),
-                context_used_json=json.dumps(context_package),
+                retrieved_chunks_json=json.dumps(_json_safe(retrieved_chunks)),
+                context_used_json=json.dumps(_json_safe(context_package)),
                 status="generating",
                 safety_status=safety_trace.query_classification,
                 safety_risk_score=1.0 if safety_trace.injection_risk == "high" else 0.0,
@@ -209,7 +220,7 @@ class StreamingOrchestrator:
                     chunk_id=cit_data['chunk_id'],
                     document_id=cit_data['document_id'],
                     quote_text=cit_data.get('quote_text'),
-                    metadata_json=json.dumps(cit_data),
+                    metadata_json=json.dumps(_json_safe(cit_data)),
                 )
                 citation_objects.append({
                     "id": cit.id,
@@ -239,7 +250,7 @@ class StreamingOrchestrator:
                 turn_id=turn_id,
                 status="completed",
                 answer_text=full_answer,
-                context_used_json=json.dumps(context_package),
+                context_used_json=json.dumps(_json_safe(context_package)),
             )
 
             # Include safety trace, retrieval trace, and full chunks
@@ -265,8 +276,8 @@ class StreamingOrchestrator:
             clear_cancellation(turn_id)
 
     def _format_sse(self, event: str, data: Dict[str, Any]) -> str:
-        """Format data as an SSE event string."""
-        return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+        """Format data as an SSE event string, with numpy-to-native coercion."""
+        return f"event: {event}\ndata: {json.dumps(_json_safe(data))}\n\n"
 
 
 from fastapi import Depends

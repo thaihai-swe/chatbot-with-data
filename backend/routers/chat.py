@@ -4,7 +4,7 @@ import uuid
 import json
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.responses import StreamingResponse
-from typing import List
+from typing import List, Optional
 
 from repositories.chat_repository import ChatRepository
 from schemas.chat import (

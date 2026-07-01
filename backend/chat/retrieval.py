@@ -61,7 +61,7 @@ class RetrievalService:
         formatted_results = []
         chunk_repo = ChunkRepository()
         for chunk_id, similarity, metadata in raw_results:
-            result = {"chunk_id": chunk_id, "similarity_score": similarity, **metadata}
+            result = {"chunk_id": chunk_id, "similarity_score": float(similarity), **metadata}
             if chunk_id:
                 chunk_data = chunk_repo.get_chunk(chunk_id)
                 if chunk_data:

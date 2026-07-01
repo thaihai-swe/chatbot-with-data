@@ -22,6 +22,11 @@ class IngestionSettings(BaseModel):
     semantic_similarity_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
     parent_child_enabled: bool = False
 
+    # Adaptive Tiering
+    adaptive_tiering_enabled: bool = True
+    adaptive_tiering_threshold: Optional[int] = None
+    adaptive_tiering_ratio: float = Field(default=0.3, ge=0.1, le=1.0)
+
     # Embedding & Vector DB (Infrastructure usually in .env, but some here for experiment)
     embedding_provider: str = Field(default="openai")
     embedding_model: str = Field(default="text-embedding-3-small")

@@ -1,7 +1,7 @@
 # Database Schema & Data Architecture
 
 **Status:** 🟢 Implemented  
-**Last verified:** 2026-05-29  
+**Last verified:** 2026-06-30  
 **Source files:** `backend/migrations/runner.py`, `backend/models/`, `backend/repositories/`
 
 ---
@@ -275,6 +275,13 @@ Document chunks (pieces of text indexed in vector DB).
 - `idx_chunks_parent_id` on `parent_chunk_id`
 
 **Use case:** Store all chunks for retrieval and citation.
+
+**Metadata JSON fields** (stored in `metadata_json` — no schema change required):
+- `heading_path` (string, optional) — Full heading lineage, e.g. `"Introduction > Background > Historical Context"`. Set by heading-aware chunker.
+- `content_type` (string, optional) — Content classification, e.g. `"text"`, `"table"`, `"code"`.
+- `adaptive_tier` (string, optional) — `"full_doc"` when a small document was injected whole instead of chunked.
+- `parent_chunk` (boolean, optional) — `true` for parent chunks in parent-child strategy.
+- `children_count` (integer, optional) — Number of child chunks grouped into this parent.
 
 ---
 

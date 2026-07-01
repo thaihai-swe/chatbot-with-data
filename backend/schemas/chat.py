@@ -15,9 +15,9 @@ class ChatSessionCreate(BaseModel):
 class ChatSessionResponse(BaseModel):
     id: str
     collection_id: Optional[str] = None
-    metadata_json: str
-    created_at: str
-    updated_at: str
+    metadata_json: str = "{}"
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
 
 class ChatTurnCreate(BaseModel):

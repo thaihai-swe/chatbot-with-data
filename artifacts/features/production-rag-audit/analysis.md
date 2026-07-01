@@ -3,7 +3,7 @@
 > **Goal:** Deep-dive comparison of our system vs Google Notebook LM, focusing on RAG pipeline, citation system, user flow, and UI design. Written as a brownfield mapping exercise to identify what to build/change for Notebook-LM-like document chat.
 >
 > **Date:** 2026-06-30
-> **Phase:** Research Complete
+> **Phase:** Chunk Upgrade Shipped (Phases 1–5 complete)
 > **Next:** Route to `/spec-requirements` for authentication (P0), then `/spec-plan` for reranker + citation UX upgrade.
 
 ---
@@ -17,6 +17,7 @@ Our system has **3-panel workspace parity** (Sources ↔ Chat ↔ Studio), **kno
 | **P0 — Blocks production** | No auth, no deployment config | Cannot ship |
 | **P1 — Quality gap** | Dummy reranker, no cross-encoder | Response quality degrades |
 | **P2 — UX/Feature gap** | Citation anchoring, source-selection UX, suggested questions, streaming studio, search | User experience vs Notebook LM |
+| **Shipped (June 2026)** | Chunk upgrade: adaptive tiering, heading paths, embedding semantic, boundary parent-child, re-chunk button, Settings UI | Notebook LM parity on chunking |
 
 ---
 
@@ -87,7 +88,7 @@ Based on published documentation (blog.google, notebooklm.google, 2026 teardowns
 |--------|-------------|------------|-------|
 | Model | Gemini 3.5 / Antigravity | Configurable provider (OpenAI, etc.) | No gap |
 | Embedding | Google native embedding models | Configurable provider | No gap |
-| Chunking | Structural + context-aware segmentation | 5 strategies: fixed, heading, page, semantic, parent-child | NEAR PARITY |
+| Chunking | Structural + context-aware segmentation | Adaptive tiering (full-doc injection) + 5 strategies: heading (path prepend), semantic (embedding-based), parent-child (boundary-aware), fixed, page | **PARITY** |
 | Reranker | BGE-Reranker-v2 (cross-encoder) | **Dummy (sort by score)** | **CRITICAL GAP** |
 | Hybrid search | BM25 + vector (MIPS) | BM25 + vector via Weaviate | PARITY |
 | Context window | 1M tokens (500K words/source) | Limited by LLM provider (varies) | PARITY |
@@ -330,6 +331,9 @@ This is the single most important design difference:
 
 ## 9. Recommended Build Sequence
 
+### Phase 0 (Shipped — June 2026)
+0. **Chunk upgrade** — Adaptive tiering, heading paths, embedding semantic, boundary parent-child, re-chunk button, Settings UI, documentation
+
 ### Phase 1 (P0 — Production Gate)
 1. **Authentication middleware** — JWT or OAuth2 on all 9 routers
 2. **Docker + docker-compose** — production deployment config
@@ -375,6 +379,9 @@ Our system has **strong parity with Notebook LM on the core 3-panel layout, know
 4. **Knowledge loop:** No save-to-note → user insights don't feed back into the knowledge base
 5. **Proactive UX:** No suggested questions, no chat history search
 6. **Studio output parity:** No streaming, no export, no interactive flashcards
+
+**What was shipped in June 2026 to close gaps:**
+- Chunk upgrade (P2): adaptive tiering, heading path preservation, embedding-based semantic chunking, boundary-aware parent-child, Settings UI, re-chunk button → Notebook LM parity on chunking
 
 **Where we lead:**
 - Debug/observability (X-Ray Panel with full pipeline trace)

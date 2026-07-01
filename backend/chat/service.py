@@ -4,7 +4,18 @@ from __future__ import annotations
 import logging
 import json
 import uuid
-from typing import Optional
+from typing import Optional, Any
+
+
+def _json_safe(obj: Any) -> Any:
+    """Recursively convert numpy types to native Python types for JSON serialization."""
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_json_safe(v) for v in obj]
+    elif hasattr(obj, "item"):  # numpy scalars (float32, float64, int64, etc.)
+        return obj.item()
+    return obj
 
 from fastapi import Depends
 
@@ -170,8 +181,8 @@ class ChatService:
             id=turn_id,
             session_id=session_id,
             query_text=query_text,
-            retrieved_chunks_json=json.dumps(safe_chunks),
-            context_used_json=json.dumps(context_package),
+            retrieved_chunks_json=json.dumps(_json_safe(safe_chunks)),
+            context_used_json=json.dumps(_json_safe(context_package)),
             status="generating",
             safety_status=safety_trace.query_classification,
             safety_risk_score=1.0 if safety_trace.injection_risk == "high" else 0.0,
@@ -217,7 +228,7 @@ class ChatService:
                         chunk_id=cit_data['chunk_id'],
                         document_id=cit_data['document_id'],
                         quote_text=cit_data.get('quote_text'),
-                        metadata_json=json.dumps(cit_data),
+                        metadata_json=json.dumps(_json_safe(cit_data)),
                     )
 
                 conflict_status = "no_conflict"
@@ -241,7 +252,7 @@ class ChatService:
                     status="completed",
                     answer_text=answer_text,
                     groundedness_score=score,  # Persist score
-                    context_used_json=json.dumps(context_package),
+                    context_used_json=json.dumps(_json_safe(context_package)),
                 )
 
             # 8. Reload turn and return

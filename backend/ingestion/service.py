@@ -355,6 +355,7 @@ class IngestionService:
         # Determine strategy from config or source_type
         config = get_config()
         strategy = config.ingestion.chunking_strategy
+        is_auto_strategy = strategy in ("fixed", "fixed_size")
 
         # Override strategy based on source type if it's "fixed" or "fixed_size" (default)
         if strategy in ("fixed", "fixed_size"):
@@ -365,6 +366,13 @@ class IngestionService:
             else:
                 strategy = "fixed_size"
 
+        # Check adaptive tiering: only when strategy was auto-selected (not explicit override)
+        use_adaptive = False
+        if is_auto_strategy and config.ingestion.adaptive_tiering_enabled:
+            from chunking.adaptive_chunker import AdaptiveChunker
+            adaptive = AdaptiveChunker.from_config(config)
+            use_adaptive = adaptive.should_inject(text)
+
         # Step 1: Chunking
         collection_ids = attempt["collection_ids"]
 
@@ -374,91 +382,149 @@ class IngestionService:
             default = coll_repo.get_or_create_default()
             collection_ids = [default["id"]]
 
-        # Clear old chunks and vectors before re-chunking (for reindex operations)
         from repositories.chunk_repository import ChunkRepository
         from indexing.weaviate_store import WeaviateVectorStore
+        from chunking.base import ChunkData
 
         chunk_repo = ChunkRepository()
-        chunk_repo.delete_chunks_by_document(document_id)
-
         weaviate_store = WeaviateVectorStore()
+
+        # Save old chunks/vectors before re-chunk for atomic restore on failure
+        old_chunks = chunk_repo.list_chunks_by_document(document_id)
+
+        # Delete old data before attempting new (clean slate)
+        chunk_repo.delete_chunks_by_document(document_id)
         weaviate_store.delete_by_document(document_id)
 
         total_blocked = 0
         total_chunks = 0
 
-        for collection_id in collection_ids:
-            self.chunking_service.chunk_document(
-                document_id=document_id,
-                collection_id=collection_id,
-                text=text,
-                strategy=strategy,
-                source_type=attempt["source_type"],
-                title=attempt.get("title") or attempt.get("submitted_filename"),
-                chunk_size=config.ingestion.chunk_size,
-                overlap=config.ingestion.chunk_overlap,
-            )
+        try:
+            for collection_id in collection_ids:
+                if use_adaptive:
+                    title = attempt.get("title") or attempt.get("submitted_filename")
+                    chunk_data = ChunkData(
+                        chunk_order=1,
+                        text=text,
+                        title=title,
+                        adaptive_tier="full_doc",
+                    )
+                    persisted = chunk_repo.create_chunk(
+                        document_id=document_id,
+                        collection_id=collection_id,
+                        chunk_order=chunk_data.chunk_order,
+                        strategy=strategy,
+                        source_type=attempt["source_type"],
+                        title=chunk_data.title,
+                        section_title=None,
+                        page_number=None,
+                        source_url=None,
+                        text=chunk_data.text,
+                        fallback_applied=chunk_data.fallback_applied,
+                        semantic_score=chunk_data.semantic_score,
+                        metadata={**chunk_data.metadata, "adaptive_tier": "full_doc"},
+                    )
+                    chunks = [persisted]
+                else:
+                    self.chunking_service.chunk_document(
+                        document_id=document_id,
+                        collection_id=collection_id,
+                        text=text,
+                        strategy=strategy,
+                        source_type=attempt["source_type"],
+                        title=attempt.get("title") or attempt.get("submitted_filename"),
+                        chunk_size=config.ingestion.chunk_size,
+                        overlap=config.ingestion.chunk_overlap,
+                    )
+                    chunks = chunk_repo.list_chunks_by_document(document_id)
 
-            # Step 1.5: Safety check on chunks
-            from repositories.chunk_repository import ChunkRepository
-            chunk_repo = ChunkRepository()
-            chunks = chunk_repo.list_chunks_by_document(document_id)
+                # Step 1.5: Safety check on chunks
 
-            # Convert chunks to format expected by safety service
-            chunk_dicts = [
-                {
-                    "chunk_id": chunk["id"],
-                    "text": chunk["text"],
-                    "document_id": chunk["document_id"],
-                }
-                for chunk in chunks
-            ]
+                # Convert chunks to format expected by safety service
+                chunk_dicts = [
+                    {
+                        "chunk_id": chunk["id"],
+                        "text": chunk["text"],
+                        "document_id": chunk["document_id"],
+                    }
+                    for chunk in chunks
+                ]
 
-            # Run safety checks
-            checked_chunks = self.safety_service.check_chunks(chunk_dicts)
+                # Run safety checks
+                checked_chunks = self.safety_service.check_chunks(chunk_dicts)
 
-            # Filter out high-risk chunks
-            safe_chunk_ids = [
-                c["chunk_id"] for c in checked_chunks if c.get("safety_risk") != "high"
-            ]
-            high_risk_chunks = [
-                c for c in checked_chunks if c.get("safety_risk") == "high"
-            ]
+                # Filter out high-risk chunks
+                safe_chunk_ids = [
+                    c["chunk_id"] for c in checked_chunks if c.get("safety_risk") != "high"
+                ]
+                high_risk_chunks = [
+                    c for c in checked_chunks if c.get("safety_risk") == "high"
+                ]
 
-            # Delete high-risk chunks from database
-            for chunk in high_risk_chunks:
-                chunk_repo.delete_chunk(chunk["chunk_id"])
-                logger.warning(
-                    f"Blocked chunk {chunk['chunk_id']} from document {document_id}: "
-                    f"matched_patterns={chunk.get('safety_matched_patterns', [])}, "
-                    f"fuzzy_similarity={chunk.get('safety_fuzzy_similarity', 0.0):.3f}"
+                # Delete high-risk chunks from database
+                for chunk in high_risk_chunks:
+                    chunk_repo.delete_chunk(chunk["chunk_id"])
+                    logger.warning(
+                        f"Blocked chunk {chunk['chunk_id']} from document {document_id}: "
+                        f"matched_patterns={chunk.get('safety_matched_patterns', [])}, "
+                        f"fuzzy_similarity={chunk.get('safety_fuzzy_similarity', 0.0):.3f}"
+                    )
+
+                # Log results
+                high_risk_count = len(high_risk_chunks)
+                safe_count = len(safe_chunk_ids)
+                total_blocked += high_risk_count
+                total_chunks += len(chunk_dicts)
+
+                if high_risk_count > 0:
+                    logger.warning(
+                        f"Filtered {high_risk_count} high-risk chunks from document {document_id}. "
+                        f"{safe_count} safe chunks will be indexed."
+                    )
+
+                # Step 2: Indexing (only safe chunks will be indexed)
+                self.indexing_service.index_document(
+                    document_id=document_id,
+                    collection_id=collection_id,
+                    embedding_model=config.ingestion.embedding_model,
+                    strategy=strategy,
                 )
 
-            # Log results
-            high_risk_count = len(high_risk_chunks)
-            safe_count = len(safe_chunk_ids)
-            total_blocked += high_risk_count
-            total_chunks += len(chunk_dicts)
-
-            if high_risk_count > 0:
-                logger.warning(
-                    f"Filtered {high_risk_count} high-risk chunks from document {document_id}. "
-                    f"{safe_count} safe chunks will be indexed."
-                )
-
-            # Step 2: Indexing (only safe chunks will be indexed)
-            self.indexing_service.index_document(
-                document_id=document_id,
-                collection_id=collection_id,
-                embedding_model=config.ingestion.embedding_model,
-                strategy=strategy,
+        except Exception:
+            logger.exception(
+                f"Chunking failed for document {document_id}, restoring old chunks"
             )
+            self._restore_chunks(document_id, old_chunks)
+            raise
 
         return {
             "blocked_chunks_count": total_blocked,
             "total_chunks_count": total_chunks,
             "safe_chunks_count": total_chunks - total_blocked,
         }
+
+    def _restore_chunks(self, document_id: str, chunks: list[dict]) -> None:
+        if not chunks:
+            return
+        from repositories.chunk_repository import ChunkRepository
+        repo = ChunkRepository()
+        for chunk in chunks:
+            repo.create_chunk(
+                document_id=chunk["document_id"],
+                collection_id=chunk["collection_id"],
+                chunk_order=chunk["chunk_order"],
+                strategy=chunk["strategy"],
+                source_type=chunk["source_type"],
+                title=chunk["title"],
+                section_title=chunk.get("section_title"),
+                page_number=chunk.get("page_number"),
+                source_url=chunk.get("source_url"),
+                text=chunk["text"],
+                parent_chunk_id=chunk.get("parent_chunk_id"),
+                fallback_applied=chunk.get("fallback_applied", False),
+                semantic_score=chunk.get("semantic_score"),
+                metadata=chunk.get("metadata", {}),
+            )
 
 
 

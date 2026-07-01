@@ -16,6 +16,9 @@ class ChunkData:
     source_url: str | None = None
     fallback_applied: bool = False
     semantic_score: float | None = None
+    heading_path: str | None = None
+    content_type: str | None = None
+    adaptive_tier: str | None = None
     metadata: dict = None
 
     def __post_init__(self):

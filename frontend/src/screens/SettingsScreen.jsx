@@ -219,6 +219,48 @@ const SettingsScreen = () => {
                 onChange={(e) => handleUpdate('ingestion', 'duplicate_detection_enabled', e.target.checked)}
               />
             </SettingsField>
+
+            <h3 style={{ margin: "24px 0 16px", fontSize: "14px", borderBottom: "1px solid var(--border)", paddingBottom: "8px" }}>Adaptive Tiering</h3>
+
+            <SettingsField 
+              label="Adaptive Tiering" 
+              description="Inject small documents whole instead of chunking them."
+            >
+              <input 
+                type="checkbox" 
+                checked={settings.ingestion.adaptive_tiering_enabled} 
+                onChange={(e) => handleUpdate('ingestion', 'adaptive_tiering_enabled', e.target.checked)}
+              />
+            </SettingsField>
+            <SettingsField 
+              label="Context Window Ratio" 
+              description="Fraction of LLM context window used as threshold (0.1–1.0). Ignored when explicit threshold is set."
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <input 
+                  type="range" 
+                  min="0.1" 
+                  max="1.0" 
+                  step="0.05"
+                  value={settings.ingestion.adaptive_tiering_ratio} 
+                  onChange={(e) => handleUpdate('ingestion', 'adaptive_tiering_ratio', parseFloat(e.target.value))}
+                  style={{ flex: 1 }}
+                />
+                <span className="mono" style={{ fontSize: "12px", width: "32px" }}>{settings.ingestion.adaptive_tiering_ratio}</span>
+              </div>
+            </SettingsField>
+            <SettingsField 
+              label="Explicit Threshold (tokens)" 
+              description="Set an exact token threshold. Overrides ratio when > 0. Leave 0 to use ratio."
+            >
+              <input 
+                type="number" 
+                min="0" 
+                step="1000"
+                value={settings.ingestion.adaptive_tiering_threshold ?? 0} 
+                onChange={(e) => handleUpdate('ingestion', 'adaptive_tiering_threshold', e.target.value ? parseInt(e.target.value) : null)}
+              />
+            </SettingsField>
           </div>
         </section>
 

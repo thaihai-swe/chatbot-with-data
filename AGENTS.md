@@ -5,7 +5,7 @@ This file is the agent entrypoint and instruction router for this repository. Re
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **chatbot-with-data** (4943 symbols, 7809 relationships, 265 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **chatbot-with-data** (5214 symbols, 8225 relationships, 268 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
