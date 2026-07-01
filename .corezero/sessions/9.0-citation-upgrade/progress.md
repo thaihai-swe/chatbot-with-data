@@ -18,6 +18,9 @@
 - **Click Behavior Reversion**: Restored the previous citation badge click behavior to display the `CitationModal` (popup modal) containing target chunk text instead of focusing the left sidebar.
 - **SourceBrowser Popup Modal**: Upgraded the inline `SourceBrowser` list to occupy 100% width of the panel. Clicking a chunk in the list now displays a premium `ChunkModal` popup containing the document details, chunk text, and the interactive note editor, preventing squishing of content inside the side panel.
 - **Collapsed Sidebar Labels**: Applied vertical orientation (`writing-mode: vertical-rl` and `text-orientation: mixed`) to `.panel-toggle-label` so that vertical sidebar labels fit inside the narrow 48px width of collapsed panels instead of overflowing and clipping.
+- **Phase**: Done
+- **Done**: All tasks completed. Verification report written to `review.md`. Status set to Done.
+- **Memory**: Triaged session extracts, proposed promotions, registered size-warning for `learned-heuristics.md`, and completed compaction successfully (38.8% reduction, 100% ID preservation).
 
 ---
 ## Decision Record
