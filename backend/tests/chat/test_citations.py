@@ -19,6 +19,22 @@ class TestExtractCitations:
         text = "Revenue grew [Source 1]. Costs decreased [Source 2]."
         assert service.extract_citations(text) == ["1", "2"]
 
+    def test_extracts_short_citations(self, service):
+        text = "Revenue grew 15% [1][2]."
+        assert service.extract_citations(text) == ["1", "2"]
+
+    def test_extracts_mixed_citations(self, service):
+        text = "Revenue grew [Source 1]. Costs decreased [2]."
+        assert service.extract_citations(text) == ["1", "2"]
+
+    def test_ignores_non_citation_brackets(self, service):
+        text = "Revenue grew [unsupported]."
+        assert service.extract_citations(text) == []
+
+    def test_ignores_markdown_link_brackets(self, service):
+        text = "Click [here](url) [Source 1]."
+        assert service.extract_citations(text) == ["1"]
+
     def test_deduplicates_citations(self, service):
         text = "Revenue grew [Source 1]. It was strong [Source 1]."
         assert service.extract_citations(text) == ["1"]
@@ -36,6 +52,12 @@ class TestExtractQuote:
     def test_sentence_overlap_match(self, service):
         chunk_text = "Revenue grew 15% in Q3 2024. Costs decreased by 5%."
         answer_text = "The company reported strong growth. Revenue grew 15% in Q3 2024 [Source 1]."
+        quote = service.extract_quote(chunk_text, answer_text, "1")
+        assert quote == "Revenue grew 15% in Q3 2024."
+
+    def test_sentence_overlap_match_short_citation(self, service):
+        chunk_text = "Revenue grew 15% in Q3 2024. Costs decreased by 5%."
+        answer_text = "The company reported strong growth. Revenue grew 15% in Q3 2024 [1]."
         quote = service.extract_quote(chunk_text, answer_text, "1")
         assert quote == "Revenue grew 15% in Q3 2024."
 

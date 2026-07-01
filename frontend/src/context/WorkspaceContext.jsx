@@ -8,6 +8,7 @@ const initialState = {
   selectedDocumentIds: [],
   documents: [],
   activeDocumentId: null,
+  activeChunkId: null,
   generatedProducts: [],
   sourcesCollapsed: true,
   studioCollapsed: true,
@@ -23,6 +24,7 @@ function reducer(state, action) {
         documents: action.documents,
         selectedDocumentIds: action.documents.map((d) => d.id),
         activeDocumentId: null,
+        activeChunkId: null,
       };
     case "TOGGLE_DOCUMENT": {
       const ids = state.selectedDocumentIds.includes(action.documentId)
@@ -33,14 +35,31 @@ function reducer(state, action) {
     case "SET_DOCUMENTS":
       return { ...state, documents: action.documents };
     case "SET_ACTIVE_DOCUMENT":
-      return { ...state, activeDocumentId: action.documentId };
+      return {
+        ...state,
+        activeDocumentId: action.documentId,
+        activeChunkId: action.documentId === null ? null : state.activeChunkId,
+      };
+    case "SET_ACTIVE_CHUNK":
+      return {
+        ...state,
+        activeChunkId: action.chunkId,
+        activeDocumentId: action.documentId !== undefined ? action.documentId : state.activeDocumentId,
+        sourcesCollapsed: action.chunkId ? false : state.sourcesCollapsed,
+      };
     case "ADD_GENERATED_PRODUCT":
       return {
         ...state,
         generatedProducts: [action.product, ...state.generatedProducts],
       };
-    case "TOGGLE_SOURCES_PANEL":
-      return { ...state, sourcesCollapsed: !state.sourcesCollapsed };
+    case "TOGGLE_SOURCES_PANEL": {
+      const nextCollapsed = !state.sourcesCollapsed;
+      return {
+        ...state,
+        sourcesCollapsed: nextCollapsed,
+        activeChunkId: nextCollapsed ? null : state.activeChunkId,
+      };
+    }
     case "TOGGLE_STUDIO_PANEL":
       return { ...state, studioCollapsed: !state.studioCollapsed };
     default:
@@ -72,6 +91,11 @@ export function WorkspaceProvider({ children }) {
     []
   );
 
+  const setActiveChunkId = useCallback(
+    (chunkId, documentId) => dispatch({ type: "SET_ACTIVE_CHUNK", chunkId, documentId }),
+    []
+  );
+
   const addGeneratedProduct = useCallback(
     (product) => dispatch({ type: "ADD_GENERATED_PRODUCT", product }),
     []
@@ -95,6 +119,7 @@ export function WorkspaceProvider({ children }) {
         toggleDocument,
         setDocuments,
         setActiveDocument,
+        setActiveChunkId,
         addGeneratedProduct,
         toggleSourcesPanel,
         toggleStudioPanel,

@@ -143,8 +143,9 @@ textarea {
 
 .app-shell {
   padding: 0;
-  max-width: 1440px;
-  margin: 0 auto;
+  max-width: 100%;
+  margin: 0;
+  width: 100%;
 }
 
 .top-header {
@@ -796,11 +797,15 @@ tr:hover td {
 }
 
 .panel-toggle-label {
-  font-size: 10px;
-  margin-top: 4px;
-  font-weight: 600;
+  font-size: 11px;
+  margin-top: 8px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.15em;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  white-space: nowrap;
+  color: var(--text-secondary);
 }
 
 .panel-center {
@@ -1306,4 +1311,10 @@ tr:hover td {
   .page-shell {
     padding-bottom: 96px;
   }
+}
+
+/* Full-screen workspace layout overrides */
+.page-shell:has(.workspace-layout) {
+  padding: 0;
+  gap: 0;
 }

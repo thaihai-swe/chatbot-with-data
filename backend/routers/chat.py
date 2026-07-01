@@ -138,6 +138,8 @@ def get_session_history(session_id: str) -> List[ChatTurnResponse]:
                 created_at=turn.created_at,
                 updated_at=turn.updated_at,
                 citations=citation_responses,
+                retrieval_trace=context_data.get("retrieval_trace"),
+                safety_trace=context_data.get("safety_trace"),
                 conflict_status=context_data.get("conflict_status", "no_conflict"),
                 conflict_details=context_data.get("conflict_details"),
             )

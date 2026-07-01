@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getDocument, getChunkNote, upsertChunkNote, reindexDocument } from "../api/knowledgeApi";
+import { useWorkspace } from "../context/WorkspaceContext";
 
 const overlayStyle = {
   position: "fixed",
@@ -143,11 +144,67 @@ function NoteEditor({ chunkId, onNoteChange }) {
   );
 }
 
+function ChunkModal({ chunk, documentTitle, onClose }) {
+  if (!chunk) return null;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "680px" }}>
+        <div className="modal-header">
+          <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>
+            {chunk.title || `Chunk`}
+          </h3>
+          <button 
+            className="button button-ghost" 
+            style={{ padding: 0, width: "32px", height: "32px", fontSize: "20px" }} 
+            onClick={onClose}
+          >
+            &times;
+          </button>
+        </div>
+        
+        <div className="modal-body">
+          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "16px", marginBottom: "20px" }}>
+            <div className="field">
+              <span className="eyebrow" style={{ marginBottom: "4px" }}>Document</span>
+              <span style={{ fontSize: "14px", fontWeight: "600" }}>{documentTitle || "Untitled Document"}</span>
+            </div>
+            {(chunk.page_number || chunk.metadata?.page_number) && (
+              <div className="field">
+                <span className="eyebrow" style={{ marginBottom: "4px" }}>Page</span>
+                <span style={{ fontSize: "14px", fontWeight: "600" }}>{chunk.page_number || chunk.metadata.page_number}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="field">
+            <span className="eyebrow">Content</span>
+            <div className="surface-card" style={{ padding: "16px", background: "var(--surface-muted)", fontSize: "14px", lineHeight: "1.6", whiteSpace: "pre-wrap", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", maxHeight: "250px", overflowY: "auto" }}>
+              {chunk.content || chunk.text || "No text content available."}
+            </div>
+          </div>
+
+          <div className="field" style={{ marginTop: "16px" }}>
+            <span className="eyebrow">Your Note</span>
+            <NoteEditor chunkId={chunk.id} />
+          </div>
+        </div>
+        
+        <div className="modal-footer" style={{ borderTop: "1px solid var(--border)", paddingTop: "16px", display: "flex", justifyContent: "flex-end" }}>
+          <button className="button button-primary" onClick={onClose}>Done</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SourceBrowser({ documentId, onClose, inline }) {
+  const { activeChunkId } = useWorkspace();
   const [document, setDocument] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rechunking, setRechunking] = useState(false);
   const [selectedChunk, setSelectedChunk] = useState(null);
+  const [popupChunk, setPopupChunk] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -163,6 +220,21 @@ function SourceBrowser({ documentId, onClose, inline }) {
   }, [documentId]);
 
   const chunks = document?.chunks || [];
+
+  useEffect(() => {
+    if (activeChunkId && chunks.length > 0) {
+      const index = chunks.findIndex((c) => c.id === activeChunkId);
+      if (index !== -1) {
+        setSelectedChunk(index);
+        setTimeout(() => {
+          const element = window.document.getElementById(`chunk-item-${activeChunkId}`);
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          }
+        }, 50);
+      }
+    }
+  }, [activeChunkId, chunks]);
 
   const handleRechunk = async () => {
     setRechunking(true);
@@ -205,38 +277,56 @@ function SourceBrowser({ documentId, onClose, inline }) {
           </div>
         ) : (
           <div style={bodyStyle}>
-            <div style={leftPaneStyle}>
+            <div style={{ ...leftPaneStyle, width: "100%", borderRight: "none" }}>
               <h3 style={{ fontSize: "12px", fontWeight: 600, margin: "0 0 12px", color: "var(--text-secondary)" }}>
                 Chunks ({chunks.length})
               </h3>
               {chunks.map((chunk, index) => (
                 <div
                   key={chunk.id || index}
+                  id={`chunk-item-${chunk.id || index}`}
                   style={{
                     ...chunkItemStyle,
-                    background: selectedChunk === index ? "var(--accent-strong)" : "transparent",
-                    color: selectedChunk === index ? "#fff" : "var(--text-primary)",
+                    padding: "12px 14px",
+                    borderRadius: "var(--radius-md)",
+                    marginBottom: "10px",
+                    cursor: "pointer",
+                    transition: "all var(--motion-base) var(--ease-standard)",
+                    fontSize: "13px",
+                    border: "1px solid var(--border)",
+                    background:
+                      selectedChunk === index
+                        ? "rgba(99, 102, 241, 0.08)"
+                        : "var(--surface)",
+                    borderColor:
+                      selectedChunk === index
+                        ? "var(--accent-strong)"
+                        : "var(--border)",
+                    color:
+                      selectedChunk === index
+                        ? "var(--accent-strong)"
+                        : "var(--text-primary)",
                   }}
-                  onClick={() => setSelectedChunk(index)}
+                  onClick={() => {
+                    setSelectedChunk(index);
+                    setPopupChunk(chunk);
+                  }}
                 >
-                  <div style={{ fontWeight: 500 }}>{chunk.title || `Chunk ${index + 1}`}</div>
+                  <div style={{ fontWeight: 600, fontSize: "13px" }}>{chunk.title || `Chunk ${index + 1}`}</div>
                   <div style={{ opacity: 0.6, fontSize: "11px", marginTop: "2px" }}>
                     Page {chunk.page_number ?? "?"}
                   </div>
                 </div>
               ))}
             </div>
-            <div style={rightPaneStyle}>
-              {selectedChunk !== null && chunks[selectedChunk]?.content ? (
-                <>
-                  <pre style={preStyle}>{chunks[selectedChunk].content}</pre>
-                  <NoteEditor chunkId={chunks[selectedChunk].id} />
-                </>
-              ) : (
-                <pre style={preStyle}>{document?.extracted_text || ""}</pre>
-              )}
-            </div>
           </div>
+        )}
+        {popupChunk && (
+          <ChunkModal
+            chunk={popupChunk}
+            documentTitle={document?.title}
+            onClose={() => setPopupChunk(null)}
+          />
         )}
       </div>
     );
@@ -281,14 +371,25 @@ function SourceBrowser({ documentId, onClose, inline }) {
               {chunks.map((chunk, index) => (
                 <div
                   key={chunk.id || index}
+                  id={`chunk-item-${chunk.id || index}`}
                   style={{
                     ...chunkItemStyle,
                     background:
-                      selectedChunk === index ? "var(--accent-strong)" : "transparent",
+                      selectedChunk === index
+                        ? (activeChunkId && activeChunkId === chunk.id
+                            ? "rgba(99, 102, 241, 0.12)"
+                            : "var(--accent-strong)")
+                        : "transparent",
                     color:
                       selectedChunk === index
-                        ? "var(--text-on-accent, #fff)"
+                        ? (activeChunkId && activeChunkId === chunk.id
+                            ? "var(--accent-strong)"
+                            : "var(--text-on-accent, #fff)")
                         : "var(--text-primary)",
+                    boxShadow:
+                      selectedChunk === index && activeChunkId && activeChunkId === chunk.id
+                        ? "inset 0 0 0 2px var(--accent-strong)"
+                        : "none",
                   }}
                   onClick={() => setSelectedChunk(index)}
                 >

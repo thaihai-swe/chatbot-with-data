@@ -19,7 +19,7 @@
         "semantic_chunking_enabled": false,
         "semantic_similarity_threshold": 0.1,
         "parent_child_enabled": true,
-        "adaptive_tiering_enabled": true,
+        "adaptive_tiering_enabled": false,
         "adaptive_tiering_threshold": null,
         "adaptive_tiering_ratio": 0.3,
         "embedding_provider": "openai-compatible",

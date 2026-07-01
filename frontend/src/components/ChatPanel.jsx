@@ -65,7 +65,7 @@ function MarkdownBlock({ content }) {
 export default function ChatPanel() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
-  const { selectedCollectionId, selectedDocumentIds, collectionName, addGeneratedProduct, selectCollection } = useWorkspace();
+  const { selectedCollectionId, selectedDocumentIds, collectionName, addGeneratedProduct, selectCollection, setActiveChunkId } = useWorkspace();
 
   const [sessions, setChatSessions] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -374,24 +374,11 @@ export default function ChatPanel() {
     if (msg.role !== "assistant" || !msg.citations || msg.citations.length === 0) {
       return msg.content;
     }
-    const parts = msg.content.split(/(\[Source\s+[^\]]+\])/g);
+    const parts = msg.content.split(/(\[Source\s+[^\]]+\]|\[\d+\])/g);
     return parts.map((part, idx) => {
-      const match = part.match(/\[Source\s+([^\]]+)\]/);
+      const match = part.match(/\[Source\s+([^\]]+)\]|\[(\d+)\]/);
       if (match) {
-        const label = match[1].trim();
-        let title = "";
-        if (/^\d+$/.test(label)) {
-          const index = parseInt(label, 10) - 1;
-          if (msg.chunks && msg.chunks[index]) {
-            title = msg.chunks[index].title || msg.chunks[index].metadata?.title;
-          } else if (msg.citations && msg.citations[index]) {
-            title = msg.citations[index].metadata?.title || msg.citations[index].title;
-          }
-        }
-        if (!title && msg.citations) {
-          const cit = msg.citations.find((c) => c.chunk_id === label);
-          if (cit) title = cit.metadata?.title || cit.title;
-        }
+        const label = (match[1] || match[2]).trim();
         let targetCit = null;
         if (/^\d+$/.test(label)) {
           const index = parseInt(label, 10) - 1;
@@ -404,11 +391,18 @@ export default function ChatPanel() {
         if (targetCit) {
           targetChunk = (msg.chunks || []).find((c) => c.chunk_id === targetCit.chunk_id);
         }
-        if (!title) title = `Source ${label}`;
+        let docTitle = "";
+        if (targetChunk) {
+          docTitle = targetChunk.title || targetChunk.metadata?.title || "";
+        }
+        if (!docTitle && targetCit) {
+          docTitle = targetCit.title || targetCit.metadata?.title || "";
+        }
+        const displayLabel = docTitle ? `Source ${label} - ${docTitle}` : `Source ${label}`;
         return (
           <CitationBadge
             key={idx}
-            label={title}
+            label={displayLabel}
             citation={targetCit}
             chunk={targetChunk}
             onClick={() => {

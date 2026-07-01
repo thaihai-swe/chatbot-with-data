@@ -15,8 +15,8 @@ _SENTENCE_SPLIT_RE = re.compile(r'(?<=[.!?])\s+')
 class CitationService:
     """Service for managing citations in generated answers."""
 
-    # Pattern to match [Source N] or [Source UUID]
-    CITATION_PATTERN = re.compile(r'\[Source\s+([^\]]+)\]')
+    # Pattern to match [Source N], [Source UUID], or [N]
+    CITATION_PATTERN = re.compile(r'\[Source\s+([^\]]+)\]|\[(\d+)\]')
 
     # Jaccard similarity threshold for sentence overlap matching
     QUOTE_MATCH_THRESHOLD = 0.5
@@ -31,14 +31,16 @@ class CitationService:
         Returns:
             List of extracted labels (e.g., ["1", "2", "uuid-abc"])
         """
-        matches = self.CITATION_PATTERN.findall(text)
+        matches = self.CITATION_PATTERN.finditer(text)
         seen = set()
         unique_citations = []
         for match in matches:
-            val = match.strip()
-            if val not in seen:
-                seen.add(val)
-                unique_citations.append(val)
+            val = match.group(1) or match.group(2)
+            if val:
+                val = val.strip()
+                if val not in seen:
+                    seen.add(val)
+                    unique_citations.append(val)
         return unique_citations
 
     def extract_quote(
@@ -66,7 +68,7 @@ class CitationService:
         answer_sentences = _SENTENCE_SPLIT_RE.split(answer_text)
         claim_sentence = ""
         for sentence in answer_sentences:
-            if f"[Source {label}]" in sentence:
+            if f"[Source {label}]" in sentence or f"[{label}]" in sentence:
                 claim_sentence = sentence.strip()
                 break
 

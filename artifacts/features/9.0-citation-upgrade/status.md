@@ -1,6 +1,6 @@
 # Status: 9.0 Citation Upgrade
 
-# Current Phase: Plan Approved
+# Current Phase: Verification
 
 # Complexity: Complex
 
@@ -19,11 +19,11 @@ None
 - [x] Research complete
 - [x] Spec approved
 - [x] Plan approved
-- [ ] Implementation complete
+- [x] Implementation complete
 - [ ] Verification complete
 
 # Blockers
 None
 
 # Next Step
-Run `/spec-implement` to start coding and testing tasks in order.
+Run `/harness-verify` to execute final integration checks, alignment auditing, and close out the implementation.

@@ -152,6 +152,9 @@ class StreamingOrchestrator:
                 annotations=annotations,
             )
 
+            context_package["retrieval_trace"] = trace.model_dump() if hasattr(trace, 'model_dump') else (trace.dict() if hasattr(trace, 'dict') else trace)
+            context_package["safety_trace"] = safety_trace.model_dump() if hasattr(safety_trace, 'model_dump') else (safety_trace.dict() if hasattr(safety_trace, 'dict') else safety_trace)
+
             ChatRepository.create_turn(
                 id=turn_id,
                 session_id=session_id,
