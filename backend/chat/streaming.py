@@ -197,8 +197,9 @@ class StreamingOrchestrator:
                     ChatRepository.update_turn_status(turn_id, "cancelled")
                     yield self._format_sse("status", {"stage": "cancelled", "message": "Cancelled."})
                     return
-                full_answer += token
-                yield self._format_sse("token", {"content": token})
+                token_str = str(token)
+                full_answer += token_str
+                yield self._format_sse("token", {"content": token_str})
 
             # 7. Status: Finalizing citations
             yield self._format_sse("status", {"stage": "finalizing", "message": "Finalizing citations..."})

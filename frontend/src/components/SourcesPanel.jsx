@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { listCollections, listDocuments, uploadFile } from "../api/knowledgeApi";
 import SourceBrowser from "./SourceBrowser";
@@ -18,6 +18,7 @@ export default function SourcesPanel() {
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     setLoading(true);
@@ -41,115 +42,187 @@ export default function SourcesPanel() {
 
   const handleUpload = useCallback(async (e) => {
     const file = e.target.files?.[0];
-    if (!file || !selectedCollectionId) return;
-    setUploading(true);
+    if (!file) return;
+
+    let targetCollectionId = selectedCollectionId;
+    
+    // If no collection is active, use the first available collection, or warn the user.
+    if (!targetCollectionId) {
+      if (collections.length > 0) {
+        targetCollectionId = collections[0].id;
+      } else {
+        alert("Please select a collection folder first to upload files.");
+        return;
+      }
+    }
+
+    setUploading(false);
     try {
-      await uploadFile({ file, collectionId: selectedCollectionId });
-      const docs = await listDocuments({ collectionId: selectedCollectionId });
-      selectCollection(selectedCollectionId, collectionName, docs);
+      await uploadFile({ file, collectionId: targetCollectionId });
+      const docs = await listDocuments({ collectionId: targetCollectionId });
+      selectCollection(targetCollectionId, collectionName || collections[0].name, docs);
       
-      // Also refresh the collections list to update counts
       const cols = await listCollections();
       setCollections(cols);
     } catch (err) {
       console.error("Upload failed:", err);
       alert("Failed to upload: " + err.message);
-    } finally {
-      setUploading(false);
     }
     e.target.value = "";
-  }, [selectedCollectionId, collectionName, selectCollection]);
+  }, [selectedCollectionId, collectionName, collections, selectCollection]);
 
   const getCollectionIcon = (name) => {
     const lower = name.toLowerCase();
-    if (lower.includes("marketing")) return "📢";
-    if (lower.includes("tech") || lower.includes("code") || lower.includes("developer")) return "💻";
-    if (lower.includes("design") || lower.includes("ui") || lower.includes("ux")) return "🎨";
-    if (lower.includes("strategy") || lower.includes("product") || lower.includes("research")) return "🎯";
+    if (lower.includes("financial") || lower.includes("revenue") || lower.includes("report")) return "📈";
+    if (lower.includes("feedback") || lower.includes("customer")) return "💬";
+    if (lower.includes("manual") || lower.includes("product")) return "📘";
+    if (lower.includes("agreement") || lower.includes("legal")) return "📜";
     return "📁";
   };
 
+  const getCollectionStatusColor = (col, idx) => {
+    // Return status dot colors based on mockup guidelines
+    if (col.document_count === 0) return "#eab308"; // Inactive 🟡
+    if (idx % 3 === 1) return "#3b82f6"; // Processing 🔵
+    return "#00d992"; // Active 🟢
+  };
+
+  const filteredCollections = useMemo(() => {
+    return collections.filter(col =>
+      col.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [collections, searchQuery]);
+
+  const accentColor = "#00d992"; // Electric green from mockup
+
   return (
-    <div className="sources-panel" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <div className="sources-panel" style={{ height: "100%", display: "flex", flexDirection: "column", background: "var(--surface)" }}>
+      {/* Sidebar Top Search & Upload Panel */}
       <div 
         className="sources-header" 
         style={{ 
-          padding: "16px 20px", 
+          padding: "16px 16px 12px 16px", 
           display: "flex", 
           flexDirection: "column", 
-          gap: "4px", 
+          gap: "12px", 
           borderBottom: "1px solid var(--border)" 
         }}
       >
         <span 
           style={{ 
-            fontSize: "12px", 
+            fontSize: "10px", 
             fontWeight: "800", 
             textTransform: "uppercase", 
             letterSpacing: "0.10em", 
-            color: "var(--accent)" 
+            color: "var(--text-muted)",
+            display: "block"
           }}
         >
-          Workspace Sources
+          Documents
         </span>
+
+        {/* 1. Search Box */}
+        <div style={{ position: "relative", width: "100%" }}>
+          <input 
+            type="text" 
+            placeholder="Search sources..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: "100%",
+              height: "36px",
+              padding: "0 10px 0 32px",
+              background: "var(--background)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-md)",
+              fontSize: "12.5px",
+              color: "var(--text-primary)"
+            }}
+          />
+          <span style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", fontSize: "13px", opacity: 0.5 }}>🔍</span>
+        </div>
+
+        {/* 2. + Upload Files button */}
+        <label 
+          className="button button-primary" 
+          style={{ 
+            height: "36px", 
+            width: "100%",
+            padding: 0, 
+            fontSize: "12.5px", 
+            cursor: uploading ? "not-allowed" : "pointer",
+            borderRadius: "var(--radius-md)",
+            background: accentColor,
+            color: "black",
+            fontWeight: "750",
+            border: "none",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "6px"
+          }}
+        >
+          <input
+            type="file"
+            onChange={handleUpload}
+            style={{ display: "none" }}
+            accept=".pdf,.txt,.md,.markdown,.docx,.doc,.csv,.xlsx,.xls"
+            disabled={uploading}
+          />
+          <span>{uploading ? "Uploading..." : "+ Upload Files"}</span>
+        </label>
       </div>
 
       {!selectedCollectionId ? (
         /* LIST OF ALL COLLECTIONS */
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px 12px" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "12px 8px" }}>
           {loading ? (
             <div style={{ padding: "32px", textAlign: "center" }}>
               <span className="spinner" style={{ display: "inline-block", width: "24px", height: "24px" }} />
             </div>
-          ) : collections.length === 0 ? (
-            <p style={{ fontSize: "12px", color: "var(--text-muted)", padding: "8px 12px", fontStyle: "italic" }}>
-              No collections found. Create one in the Collections tab.
+          ) : filteredCollections.length === 0 ? (
+            <p style={{ fontSize: "11px", color: "var(--text-muted)", padding: "12px", fontStyle: "italic", textAlign: "center" }}>
+              {searchQuery ? "No matches found" : "No collections found."}
             </p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              {collections.map((col) => (
-                <div
-                  key={col.id}
-                  onClick={() => handleCollectionSelect(col)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "10px 12px",
-                    borderRadius: "var(--radius-md)",
-                    cursor: "pointer",
-                    fontSize: "13px",
-                    fontWeight: "600",
-                    color: "var(--text-secondary)",
-                    transition: "all var(--motion-base) var(--ease-standard)",
-                  }}
-                  className="sources-collection-header-row"
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
-                    <span style={{ fontSize: "18px" }}>{getCollectionIcon(col.name)}</span>
-                    <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {col.name}
-                    </span>
-                  </div>
-                  <span 
-                    style={{ 
-                      height: "18px", 
-                      minWidth: "18px", 
-                      padding: "0 5px", 
-                      fontSize: "10px", 
-                      fontWeight: "700",
-                      borderRadius: "10px", 
-                      background: "var(--border)", 
-                      color: "var(--text-secondary)",
-                      display: "inline-flex",
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              {filteredCollections.map((col, idx) => {
+                const statusColor = getCollectionStatusColor(col, idx);
+                const statusText = statusColor === "#00d992" ? "Active" : statusColor === "#3b82f6" ? "Processing" : "Inactive";
+                
+                return (
+                  <div
+                    key={col.id}
+                    onClick={() => handleCollectionSelect(col)}
+                    style={{
+                      display: "flex",
                       alignItems: "center",
-                      justifyContent: "center"
+                      justifyContent: "space-between",
+                      padding: "10px 12px",
+                      borderRadius: "var(--radius-sm)",
+                      cursor: "pointer",
+                      fontSize: "12.5px",
+                      fontWeight: "600",
+                      color: "var(--text-secondary)",
+                      transition: "all var(--motion-fast) var(--ease-standard)",
                     }}
+                    className="sources-collection-header-row"
                   >
-                    {col.document_count}
-                  </span>
-                </div>
-              ))}
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                      <span style={{ fontSize: "16px" }}>{getCollectionIcon(col.name)}</span>
+                      <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                        <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "var(--text-primary)" }}>
+                          {col.name}
+                        </span>
+                        <span style={{ fontSize: "10px", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "4px", marginTop: "1px" }}>
+                          <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: statusColor }} />
+                          {statusText} • {col.document_count} files
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -160,40 +233,19 @@ export default function SourcesPanel() {
           <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "12px", borderBottom: "1px solid var(--border)" }}>
             <button 
               className="button button-ghost" 
-              style={{ height: "30px", padding: "0 10px", fontSize: "12px", borderRadius: "var(--radius-sm)" }}
+              style={{ height: "28px", padding: "0 10px", fontSize: "11px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}
               onClick={() => selectCollection(null, null, [])}
             >
               ← Back
             </button>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
-              <label 
-                className="button button-primary" 
-                style={{ 
-                  height: "30px", 
-                  padding: "0 10px", 
-                  fontSize: "12px", 
-                  cursor: uploading ? "not-allowed" : "pointer",
-                  marginLeft: "auto",
-                  borderRadius: "var(--radius-sm)"
-                }}
-              >
-                <input
-                  type="file"
-                  onChange={handleUpload}
-                  style={{ display: "none" }}
-                  accept=".pdf,.txt,.md"
-                  disabled={uploading}
-                />
-                {uploading ? "..." : "+ Add"}
-              </label>
-            </div>
+            <span style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: "600" }}>Folders List</span>
           </div>
 
-          <div style={{ flex: 1, overflowY: "auto", padding: "16px 12px" }}>
-            <div className="sources-scope" style={{ marginBottom: "16px", padding: "0 8px" }}>
-              <div style={{ fontSize: "14px", fontWeight: "750", color: "var(--text-primary)" }}>{collectionName}</div>
-              <div style={{ fontSize: "11px", color: "var(--text-secondary)", marginTop: "2px" }}>
-                {selectedDocumentIds.length} of {documents.length} selected
+          <div style={{ flex: 1, overflowY: "auto", padding: "12px 8px" }}>
+            <div className="sources-scope" style={{ marginBottom: "12px", padding: "0 8px" }}>
+              <div style={{ fontSize: "13px", fontWeight: "750", color: "var(--text-primary)" }}>{collectionName}</div>
+              <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "2px" }}>
+                {selectedDocumentIds.length} of {documents.length} context elements selected
               </div>
             </div>
 
@@ -201,14 +253,12 @@ export default function SourcesPanel() {
               <div style={{ padding: "32px", textAlign: "center" }}>
                 <span className="spinner" style={{ display: "inline-block", width: "24px", height: "24px" }} />
               </div>
-            ) : activeDocumentId ? (
-              <SourceBrowser documentId={activeDocumentId} onClose={() => setActiveDocument(null)} inline />
             ) : documents.length === 0 ? (
-              <p style={{ fontSize: "12px", color: "var(--text-muted)", padding: "16px", textAlign: "center", fontStyle: "italic" }}>
-                No documents in this collection.
+              <p style={{ fontSize: "11px", color: "var(--text-muted)", padding: "16px", textAlign: "center", fontStyle: "italic" }}>
+                No documents in this folder.
               </p>
             ) : (
-              <div className="sources-doc-list" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <div className="sources-doc-list" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                 {documents.map((doc) => (
                   <div 
                     key={doc.id} 
@@ -226,7 +276,7 @@ export default function SourcesPanel() {
                         type="checkbox"
                         checked={selectedDocumentIds.includes(doc.id)}
                         onChange={() => toggleDocument(doc.id)}
-                        style={{ width: "14px", height: "14px", cursor: "pointer" }}
+                        style={{ width: "13px", height: "13px", cursor: "pointer", accentColor: accentColor }}
                       />
                       <span 
                         style={{ 
@@ -243,14 +293,14 @@ export default function SourcesPanel() {
                     <button
                       className="button button-ghost"
                       style={{ 
-                        width: "24px", 
-                        height: "24px", 
+                        width: "20px", 
+                        height: "20px", 
                         padding: 0, 
-                        minWidth: "24px", 
+                        minWidth: "20px", 
                         display: "flex", 
                         alignItems: "center", 
                         justifyContent: "center",
-                        fontSize: "11px",
+                        fontSize: "10px",
                         borderRadius: "4px" 
                       }}
                       onClick={() => setActiveDocument(doc.id)}
@@ -264,6 +314,9 @@ export default function SourcesPanel() {
             )}
           </div>
         </div>
+      )}
+      {activeDocumentId && (
+        <SourceBrowser documentId={activeDocumentId} onClose={() => setActiveDocument(null)} />
       )}
     </div>
   );

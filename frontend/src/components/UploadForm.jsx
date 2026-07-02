@@ -1,12 +1,10 @@
 import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 
-function UploadForm({ collections, onUploadFile, onSubmitUrl }) {
-  const navigate = useNavigate();
+function UploadForm({ activeCollectionId, onUploadFile, onSubmitUrl }) {
   const fileInputRef = useRef(null);
-  const [selectedCollection, setSelectedCollection] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
+  const [showUrlForm, setShowUrlForm] = useState(false);
   const [url, setUrl] = useState("");
 
   const handleDragOver = (e) => {
@@ -43,7 +41,7 @@ function UploadForm({ collections, onUploadFile, onSubmitUrl }) {
     if (!selectedFile) return;
     await onUploadFile({
       file: selectedFile,
-      collectionId: selectedCollection,
+      collectionId: activeCollectionId || "",
     });
     setSelectedFile(null);
   }
@@ -53,95 +51,34 @@ function UploadForm({ collections, onUploadFile, onSubmitUrl }) {
     if (!url) return;
     await onSubmitUrl({
       url,
-      collectionIds: selectedCollection ? [selectedCollection] : [],
+      collectionIds: activeCollectionId ? [activeCollectionId] : [],
     });
     setUrl("");
+    setShowUrlForm(false);
   }
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "24px", marginBottom: "32px" }}>
-      {/* Target Collection Select row */}
-      <div className="panel glassmorphic" style={{ padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "24px", flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "14px", flex: "1 1 300px" }}>
-          <div style={{
-            width: "40px",
-            height: "40px",
-            borderRadius: "var(--radius-md)",
-            background: "rgba(99, 91, 255, 0.1)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "20px",
-            color: "var(--accent)"
-          }}>
-            📁
-          </div>
-          <div style={{ flex: 1 }}>
-            <label htmlFor="collection-select" style={{ fontSize: "11px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
-              Target Collection
-            </label>
-            <select
-              id="collection-select"
-              value={selectedCollection}
-              onChange={(e) => setSelectedCollection(e.target.value)}
-              style={{
-                border: "none",
-                background: "transparent",
-                fontSize: "15px",
-                fontWeight: "600",
-                padding: "2px 0",
-                height: "auto",
-                boxShadow: "none",
-                color: "var(--text-primary)",
-                width: "100%",
-                cursor: "pointer",
-                outline: "none"
-              }}
-            >
-              <option value="">Default (Global Library)</option>
-              {collections.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        
-        {/* URL Fetch Tool */}
-        <form onSubmit={handleUrlSubmit} style={{ display: "flex", gap: "10px", alignItems: "center", flex: "1 1 400px", maxWidth: "500px" }}>
-          <input
-            type="url"
-            placeholder="Crawl website (e.g. https://example.com)"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            style={{ height: "40px", fontSize: "13px", background: "rgba(255, 255, 255, 0.03)" }}
-          />
-          <button className="button button-primary" type="submit" disabled={!url} style={{ height: "40px", padding: "0 20px" }}>
-            Fetch URL
-          </button>
-        </form>
-      </div>
+  const accentColor = "#00d992"; // Electric green from mockup
 
-      {/* DRAG AND DROP ZONE */}
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
+      {/* COMPACT DRAG & DROP FILE ZONE */}
       <div 
-        className="panel glassmorphic"
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         style={{
           display: "flex",
-          flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
-          padding: "48px 32px",
-          border: dragOver ? "2px dashed var(--accent)" : "1px dashed var(--border-strong)",
+          gap: "16px",
+          padding: "16px 20px",
+          border: `1.5px dashed ${dragOver ? "var(--accent)" : accentColor}`,
+          borderRadius: "var(--radius-lg)",
           background: dragOver 
-            ? "radial-gradient(circle at center, rgba(99, 91, 255, 0.08), rgba(99, 91, 255, 0.02))" 
-            : "var(--glass-bg)",
+            ? "rgba(0, 217, 146, 0.06)" 
+            : "rgba(0, 217, 146, 0.01)",
           cursor: "pointer",
-          textAlign: "center",
-          minHeight: "240px",
           transition: "all var(--motion-base) var(--ease-standard)",
-          boxShadow: dragOver ? "var(--shadow-glow)" : "var(--glass-shadow)"
+          position: "relative"
         }}
         onClick={triggerFileSelect}
       >
@@ -150,81 +87,158 @@ function UploadForm({ collections, onUploadFile, onSubmitUrl }) {
           ref={fileInputRef} 
           onChange={handleFileChange} 
           style={{ display: "none" }} 
-          accept=".pdf,.txt,.md,.markdown" 
+          accept=".pdf,.txt,.md,.markdown,.docx,.doc,.csv,.xlsx,.xls" 
         />
+        
+        {/* Upload Icon */}
         <div style={{
-          width: "64px",
-          height: "64px",
+          width: "36px",
+          height: "36px",
           borderRadius: "50%",
-          background: "rgba(99, 91, 255, 0.05)",
-          border: "1px solid var(--glass-border)",
+          background: "rgba(0, 217, 146, 0.08)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontSize: "28px",
-          marginBottom: "20px",
-          boxShadow: "var(--shadow-xs)"
+          fontSize: "18px",
+          color: accentColor,
+          flexShrink: 0
         }}>
-          ☁️
+          📤
         </div>
-        <h3 style={{ fontSize: "18px", fontWeight: "750", marginBottom: "8px", letterSpacing: "-0.02em" }}>
-          Upload Source Document
-        </h3>
-        <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "24px", maxWidth: "340px", lineHeight: "1.5" }}>
-          Drag and drop PDF, Word, TXT, or markdown files here or <span style={{ color: "var(--accent)", fontWeight: "600", textDecoration: "underline" }}>browse local files</span>
-        </p>
-        
-        {selectedFile ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", width: "100%", maxWidth: "340px" }} onClick={e => e.stopPropagation()}>
-            <div style={{ 
-              fontSize: "13px", 
-              fontWeight: "600", 
-              color: "var(--text-primary)", 
-              background: "rgba(255,255,255,0.03)", 
-              border: "1px solid var(--border)",
-              padding: "10px 14px", 
-              borderRadius: "var(--radius-md)", 
-              width: "100%", 
-              textOverflow: "ellipsis", 
-              overflow: "hidden", 
-              whiteSpace: "nowrap" 
-            }}>
-              📄 {selectedFile.name}
-            </div>
-            <button 
-              className="button button-primary" 
-              onClick={handleFileSubmit} 
-              style={{ width: "100%", height: "40px" }}
-            >
-              Start Ingestion Pipeline
-            </button>
-          </div>
-        ) : (
-          <button className="button button-ghost" style={{ height: "40px", padding: "0 24px" }}>
-            Select Document
-          </button>
-        )}
+
+        {/* Text Instructions */}
+        <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+          <h4 style={{ fontSize: "13px", fontWeight: "700", color: accentColor, margin: "0 0 2px 0" }}>
+            Upload Files
+          </h4>
+          <p style={{ fontSize: "11px", color: "var(--text-secondary)", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            Drag & Drop Files Here or Click to Browse
+          </p>
+          <span style={{ fontSize: "9px", color: "var(--text-muted)", display: "block", marginTop: "1px" }}>
+            Supports PDFs, CSVs, TXT, DOCX
+          </span>
+        </div>
       </div>
 
-      {/* Action shortcut row */}
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button 
-          className="button button-ghost glassmorphic" 
+      {/* Action panel when file is staged */}
+      {selectedFile && (
+        <div 
           style={{ 
-            height: "48px", 
-            padding: "0 24px", 
-            borderRadius: "var(--radius-lg)", 
-            border: "1px solid var(--glass-border)",
-            boxShadow: "var(--glass-shadow)"
+            display: "flex", 
+            alignItems: "center", 
+            gap: "10px", 
+            padding: "8px 12px", 
+            background: "var(--surface-muted)", 
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-md)",
+            marginTop: "4px"
           }}
-          onClick={() => navigate("/collections")}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <span>📁</span>
-            <span style={{ fontWeight: "600", fontSize: "14px" }}>Manage Collections & Architecture</span>
-          </div>
+          <span style={{ fontSize: "12px", fontWeight: "600", color: "var(--text-primary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            Staged: {selectedFile.name}
+          </span>
+          <button 
+            className="button button-primary" 
+            onClick={handleFileSubmit} 
+            style={{ 
+              height: "28px", 
+              fontSize: "11px", 
+              padding: "0 12px", 
+              borderRadius: "var(--radius-xs)",
+              background: accentColor,
+              color: "black",
+              fontWeight: "700",
+              border: "none",
+              cursor: "pointer"
+            }}
+          >
+            Upload
+          </button>
+          <button 
+            className="button button-ghost" 
+            onClick={() => setSelectedFile(null)} 
+            style={{ height: "28px", fontSize: "11px", padding: "0 8px", color: "var(--danger)" }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {/* URL Ingestion Trigger */}
+      <div style={{ textAlign: "right" }}>
+        <button
+          onClick={() => setShowUrlForm(!showUrlForm)}
+          style={{
+            background: "transparent",
+            border: "none",
+            fontSize: "11px",
+            color: "var(--text-secondary)",
+            cursor: "pointer",
+            padding: "4px 8px",
+            textDecoration: "underline"
+          }}
+        >
+          {showUrlForm ? "Hide URL Crawl" : "🌐 Crawl Web Page URL..."}
         </button>
       </div>
+
+      {/* Inline URL Form */}
+      {showUrlForm && (
+        <form 
+          onSubmit={handleUrlSubmit} 
+          style={{ 
+            padding: "12px", 
+            background: "var(--surface-muted)", 
+            border: "1px dashed var(--border)", 
+            borderRadius: "var(--radius-md)",
+            display: "flex", 
+            flexDirection: "column", 
+            gap: "8px",
+            marginTop: "4px"
+          }}
+        >
+          <label htmlFor="url-input-library" style={{ fontSize: "10px", fontWeight: "700", textTransform: "uppercase", color: "var(--text-secondary)" }}>
+            URL Source Ingestion
+          </label>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <input
+              id="url-input-library"
+              type="url"
+              placeholder="https://example.com/docs"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              style={{ 
+                flex: 1, 
+                height: "32px", 
+                fontSize: "12px", 
+                background: "var(--background)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-xs)",
+                padding: "0 8px",
+                color: "var(--text-primary)"
+              }}
+              required
+            />
+            <button 
+              className="button button-primary" 
+              type="submit" 
+              disabled={!url}
+              style={{ 
+                height: "32px", 
+                padding: "0 12px", 
+                fontSize: "11px", 
+                borderRadius: "var(--radius-xs)",
+                background: "var(--accent)",
+                color: "white",
+                border: "none",
+                cursor: "pointer"
+              }}
+            >
+              Fetch
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

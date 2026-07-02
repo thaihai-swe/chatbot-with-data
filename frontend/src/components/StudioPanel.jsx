@@ -3,12 +3,10 @@ import { generateProduct } from "../api/knowledgeApi";
 import { useWorkspace } from "../context/WorkspaceContext";
 
 const PRODUCT_TYPES = [
-  { key: "study-guide", label: "Study Guide", emoji: "📘" },
-  { key: "briefing-doc", label: "Briefing Doc", emoji: "📋" },
-  { key: "faq", label: "FAQ", emoji: "❓" },
-  { key: "timeline", label: "Timeline", emoji: "📅" },
-  { key: "glossary", label: "Glossary", emoji: "📖" },
-  { key: "flashcards", label: "Flashcards", emoji: "🃏" },
+  { key: "study-guide", label: "Study Guide", emoji: "📘", color: "rgb(59, 130, 246)", border: "rgba(59, 130, 246, 0.4)", bg: "rgba(59, 130, 246, 0.05)" },
+  { key: "faq", label: "FAQ", emoji: "❓", color: "rgb(245, 158, 11)", border: "rgba(245, 158, 11, 0.4)", bg: "rgba(245, 158, 11, 0.05)" },
+  { key: "glossary", label: "Glossary", emoji: "📖", color: "rgb(16, 185, 129)", border: "rgba(16, 185, 129, 0.4)", bg: "rgba(16, 185, 129, 0.05)" },
+  { key: "flashcards", label: "Flashcards", emoji: "🃏", color: "rgb(139, 92, 246)", border: "rgba(139, 92, 246, 0.4)", bg: "rgba(139, 92, 246, 0.05)" }
 ];
 
 export default function StudioPanel() {
@@ -18,11 +16,15 @@ export default function StudioPanel() {
     generatedProducts,
     addGeneratedProduct,
     documents,
+    activeDocumentId,
+    setActiveDocument,
   } = useWorkspace();
 
   const [loading, setLoading] = useState(null);
   const [viewingIndex, setViewingIndex] = useState(null);
   const [activeTab, setActiveTab] = useState("active");
+  const [activeMainTab, setActiveMainTab] = useState("analytics");
+  const [alpha, setAlpha] = useState(0.75);
 
   const hasScope = !!selectedCollectionId;
 
@@ -51,183 +53,412 @@ export default function StudioPanel() {
   const viewedProduct =
     viewingIndex !== null ? generatedProducts[viewingIndex] : generatedProducts[0] || null;
 
-  const activeDoc = documents && documents.length > 0 ? documents[0] : { title: "Q3_Product_Deck.pdf", size: "4.2 MB" };
+  const activeDoc = documents.find(d => d.id === activeDocumentId) || documents[0] || null;
+
+  const handleCopy = () => {
+    if (!viewedProduct) return;
+    const textToCopy = typeof viewedProduct.content === "string" 
+      ? viewedProduct.content 
+      : JSON.stringify(viewedProduct.content, null, 2);
+    navigator.clipboard.writeText(textToCopy);
+    alert("Copied to clipboard!");
+  };
+
+  const handleDownload = () => {
+    if (!viewedProduct) return;
+    const text = typeof viewedProduct.content === "string" 
+      ? viewedProduct.content 
+      : JSON.stringify(viewedProduct.content, null, 2);
+    const blob = new Blob([text], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = window.document.createElement("a");
+    a.href = url;
+    a.download = `${viewedProduct.type}-${Date.now()}.md`;
+    window.document.body.appendChild(a);
+    a.click();
+    window.document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleRegenerate = () => {
+    if (!viewedProduct) return;
+    handleGenerate(viewedProduct.type);
+  };
+
+  const accentColor = "#00d992"; // Electric green from mockup
 
   return (
-    <div className="studio-panel" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <div className="studio-panel" style={{ height: "100%", display: "flex", flexDirection: "column", background: "var(--surface)" }}>
       {!hasScope ? (
         <div className="studio-empty" style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px" }}>
-          <span style={{ fontSize: "28px", marginBottom: "8px" }}>🎨</span>
+          <span style={{ fontSize: "28px", marginBottom: "8px" }}>📊</span>
           <p style={{ fontSize: "13px", color: "var(--text-secondary)", textAlign: "center" }}>
-            Select a collection to generate knowledge products.
+            Select a collection to open Studio & Analytics.
           </p>
         </div>
       ) : (
         <>
-          <div className="studio-header" style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)" }}>
-            <span style={{ fontSize: "14px", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-primary)" }}>
-              Knowledge Studio
+          {/* Header */}
+          <div className="studio-header" style={{ padding: "16px 20px 12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)" }}>
+            <span style={{ fontSize: "15px", fontWeight: "800", color: "var(--text-primary)", letterSpacing: "-0.025em" }}>
+              Studio & Analytics
             </span>
-            <button className="button button-ghost" style={{ width: "24px", height: "24px", padding: 0 }} title="More Options">•••</button>
+            <span style={{ fontSize: "10px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em", color: accentColor, background: "rgba(0, 217, 146, 0.08)", padding: "4px 8px", borderRadius: "var(--radius-sm)" }}>
+              {collectionName || "Active Library"}
+            </span>
           </div>
 
-          <div className="studio-tabs" style={{ display: "flex", gap: "4px", padding: "8px 12px", borderBottom: "1px solid var(--border)" }}>
+          {/* Main Category Tabs: Analytics vs Studio */}
+          <div style={{ display: "flex", gap: "2px", padding: "8px 12px", borderBottom: "1px solid var(--border)", background: "rgba(0,0,0,0.08)" }}>
             <button
-              className={`button ${activeTab === "active" ? "button-primary" : "button-ghost"}`}
-              style={{ flex: 1, height: "32px", fontSize: "12px", padding: 0 }}
-              onClick={() => setActiveTab("active")}
+              onClick={() => setActiveMainTab("analytics")}
+              className={`button ${activeMainTab === "analytics" ? "button-primary" : "button-ghost"}`}
+              style={{ flex: 1, height: "30px", fontSize: "11px", borderRadius: "var(--radius-sm)", padding: 0 }}
             >
-              Active View
+              Analytics
             </button>
             <button
-              className={`button ${activeTab === "history" ? "button-primary" : "button-ghost"}`}
-              style={{ flex: 1, height: "32px", fontSize: "12px", padding: 0 }}
-              onClick={() => setActiveTab("history")}
+              onClick={() => setActiveMainTab("studio")}
+              className={`button ${activeMainTab === "studio" ? "button-primary" : "button-ghost"}`}
+              style={{ flex: 1, height: "30px", fontSize: "11px", borderRadius: "var(--radius-sm)", padding: 0 }}
             >
-              History ({generatedProducts.length})
+              Knowledge Studio
             </button>
           </div>
 
-          {activeTab === "active" && (
-            <div style={{ display: "flex", flexDirection: "column", flex: 1, overflowY: "auto", padding: "16px", gap: "20px" }}>
-              {/* SOURCE SECTION */}
-              <div>
-                <div style={{ fontSize: "11px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--text-secondary)", marginBottom: "8px" }}>
-                  Source:
+          {/* TAB 1: ANALYTICS WORKSPACE */}
+          {activeMainTab === "analytics" && (
+            <div style={{ display: "flex", flexDirection: "column", flex: 1, overflowY: "auto", padding: "20px", gap: "20px" }}>
+              
+              {/* 1. Hybrid Search Alpha Slider */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <span style={{ fontSize: "12px", fontWeight: "750", color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.02em" }}>
+                  1. Hybrid Search Alpha
+                </span>
+                
+                <div 
+                  className="panel glassmorphic" 
+                  style={{ 
+                    padding: "16px", 
+                    borderRadius: "var(--radius-md)", 
+                    border: "1px solid var(--border)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px"
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: "600" }}>Alpha Ratio</span>
+                    <span style={{ fontSize: "12px", fontWeight: "800", color: accentColor }}>
+                      Alpha: {alpha.toFixed(2)}
+                    </span>
+                  </div>
+                  
+                  <input
+                    type="range"
+                    min="0.00"
+                    max="1.00"
+                    step="0.05"
+                    value={alpha}
+                    onChange={(e) => setAlpha(parseFloat(e.target.value))}
+                    style={{ width: "100%", height: "6px", accentColor: accentColor }}
+                  />
+
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "var(--text-muted)" }}>
+                    <span>0.00 (Keyword)</span>
+                    <span>1.00 (Vector)</span>
+                  </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px", background: "rgba(255, 255, 255, 0.03)", border: "1px solid var(--glass-border)", borderRadius: "var(--radius-lg)" }}>
-                  <span style={{ fontSize: "24px" }}>📄</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: "13px", fontWeight: "600", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {activeDoc.title || activeDoc.name || "Document"}
+              </div>
+
+              {/* 2. Vector Chunk Retrieval (Bar Chart) */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <span style={{ fontSize: "12px", fontWeight: "750", color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.02em" }}>
+                  2. Vector Chunk Retrieval
+                </span>
+
+                <div 
+                  className="panel glassmorphic" 
+                  style={{ 
+                    padding: "16px", 
+                    borderRadius: "var(--radius-md)", 
+                    border: "1px solid var(--border)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "12px"
+                  }}
+                >
+                  {/* flex bar container */}
+                  <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", height: "80px", padding: "0 8px 4px 8px", borderBottom: "1px solid var(--border)" }}>
+                    {[
+                      { height: "55%", value: "4.5k" },
+                      { height: "78%", value: "3.5k" },
+                      { height: "64%", value: "4.1k" },
+                      { height: "72%", value: "3.8k" },
+                      { height: "48%", value: "2.9k" },
+                      { height: "85%", value: "4.3k" }
+                    ].map((bar, i) => (
+                      <div 
+                        key={i} 
+                        style={{ 
+                          width: "22px", 
+                          height: bar.height, 
+                          background: `linear-gradient(180deg, ${accentColor}, rgba(0, 217, 146, 0.2))`,
+                          borderRadius: "4px 4px 0 0",
+                          position: "relative",
+                          transition: "height 0.4s ease"
+                        }}
+                        title={`Score bin: ${bar.value}`}
+                      />
+                    ))}
+                  </div>
+                  <div style={{ fontSize: "10px", color: "var(--text-secondary)", textAlign: "center", fontStyle: "italic", margin: 0 }}>
+                    Query Relevance Score Range
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Evaluation Metrics */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <span style={{ fontSize: "12px", fontWeight: "750", color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.02em" }}>
+                  3. Evaluation Metrics
+                </span>
+
+                <div 
+                  className="panel glassmorphic" 
+                  style={{ 
+                    padding: "16px", 
+                    borderRadius: "var(--radius-md)", 
+                    border: "1px solid var(--border)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "12px"
+                  }}
+                >
+                  {/* Groundedness */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div>
+                      <span style={{ fontSize: "12.5px", fontWeight: "600", color: "var(--text-primary)", display: "block" }}>Groundedness</span>
+                      <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Source citation overlap</span>
                     </div>
-                    <div style={{ fontSize: "11px", color: "var(--text-secondary)", marginTop: "2px" }}>
-                      {activeDoc.size || "Size: [Unknown]"}
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ fontSize: "13px", fontWeight: "800", color: accentColor }}>98.2%</span>
+                      <span style={{ color: accentColor }}>✅</span>
                     </div>
                   </div>
-                  <span className="status-badge status-success" style={{ height: "20px", fontSize: "10px" }}>Uploaded</span>
-                </div>
-              </div>
 
-              {/* RAG WORKFLOW TIMELINE */}
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                  <span style={{ fontSize: "11px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--text-secondary)" }}>
-                    RAG Workflow
-                  </span>
-                  <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--accent)" }}>
-                    Progress: 85%
-                  </span>
-                </div>
-                {/* Visual Progress Stepper timeline */}
-                <div style={{ display: "flex", gap: "4px", alignItems: "center", justifyContent: "space-between", padding: "8px 0" }}>
-                  {[
-                    { label: "Ingestion", icon: "📥" },
-                    { label: "Vectorization", icon: "⚙️" },
-                    { label: "Storage", icon: "💾" },
-                    { label: "Retrieval", icon: "🔍" },
-                    { label: "Generation", icon: "🎨" }
-                  ].map((step, i) => (
-                    <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", flex: 1 }}>
-                      <div style={{
-                        width: "28px",
-                        height: "28px",
-                        borderRadius: "50%",
-                        background: i < 4 ? "var(--gradient-primary)" : "var(--border)",
-                        color: i < 4 ? "white" : "var(--text-secondary)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "12px",
-                        boxShadow: i < 4 ? "0 2px 8px rgba(99, 91, 255, 0.25)" : "none"
-                      }}>
-                        {step.icon}
-                      </div>
-                      <span style={{ fontSize: "8px", textAlign: "center", color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%" }}>
-                        {step.label}
-                      </span>
+                  {/* Relevancy Progress Bar */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px", borderTop: "1px solid var(--border)", paddingTop: "10px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
+                      <span style={{ fontWeight: "600" }}>Relevancy Score</span>
+                      <span style={{ fontWeight: "800", color: accentColor }}>95.1%</span>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div style={{ width: "100%", height: "4px", background: "var(--border)", borderRadius: "2px", overflow: "hidden" }}>
+                      <div style={{ width: "95.1%", height: "100%", background: accentColor }} />
+                    </div>
+                  </div>
 
-              {/* MARKDOWN SUMMARY / GENERATOR */}
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: "200px" }}>
-                <div style={{ fontSize: "11px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--text-secondary)", marginBottom: "8px" }}>
-                  Markdown Summary
-                </div>
-                <div style={{ flex: 1, background: "rgba(255, 255, 255, 0.02)", border: "1px solid var(--glass-border)", borderRadius: "var(--radius-lg)", padding: "16px", overflowY: "auto" }}>
-                  {viewedProduct ? (
+                  {/* Latency */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid var(--border)", paddingTop: "10px" }}>
                     <div>
-                      <div style={{ fontSize: "14px", fontWeight: 750, color: "var(--text-primary)", marginBottom: "12px" }}># {viewedProduct.label}</div>
-                      {viewedProduct.type === "flashcards" ? (
-                        <div className="flashcards-list">
-                          {(Array.isArray(viewedProduct.content) ? viewedProduct.content : []).map((card, i) => (
-                            <Flashcard key={i} question={card.question} answer={card.answer} />
-                          ))}
-                        </div>
-                      ) : (
-                        <MarkdownContent content={typeof viewedProduct.content === "string" ? viewedProduct.content : ""} />
-                      )}
+                      <span style={{ fontSize: "12.5px", fontWeight: "600", color: "var(--text-primary)", display: "block" }}>Latency</span>
+                      <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Search generation time</span>
                     </div>
-                  ) : (
-                    <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", textAlign: "center" }}>
-                      <span style={{ fontSize: "24px", marginBottom: "8px" }}>💡</span>
-                      <p style={{ fontSize: "12px", margin: 0 }}>Select a product type in chat generator to output summary details.</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ fontSize: "13px", fontWeight: "800", color: accentColor }}>450ms</span>
+                      <span style={{ color: accentColor }}>✅</span>
                     </div>
-                  )}
+                  </div>
+
+                  {/* Context Recall */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px", borderTop: "1px solid var(--border)", paddingTop: "10px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
+                      <span style={{ fontWeight: "600" }}>Context Recall</span>
+                      <span style={{ fontWeight: "800", color: accentColor }}>96.5%</span>
+                    </div>
+                    <div style={{ width: "100%", height: "4px", background: "var(--border)", borderRadius: "2px", overflow: "hidden" }}>
+                      <div style={{ width: "96.5%", height: "100%", background: accentColor }} />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* METADATA REGION FOOTER */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", padding: "12px", background: "rgba(255, 255, 255, 0.02)", border: "1px solid var(--glass-border)", borderRadius: "var(--radius-md)", fontSize: "11px" }}>
-                <div><span style={{ color: "var(--text-secondary)" }}>Sources:</span> <strong style={{ color: "var(--text-primary)" }}>Lumina</strong></div>
-                <div><span style={{ color: "var(--text-secondary)" }}>Author:</span> <strong style={{ color: "var(--text-primary)" }}>Author</strong></div>
-                <div><span style={{ color: "var(--text-secondary)" }}>References:</span> <strong style={{ color: "var(--text-primary)" }}>Button</strong></div>
-                <div><span style={{ color: "var(--text-secondary)" }}>Date:</span> <strong style={{ color: "var(--text-primary)" }}>20-08-2023</strong></div>
-              </div>
             </div>
           )}
 
-          {activeTab === "history" && (
-            <div className="studio-history" style={{ flex: 1, display: "flex", flexDirection: "column", overflowY: "auto" }}>
-              {generatedProducts.length === 0 ? (
-                <p style={{ fontSize: "12px", color: "var(--text-secondary)", padding: "32px", textAlign: "center" }}>
-                  No products generated yet.
-                </p>
-              ) : (
-                <div className="studio-history-list">
-                  {generatedProducts.map((p, idx) => (
-                    <div
-                      key={p.id}
-                      onClick={() => {
-                        setViewingIndex(idx);
-                        setActiveTab("active");
-                      }}
-                      className={`studio-history-item ${viewedProduct?.id === p.id ? "studio-history-item-active" : ""}`}
-                      style={{
-                        borderBottom: "1px solid var(--border)",
-                        padding: "16px",
-                        cursor: "pointer",
-                        transition: "all 0.2s ease"
-                      }}
-                    >
-                      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                        <span style={{ fontSize: "20px" }}>
-                          {PRODUCT_TYPES.find((pt) => pt.key === p.type)?.emoji || "📄"}
-                        </span>
-                        <div className="studio-history-item-info">
-                          <div style={{ fontSize: "13px", fontWeight: "600", color: "var(--text-primary)" }}>{p.label}</div>
-                          <div style={{ fontSize: "11px", color: "var(--text-secondary)", marginTop: "2px" }}>
-                            {new Date(p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                        </div>
+          {/* TAB 2: STUDIO WORKSPACE (Original asset generator screens) */}
+          {activeMainTab === "studio" && (
+            <>
+              {/* Navigation Tabs (History vs Active) */}
+              <div className="studio-tabs" style={{ display: "flex", gap: "4px", padding: "8px 12px", borderBottom: "1px solid var(--border)" }}>
+                <button
+                  className={`button ${activeTab === "active" ? "button-primary" : "button-ghost"}`}
+                  style={{ flex: 1, height: "30px", fontSize: "11px", padding: 0 }}
+                  onClick={() => setActiveTab("active")}
+                >
+                  Active Asset
+                </button>
+                <button
+                  className={`button ${activeTab === "history" ? "button-primary" : "button-ghost"}`}
+                  style={{ flex: 1, height: "30px", fontSize: "11px", padding: 0 }}
+                  onClick={() => setActiveTab("history")}
+                >
+                  Asset History ({generatedProducts.length})
+                </button>
+              </div>
+
+              {activeTab === "active" && (
+                <div style={{ display: "flex", flexDirection: "column", flex: 1, overflowY: "auto", padding: "16px", gap: "16px" }}>
+                  {/* Document Selector */}
+                  <div>
+                    {documents.length > 0 ? (
+                      <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                        <span style={{ position: "absolute", left: "12px", fontSize: "14px", zIndex: 1, pointerEvents: "none" }}>📄</span>
+                        <select
+                          id="doc-focus-selector"
+                          value={activeDocumentId || ""}
+                          onChange={(e) => setActiveDocument(e.target.value || null)}
+                          style={{
+                            width: "100%",
+                            background: "rgba(255, 255, 255, 0.03)",
+                            border: "1px solid var(--border)",
+                            color: "var(--text-primary)",
+                            borderRadius: "var(--radius-md)",
+                            padding: "8px 24px 8px 32px",
+                            fontSize: "13px",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                            outline: "none",
+                            appearance: "none"
+                          }}
+                        >
+                          <option value="">All Documents in Collection</option>
+                          {documents.map((doc) => (
+                            <option key={doc.id} value={doc.id}>
+                              {doc.title}
+                            </option>
+                          ))}
+                        </select>
                       </div>
+                    ) : (
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", fontStyle: "italic" }}>
+                        No documents inside this collection.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Generator buttons */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
+                    {PRODUCT_TYPES.map((pt) => {
+                      const isCurrentLoading = loading === pt.key;
+                      return (
+                        <button
+                          key={pt.key}
+                          onClick={() => handleGenerate(pt.key)}
+                          disabled={loading !== null}
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: "6px",
+                            padding: "10px 2px",
+                            borderRadius: "var(--radius-md)",
+                            border: `1px solid ${pt.border}`,
+                            background: pt.bg,
+                            cursor: "pointer"
+                          }}
+                          title={`Generate ${pt.label}`}
+                        >
+                          {isCurrentLoading ? (
+                            <div className="spinner" style={{ width: "16px", height: "16px", borderWidth: "2px", borderColor: pt.color }} />
+                          ) : (
+                            <span style={{ fontSize: "18px", color: pt.color }}>{pt.emoji}</span>
+                          )}
+                          <span style={{ fontSize: "9px", fontWeight: "750", color: "var(--text-primary)", textAlign: "center" }}>{pt.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Previewer canvas */}
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: "200px" }}>
+                    <div style={{ flex: 1, background: "var(--surface-muted)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "16px", overflowY: "auto", position: "relative" }}>
+                      {viewedProduct && (
+                        <div style={{ position: "absolute", top: "12px", right: "12px", display: "flex", gap: "6px", zIndex: 5 }}>
+                          <button className="button button-ghost" style={{ padding: 0, width: "26px", height: "26px", minWidth: "26px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }} onClick={handleCopy} title="Copy Content">📋</button>
+                          <button className="button button-ghost" style={{ padding: 0, width: "26px", height: "26px", minWidth: "26px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }} onClick={handleDownload} title="Download Markdown">💾</button>
+                          <button className="button button-ghost" style={{ padding: 0, width: "26px", height: "26px", minWidth: "26px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }} onClick={handleRegenerate} title="Regenerate">🔄</button>
+                        </div>
+                      )}
+
+                      {viewedProduct ? (
+                        <div style={{ paddingTop: viewedProduct ? "24px" : "0" }}>
+                          <div style={{ fontSize: "14px", fontWeight: 800, color: "var(--text-primary)", marginBottom: "12px", borderBottom: "1px solid var(--border)", paddingBottom: "8px" }}>
+                            {viewedProduct.label}
+                          </div>
+                          {viewedProduct.type === "flashcards" ? (
+                            <div className="flashcards-list">
+                              {(Array.isArray(viewedProduct.content) ? viewedProduct.content : []).map((card, i) => (
+                                <Flashcard key={i} question={card.question} answer={card.answer} />
+                              ))}
+                            </div>
+                          ) : (
+                            <MarkdownContent content={typeof viewedProduct.content === "string" ? viewedProduct.content : ""} />
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", textAlign: "center" }}>
+                          <span style={{ fontSize: "28px", marginBottom: "8px" }}>💡</span>
+                          <p style={{ fontSize: "11px", maxWidth: "200px", margin: 0, lineHeight: "1.4", fontWeight: "600", color: "var(--text-secondary)" }}>
+                            Select a tool above to generate study assets.
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  ))}
+                  </div>
                 </div>
               )}
-            </div>
+
+              {activeTab === "history" && (
+                <div className="studio-history" style={{ flex: 1, display: "flex", flexDirection: "column", overflowY: "auto" }}>
+                  {generatedProducts.length === 0 ? (
+                    <p style={{ fontSize: "11px", color: "var(--text-secondary)", padding: "32px", textAlign: "center" }}>
+                      No assets generated yet.
+                    </p>
+                  ) : (
+                    <div className="studio-history-list">
+                      {generatedProducts.map((p, idx) => (
+                        <div
+                          key={p.id}
+                          onClick={() => {
+                            setViewingIndex(idx);
+                            setActiveTab("active");
+                          }}
+                          style={{
+                            borderBottom: "1px solid var(--border)",
+                            padding: "12px",
+                            cursor: "pointer",
+                            background: viewedProduct?.id === p.id ? "rgba(255, 255, 255, 0.04)" : "transparent"
+                          }}
+                        >
+                          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                            <span style={{ fontSize: "16px" }}>
+                              {PRODUCT_TYPES.find((pt) => pt.key === p.type)?.emoji || "📄"}
+                            </span>
+                            <div className="studio-history-item-info">
+                              <div style={{ fontSize: "12.5px", fontWeight: "600", color: "var(--text-primary)" }}>{p.label}</div>
+                              <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "2px" }}>
+                                {new Date(p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </>
       )}
@@ -236,11 +467,68 @@ export default function StudioPanel() {
 }
 
 function Flashcard({ question, answer }) {
-  const [revealed, setRevealed] = useState(false);
+  const [flipped, setFlipped] = useState(false);
   return (
-    <div className="flashcard" onClick={() => setRevealed(!revealed)}>
-      <div className="flashcard-question">{question}</div>
-      {revealed && <div className="flashcard-answer">{answer}</div>}
+    <div 
+      className="flashcard-container" 
+      onClick={() => setFlipped(!flipped)}
+      style={{
+        perspective: "1000px",
+        width: "100%",
+        height: "120px",
+        cursor: "pointer",
+        marginBottom: "12px"
+      }}
+    >
+      <div style={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        transition: "transform 0.6s",
+        transformStyle: "preserve-3d",
+        transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+        borderRadius: "var(--radius-lg)",
+        border: "1px solid var(--glass-border)",
+        background: "var(--surface-raised)",
+        boxShadow: "var(--glass-shadow)"
+      }}>
+        {/* Front Side */}
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          backfaceVisibility: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "16px",
+          textAlign: "center",
+          fontWeight: "600",
+          fontSize: "13px",
+          color: "var(--text-primary)"
+        }}>
+          ❓ {question}
+        </div>
+        
+        {/* Back Side */}
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          backfaceVisibility: "hidden",
+          transform: "rotateY(180deg)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "16px",
+          textAlign: "center",
+          background: "rgba(99, 102, 241, 0.08)",
+          borderRadius: "var(--radius-lg)",
+          fontWeight: "600",
+          fontSize: "13px",
+          color: "var(--accent-strong)"
+        }}>
+          💡 {answer}
+        </div>
+      </div>
     </div>
   );
 }
@@ -261,9 +549,9 @@ function MarkdownContent({ content }) {
     <div className="markdown-body">
       {lines.map((line, i) => {
         if (line.startsWith("```")) return null;
-        if (line.startsWith("# ")) return <h1 key={i}>{parseInline(line.slice(2))}</h1>;
-        if (line.startsWith("## ")) return <h2 key={i}>{parseInline(line.slice(3))}</h2>;
-        if (line.startsWith("### ")) return <h3 key={i}>{parseInline(line.slice(4))}</h3>;
+        if (line.startsWith("# ")) return <h1 key={i} style={{ fontSize: "16px", margin: "8px 0" }}>{parseInline(line.slice(2))}</h1>;
+        if (line.startsWith("## ")) return <h2 key={i} style={{ fontSize: "14px", margin: "6px 0" }}>{parseInline(line.slice(3))}</h2>;
+        if (line.startsWith("### ")) return <h3 key={i} style={{ fontSize: "13px", margin: "4px 0" }}>{parseInline(line.slice(4))}</h3>;
         if (line.startsWith("- ")) return <li key={i} style={{ fontSize: "13px", margin: "2px 0" }}>{parseInline(line.slice(2))}</li>;
         if (line.trim() === "") return <br key={i} />;
         return <p key={i} style={{ fontSize: "13px", margin: "4px 0", lineHeight: "1.5" }}>{parseInline(line)}</p>;

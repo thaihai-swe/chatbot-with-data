@@ -415,14 +415,16 @@ export default function ChatPanel() {
     });
   };
 
+  const accentColor = "var(--kb-accent)";
+
   if (!hasScope) {
     return (
-      <div className="chat-panel-empty">
+      <div className="chat-panel-empty" style={{ background: "var(--surface)", height: "100%" }}>
         <div className="panel-empty-state">
           <span style={{ fontSize: "32px", marginBottom: "12px" }}>💬</span>
-          <h3 style={{ margin: "0 0 8px", fontSize: "16px", color: "var(--text-primary)" }}>Select a collection to begin</h3>
-          <p style={{ color: "var(--text-secondary)", fontSize: "14px" }}>
-            Choose a collection from the Sources panel to start chatting.
+          <h3 style={{ margin: "0 0 8px", fontSize: "16px", color: "var(--text-primary)" }}>Select a collection folder</h3>
+          <p style={{ color: "var(--text-secondary)", fontSize: "14px", margin: 0 }}>
+            Choose a workspace folder from the Documents panel to start chatting.
           </p>
         </div>
       </div>
@@ -430,28 +432,53 @@ export default function ChatPanel() {
   }
 
   return (
-    <div className="chat-panel" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <div className="chat-panel" style={{ height: "100%", display: "flex", flexDirection: "column", background: "var(--surface)" }}>
+      {/* 1. Header Area matching mockup */}
       <div className="chat-panel-header" style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span style={{ fontSize: "15px", fontWeight: "750", color: "var(--text-primary)" }}>
-            Lumina AI | {collectionName || "Select Collection"}
+        <div style={{ display: "flex", flexDirection: "column", gap: "2px", alignItems: "flex-start" }}>
+          <span style={{ fontSize: "14.5px", fontWeight: "800", color: "var(--text-primary)" }}>
+            Chat: {collectionName || "Market Analysis Q3 2023"}
           </span>
-          <span style={{ display: "inline-block", width: "8px", height: "8px", borderRadius: "50%", background: "#10b981" }} title="Online"></span>
+          <span 
+            onClick={() => selectCollection(null, null, [])}
+            style={{ 
+              fontSize: "11px", 
+              color: accentColor, 
+              cursor: "pointer", 
+              textDecoration: "underline",
+              fontWeight: "600"
+            }}
+          >
+            📂 {selectedDocumentIds.length > 0 ? selectedDocumentIds.length : "25"} sources
+          </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <button
             onClick={() => setShowSessionList(!showSessionList)}
             className={`button ${showSessionList ? "button-primary" : "button-ghost"}`}
-            style={{ fontSize: "11px", height: "30px", padding: "0 10px" }}
+            style={{ fontSize: "11px", height: "30px", padding: "0 10px", borderRadius: "var(--radius-sm)" }}
           >
             Sessions
           </button>
+          
+          {/* Settings wheel redirect */}
           <button
-            onClick={() => setDebugMode(!debugMode)}
-            className={`button ${debugMode ? "button-primary" : "button-ghost"}`}
-            style={{ fontSize: "11px", height: "30px", padding: "0 10px" }}
+            onClick={() => navigate("/settings")}
+            className="button button-ghost"
+            style={{ 
+              fontSize: "11px", 
+              height: "30px", 
+              padding: "0 10px", 
+              borderRadius: "var(--radius-sm)",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              border: "1px solid var(--border)"
+            }}
+            title="Configure RAG Parameters"
           >
-            Debug
+            ⚙️ RAG Settings
           </button>
         </div>
       </div>
@@ -486,17 +513,19 @@ export default function ChatPanel() {
         </div>
       )}
 
+      {/* 2. Messages List Area */}
       <div className="messages-list" style={{ flex: 1, overflowY: "auto", padding: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
         {messages.length === 0 && !isGenerating && (
           <div style={{ textAlign: "center", marginTop: "80px", padding: "0 40px" }}>
             <h2 style={{ fontSize: "20px", fontWeight: "750", marginBottom: "8px" }}>Ask about your documents</h2>
-            <p style={{ color: "var(--text-secondary)", fontSize: "14px" }}>
+            <p style={{ color: "var(--text-secondary)", fontSize: "14px", margin: 0 }}>
               {collectionName
                 ? `Ask anything about the ${selectedDocumentIds.length} selected documents.`
-                : "Select a collection from the Workspace panel."}
+                : "Select a folder from the Documents panel."}
             </p>
           </div>
         )}
+        
         {messages.map((msg, idx) => (
           <div
             key={idx}
@@ -509,40 +538,92 @@ export default function ChatPanel() {
               width: msg.role === "user" ? "auto" : "100%"
             }}
           >
+            {/* AI Avatar */}
             {msg.role !== "user" && (
               <div style={{
                 width: "36px",
                 height: "36px",
                 borderRadius: "50%",
-                background: "var(--gradient-primary)",
+                background: "rgba(0, 217, 146, 0.08)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "white",
+                color: accentColor,
                 fontSize: "14px",
                 fontWeight: "800",
                 flexShrink: 0,
-                boxShadow: "0 4px 12px rgba(99, 91, 255, 0.25)",
-                border: "2px solid rgba(255, 255, 255, 0.2)"
+                border: `1.5px solid ${accentColor}`,
+                boxShadow: `0 0 10px rgba(0, 217, 146, 0.15)`
               }}>
-                L
+                KB
               </div>
             )}
+
+            {/* Bubble Panel */}
             <div
               className={`message-bubble ${msg.role === "user" ? "message-user" : "message-assistant"}`}
               style={{
                 margin: 0,
                 flex: msg.role === "user" ? "none" : 1,
-                background: msg.role === "user" ? "var(--gradient-primary)" : "var(--glass-bg)",
-                backdropFilter: msg.role === "user" ? "none" : "blur(12px)",
-                border: msg.role === "user" ? "none" : "1px solid var(--glass-border)",
-                borderRadius: msg.role === "user" ? "var(--radius-lg) var(--radius-lg) 0 var(--radius-lg)" : "var(--radius-lg) var(--radius-lg) var(--radius-lg) 0",
+                background: msg.role === "user" ? "var(--surface-raised)" : "var(--surface-muted)",
+                border: "1px solid var(--border)",
+                borderRadius: msg.role === "user" 
+                  ? "var(--radius-lg) var(--radius-lg) 0 var(--radius-lg)" 
+                  : "var(--radius-lg) var(--radius-lg) var(--radius-lg) 0",
                 padding: "14px 20px",
-                color: msg.role === "user" ? "white" : "var(--text-primary)",
-                boxShadow: msg.role === "user" ? "0 4px 14px rgba(99, 91, 255, 0.2)" : "var(--glass-shadow)"
+                color: "var(--text-primary)",
+                boxShadow: "var(--shadow-xs)"
               }}
             >
-              {renderMessageContent(msg)}
+              {/* Header Label inside Bubble */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", borderBottom: "1px solid var(--border)", paddingBottom: "6px" }}>
+                <span style={{ fontSize: "11px", fontWeight: "750", color: msg.role === "user" ? "var(--text-primary)" : accentColor }}>
+                  {msg.role === "user" ? "User" : "KnowledgeBaseLab"}
+                </span>
+                <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>
+                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+
+              {/* Message content */}
+              <div style={{ fontSize: "13px", lineHeight: "1.6" }}>
+                {renderMessageContent(msg)}
+              </div>
+
+              {/* Cited References bottom list */}
+              {msg.role !== "user" && msg.citations && msg.citations.length > 0 && (
+                <div style={{ borderTop: "1px solid var(--border)", marginTop: "16px", paddingTop: "12px" }}>
+                  <span style={{ fontSize: "10px", fontWeight: "800", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "6px" }}>
+                    Cited References:
+                  </span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    {msg.citations.map((cit, cidx) => {
+                      const matchingChunk = (msg.chunks || []).find(c => c.chunk_id === cit.chunk_id);
+                      const title = cit.title || matchingChunk?.title || cit.metadata?.title || "Document Source";
+                      return (
+                        <div 
+                          key={cidx} 
+                          style={{ 
+                            fontSize: "11px", 
+                            color: "var(--text-secondary)", 
+                            cursor: "pointer", 
+                            display: "flex", 
+                            alignItems: "center", 
+                            gap: "6px" 
+                          }}
+                          onClick={() => handleCitationClick(cit, msg.chunks || [])}
+                          className="ref-item-hover"
+                        >
+                          <span style={{ color: accentColor, fontWeight: "750" }}>[{cidx + 1}]</span>
+                          <span style={{ textDecoration: "underline" }}>{title}</span>
+                          {cit.page_number && <span style={{ opacity: 0.6 }}>(p. {cit.page_number})</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {msg.conflict_status === "unresolved_conflict" && (
                 <div
                   style={{
@@ -566,6 +647,7 @@ export default function ChatPanel() {
                   )}
                 </div>
               )}
+              
               {debugMode && msg.trace && (
                 <div style={{ marginTop: "12px" }}>
                   <button
@@ -578,19 +660,21 @@ export default function ChatPanel() {
                 </div>
               )}
             </div>
+
+            {/* User Avatar */}
             {msg.role === "user" && (
               <div style={{
                 width: "36px",
                 height: "36px",
                 borderRadius: "50%",
-                background: "var(--surface-raised)",
-                border: "1px solid var(--border)",
+                background: "var(--accent-soft)",
+                border: "1.5px solid var(--accent)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "var(--text-primary)",
+                color: "var(--accent-strong)",
                 fontSize: "13px",
-                fontWeight: "700",
+                fontWeight: "750",
                 flexShrink: 0,
                 boxShadow: "var(--shadow-xs)"
               }}>
@@ -599,10 +683,11 @@ export default function ChatPanel() {
             )}
           </div>
         ))}
+        
         {statusMessage && (
           <div
             className="status-badge"
-            style={{ alignSelf: "flex-start", height: "28px", background: "var(--ai-thinking)", color: "var(--accent-strong)", border: "none" }}
+            style={{ alignSelf: "flex-start", height: "28px", background: "var(--ai-thinking)", color: accentColor, border: "none" }}
           >
             {statusMessage}...
           </div>
@@ -610,17 +695,51 @@ export default function ChatPanel() {
         <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={handleSendMessage} className="chat-input-form" style={{ borderTop: "1px solid var(--border)", background: "transparent", padding: "16px 24px" }}>
-        <div className="composer-container" style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 16px" }}>
+      {/* 3. Composer capsule form input */}
+      <form 
+        onSubmit={handleSendMessage} 
+        style={{ 
+          borderTop: "1px solid var(--border)", 
+          background: "transparent", 
+          padding: "16px 20px" 
+        }}
+      >
+        <div 
+          style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "12px", 
+            padding: "6px 14px",
+            background: "var(--surface-muted)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-lg)"
+          }}
+        >
+          {/* Left accessories: attachment & mic */}
+          <div style={{ display: "flex", gap: "8px", color: "var(--text-muted)", fontSize: "16px", cursor: "pointer" }}>
+            <span title="Attach file" onClick={() => alert("Upload source directly in sidebar panel.")}>📎</span>
+            <span title="Voice prompt (Mocked)">🎙️</span>
+          </div>
+
+          {/* Central Input Box */}
           <input
             type="text"
             className="composer-input"
-            placeholder="Ask Lumina AI..."
+            placeholder={`Ask anything about your data... | Context: ${collectionName || "All Sources"}`}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             disabled={isGenerating || !hasScope}
-            style={{ background: "transparent", border: "none", flex: 1, padding: "8px 0" }}
+            style={{ 
+              background: "transparent", 
+              border: "none", 
+              flex: 1, 
+              padding: "8px 0",
+              color: "var(--text-primary)",
+              fontSize: "13px",
+              outline: "none"
+            }}
           />
+
           {hasScope && (
             <div className="composer-generate" ref={generateMenuRef} style={{ position: "relative" }}>
               <button
@@ -628,12 +747,12 @@ export default function ChatPanel() {
                 onClick={() => setShowGenerateMenu(!showGenerateMenu)}
                 className="button button-ghost"
                 disabled={isGenerating}
-                style={{ fontSize: "12px", height: "36px", padding: "0 10px" }}
+                style={{ fontSize: "11px", height: "28px", padding: "0 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)" }}
               >
                 + Generate
               </button>
               {showGenerateMenu && (
-                <div className="generate-dropdown" style={{ position: "absolute", bottom: "45px", right: 0, zIndex: 10 }}>
+                <div className="generate-dropdown" style={{ position: "absolute", bottom: "36px", right: 0, zIndex: 10 }}>
                   {PRODUCT_TYPES.map((pt) => (
                     <button
                       key={pt.key}
@@ -649,12 +768,39 @@ export default function ChatPanel() {
               )}
             </div>
           )}
+
+          {/* Right send button styled in electric green */}
           {isGenerating ? (
-            <button type="button" onClick={handleCancel} className="button button-ghost" style={{ color: "var(--danger)", height: "36px" }}>
+            <button 
+              type="button" 
+              onClick={handleCancel} 
+              className="button button-ghost" 
+              style={{ color: "var(--danger)", height: "30px", fontSize: "11px" }}
+            >
               Cancel
             </button>
           ) : (
-            <button type="submit" className="button button-primary" style={{ width: "36px", height: "36px", padding: 0, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", minWidth: "36px" }}>
+            <button 
+              type="submit" 
+              disabled={!inputValue.trim()}
+              style={{ 
+                width: "28px", 
+                height: "28px", 
+                padding: 0, 
+                borderRadius: "50%", 
+                display: "flex", 
+                alignItems: "center", 
+                justifyContent: "center", 
+                minWidth: "28px",
+                background: accentColor,
+                color: "black",
+                fontWeight: "800",
+                border: "none",
+                cursor: "pointer",
+                opacity: inputValue.trim() ? 1 : 0.4
+              }}
+              title="Send Message"
+            >
               ➔
             </button>
           )}

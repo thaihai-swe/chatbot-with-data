@@ -17,26 +17,30 @@ export default function CitationBadge({ label, citation, chunk, onClick }) {
     setHoverPos(null);
   }, []);
 
+  const accentColor = "#00d992"; // Electric green
+
   return (
     <span
       style={{
         cursor: isValid ? "pointer" : "default",
-        color: isValid ? "var(--accent-strong)" : "var(--text-secondary)",
-        fontWeight: "600",
-        textDecoration: isValid ? "underline" : "none",
-        backgroundColor: isValid ? "rgba(99, 102, 241, 0.08)" : "rgba(0, 0, 0, 0.04)",
-        border: "1px solid var(--border)",
-        padding: "2px 6px",
+        color: isValid ? accentColor : "var(--text-secondary)",
+        fontWeight: "700",
+        textDecoration: "none",
+        backgroundColor: isValid ? "rgba(0, 217, 146, 0.08)" : "rgba(255, 255, 255, 0.02)",
+        border: `1px solid ${isValid ? "rgba(0, 217, 146, 0.25)" : "var(--border)"}`,
+        padding: "1px 6px",
         borderRadius: "var(--radius-sm)",
-        fontSize: "12px",
-        margin: "0 2px",
+        fontSize: "11px",
+        margin: "0 3px",
         opacity: isValid ? 1 : 0.6,
+        display: "inline-flex",
+        alignItems: "center"
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={isValid ? onClick : undefined}
     >
-      [{label}]
+      {label}
       {hoverPos && chunk && <HoverCard chunk={chunk} position={hoverPos} />}
     </span>
   );
