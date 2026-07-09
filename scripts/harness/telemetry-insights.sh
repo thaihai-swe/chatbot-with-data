@@ -27,109 +27,48 @@ fi
 echo "=== Telemetry Insights ==="
 echo ""
 
-# --- Top recurring failure types (with skip count) ---
-echo "## Top Recurring Failure Types"
-python3 - "$TELEMETRY_JSONL" <<'PYEOF'
-import sys, json, collections
-path = sys.argv[1]
-counts = collections.Counter()
-skipped = 0
-with open(path) as f:
-    for line in f:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            rec = json.loads(line)
-        except json.JSONDecodeError:
-            skipped += 1
-            continue
-        if rec.get("status", "open") != "open":
-            continue
-        ftype = rec.get("failure_type") or rec.get("category") or "unknown"
-        counts[ftype] += 1
-if skipped:
-    print(f"  ({skipped} malformed records skipped)")
-if not counts:
+python3 - "$KIT_ROOT" <<'PYEOF'
+import sys, os
+sys.path.insert(0, os.path.join(sys.argv[1], 'scripts/core'))
+from _lib.telemetry_store import insights
+
+top, high_risk, stale = insights(sys.argv[1])
+
+print("## Top Recurring Failure Types")
+if not top:
     print("  (no open failure records)")
 else:
-    for ftype, count in counts.most_common(3):
+    for ftype, count in top[:3]:
         print(f"  {count}x  {ftype}")
-PYEOF
 
-echo ""
+print("")
 
-# --- High recurrence-risk entries ---
-echo "## Open Entries with recurrence_risk: high"
-python3 - "$TELEMETRY_JSONL" <<'PYEOF'
-import sys, json
-path = sys.argv[1]
-found = False
-skipped = 0
-with open(path) as f:
-    for line in f:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            rec = json.loads(line)
-        except json.JSONDecodeError:
-            skipped += 1
-            continue
-        if rec.get("status", "open") != "open":
-            continue
-        if rec.get("recurrence_risk", "").lower() == "high":
-            obs = rec.get("id") or rec.get("obs_id") or "?"
-            task = rec.get("task") or rec.get("task_id") or "?"
-            print(f"  {obs}  task={task}  {rec.get('description','')[:80]}")
-            found = True
-if skipped:
-    print(f"  ({skipped} malformed records skipped)")
-if not found:
+print("## Open Entries with recurrence_risk: high")
+if not high_risk:
     print("  (none)")
-PYEOF
+else:
+    for rec in high_risk:
+        obs = rec.get('id', '?')
+        task = rec.get('task', '?')
+        print(f"  {obs}  task={task}  {rec.get('description', '')[:80]}")
 
-echo ""
+print("")
 
-# --- Stale open entries (>7 days) ---
-echo "## Stale Open Entries (> 7 days old)"
-python3 - "$TELEMETRY_JSONL" <<'PYEOF'
-import sys, json
-from datetime import datetime, timezone, timedelta
-path = sys.argv[1]
-cutoff = datetime.now(timezone.utc) - timedelta(days=7)
-found = False
-skipped = 0
-with open(path) as f:
-    for line in f:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            rec = json.loads(line)
-        except json.JSONDecodeError:
-            skipped += 1
-            continue
-        if rec.get("status", "open") != "open":
-            continue
-        ts_raw = rec.get("timestamp") or rec.get("created_at") or ""
-        if not ts_raw:
-            continue
-        try:
-            ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
-        except ValueError:
-            continue
-        if ts < cutoff:
-            obs = rec.get("id") or rec.get("obs_id") or "?"
-            task = rec.get("task") or rec.get("task_id") or "?"
-            age_days = (datetime.now(timezone.utc) - ts).days
-            print(f"  {obs}  task={task}  {age_days}d old  {rec.get('description','')[:60]}")
-            found = True
-if skipped:
-    print(f"  ({skipped} malformed records skipped)")
-if not found:
+print("## Stale Open Entries (> 7 days old)")
+if not stale:
     print("  (none)")
-PYEOF
+else:
+    for rec in stale:
+        obs = rec.get('id', '?')
+        task = rec.get('task', '?')
+        ts = rec.get('timestamp', '')
+        if ts.endswith('Z'):
+            ts = ts[:-1] + '+00:00'
+        from datetime import datetime, timezone
+        rec_dt = datetime.fromisoformat(ts)
+        age_days = (datetime.now(timezone.utc) - rec_dt).days
+        print(f"  {obs}  task={task}  {age_days}d old  {rec.get('description', '')[:60]}")
 
-echo ""
-echo "=== End of Insights ==="
+print("")
+print("=== End of Insights ===")
+PYEOF

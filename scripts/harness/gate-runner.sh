@@ -39,7 +39,7 @@ PYTHON_ENGINE="$SCRIPT_DIR/../core/harness.py"
 if ! OUTPUT=$(python3 "$PYTHON_ENGINE" --config "$RESOLVED_ROOT/core-zero/project/harness-config.yaml" --root "$RESOLVED_ROOT" $DRY_RUN gates 2>&1); then
   echo "$OUTPUT"
   if [ -n "$FEATURE_SLUG" ]; then
-    python3 "$PYTHON_ENGINE" --root "$RESOLVED_ROOT" lifecycle --action record-failure --feature "$FEATURE_SLUG" --gate "$TASK_ID" 2>/dev/null || true
+    python3 "$PYTHON_ENGINE" --root "$RESOLVED_ROOT" lifecycle --action record-failure --task "$TASK_ID" --feature "$FEATURE_SLUG" --gate "$TASK_ID" 2>/dev/null || true
   fi
   if [ -x "$TELEMETRY_SCRIPT" ]; then
     tmpargs=()
@@ -53,5 +53,9 @@ fi
 echo "$OUTPUT"
 if [ -n "$FEATURE_SLUG" ]; then
   python3 "$PYTHON_ENGINE" --root "$RESOLVED_ROOT" lifecycle --action record-success --feature "$FEATURE_SLUG" 2>/dev/null || true
+  if [ -x "$TELEMETRY_SCRIPT" ]; then
+    "$TELEMETRY_SCRIPT" --task "${TASK_ID:-system}" --feature "$FEATURE_SLUG" \
+      --classification gate-pass "All mechanical gates passed" 2>/dev/null || true
+  fi
 fi
 exit 0

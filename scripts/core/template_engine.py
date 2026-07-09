@@ -136,7 +136,12 @@ class TemplateEngine:
         return text.count(open_tag) == text.count(close_tag)
 
     def _has_unclosed_slot(self, text):
-        open_count = len(re.findall(r"\{\{[^#/!].*?\}\}", text))
+        if text.count("{{") != text.count("}}"):
+            return True
+        if not self._balanced("{{#if", "{{/if}}", text):
+            return True
+        if not self._balanced("{{#each", "{{/each}}", text):
+            return True
         return False
 
     def list_slots(self, template_text):

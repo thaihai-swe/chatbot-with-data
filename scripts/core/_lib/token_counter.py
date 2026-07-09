@@ -3,16 +3,36 @@ from pathlib import Path
 
 CHARS_PER_TOKEN = 4.0
 
+_HAVE_TIKTOKEN = False
+_ENCODING = None
+
+try:
+    import tiktoken
+    _HAVE_TIKTOKEN = True
+    _ENCODING = tiktoken.get_encoding("cl100k_base")
+except ImportError:
+    pass
+
+
 def estimate_tokens(text):
     if not text:
         return 0
+    if _HAVE_TIKTOKEN:
+        return len(_ENCODING.encode(text))
     return int(len(text) / CHARS_PER_TOKEN)
+
 
 def count_tokens(text):
     return estimate_tokens(text)
 
-def estimate_file_tokens(path):
-    return estimate_tokens(Path(path).read_text(encoding="utf-8"))
+
+def _outline_lines(lines):
+    result = []
+    for line in lines:
+        if line.strip().startswith("## "):
+            result.append(line)
+    return result
+
 
 def process_text(text, budget, mode="summary"):
     tokens = estimate_tokens(text)
@@ -32,7 +52,6 @@ def process_text(text, budget, mode="summary"):
                 if count > 60:
                     break
         if not seen_index:
-            # No ## Index found; fall back to first 30 lines
             summary_lines = lines[:30]
         truncated = "\n".join(summary_lines)
         return truncated, estimate_tokens(truncated)
@@ -62,7 +81,13 @@ def process_text(text, budget, mode="summary"):
         head_budget = int(len(lines) * (budget / tokens))
         truncated = "\n".join(lines[:max(1, head_budget)])
         return truncated, estimate_tokens(truncated)
+    if mode == "outline":
+        lines = text.split("\n")
+        outline = _outline_lines(lines)
+        truncated = "\n".join(outline) if outline else "\n".join(lines[:10])
+        return truncated, estimate_tokens(truncated)
     return text, tokens
+
 
 def read_with_budget(path, budget, mode="summary"):
     text = Path(path).read_text(encoding="utf-8")

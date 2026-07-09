@@ -156,6 +156,10 @@ resolve_source_dir() {
   log "Cloning kit to temp: $SOURCE_TEMP"
   git clone --depth 1 "$REPO_URL" "$SOURCE_TEMP" >/dev/null 2>&1 \
     || err "could not clone $REPO_URL"
+  if [[ -n "${TARGET_VERSION:-}" ]]; then
+    (cd "$SOURCE_TEMP" && git checkout "v$TARGET_VERSION") 2>/dev/null \
+      || err "could not checkout tag v$TARGET_VERSION"
+  fi
   if [[ -f "$SOURCE_TEMP/manifest.json" ]]; then
     SOURCE_DIR="$SOURCE_TEMP"
   elif [[ -f "$SOURCE_TEMP/kit/manifest.json" ]]; then
@@ -175,6 +179,15 @@ TARGET_DIR=""
 DRY_RUN="false"
 TARGET_VERSION=""
 SHOW_VERSION="false"
+NON_INTERACTIVE="false"
+CODE_INTEL="none"
+ENABLE_HEADROOM="false"
+ENABLE_MERMAID="false"
+
+# Automatically skip interactive prompting if stdin/stdout is not a TTY
+if [[ ! -t 0 || ! -t 1 ]]; then
+  NON_INTERACTIVE="true"
+fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -187,8 +200,28 @@ while [[ $# -gt 0 ]]; do
     --target-version)
       TARGET_VERSION="$2"; shift 2
       ;;
+    --non-interactive)
+      NON_INTERACTIVE="true"; shift
+      ;;
+    --code-intel)
+      CODE_INTEL="$2"; shift 2
+      ;;
+    --enable-headroom)
+      ENABLE_HEADROOM="true"; shift
+      ;;
+    --enable-mermaid)
+      ENABLE_MERMAID="true"; shift
+      ;;
     -h|--help)
-      log "Usage: install.sh <target_dir> [--dry-run] [--target-version <ver>] [--version]"
+      log "Usage: install.sh <target_dir> [options]"
+      log "Options:"
+      log "  --dry-run                    Show actions without copying files"
+      log "  --target-version <ver>       Verify/enforce target version"
+      log "  --version                    Print version and exit"
+      log "  --non-interactive            Skip interactive choices (accept defaults)"
+      log "  --code-intel <provider>      Set code intelligence: none|gitnexus|codebase-memory-mcp"
+      log "  --enable-headroom            Enable Headroom integration"
+      log "  --enable-mermaid             Enable Mermaid CLI rendering"
       exit 0
       ;;
     *)
@@ -209,7 +242,7 @@ if [[ "$SHOW_VERSION" == "true" ]]; then
   fi
 fi
 
-[[ -n "$TARGET_DIR" ]] || err "Usage: install.sh <target_dir> [--dry-run] [--target-version <ver>] [--version]"
+[[ -n "$TARGET_DIR" ]] || err "Usage: install.sh <target_dir> [options]"
 
 require_cmd python3
 require_cmd cp
@@ -221,14 +254,115 @@ resolve_source_dir
 MANIFEST="$SOURCE_DIR/manifest.json"
 [[ -f "$MANIFEST" ]] || err "manifest.json not found at $MANIFEST"
 
+INCOMING_VER=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['version'])" 2>/dev/null || echo "[UNKNOWN]")
+
 if [[ -n "$TARGET_VERSION" ]]; then
-  VER=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['version'])" 2>/dev/null || echo "[UNKNOWN]")
-  if [[ "$VER" != "$TARGET_VERSION" ]]; then
-    err "Version mismatch: expected target-version '$TARGET_VERSION' but source kit version is '$VER'"
+  if [[ "$INCOMING_VER" != "$TARGET_VERSION" ]]; then
+    err "Version mismatch: expected target-version '$TARGET_VERSION' but source kit version is '$INCOMING_VER'"
   fi
 fi
 
+# Upgrade awareness: compare installed kit version (if any) with incoming
+INSTALLED_VER=""
+if [[ -f "$TARGET_DIR/manifest.json" ]]; then
+  INSTALLED_VER=$(python3 -c "import json; print(json.load(open('$TARGET_DIR/manifest.json'))['version'])" 2>/dev/null || echo "")
+fi
+if [[ -n "$INSTALLED_VER" ]]; then
+  if [[ "$INSTALLED_VER" == "$INCOMING_VER" ]]; then
+    log "Upgrade: re-installing same version $INCOMING_VER (overwrite kit files; preserve memory/artifacts)"
+  else
+    log "Upgrade: $INSTALLED_VER → $INCOMING_VER"
+  fi
+  log "  overwrite: kit skills/scripts/rules (from manifest files.overwrite)"
+  log "  preserve:  core-zero/memories/repo/, artifacts/"
+  log "  seed-only: copyIfMissing files left untouched if present"
+else
+  log "Fresh install: kit version $INCOMING_VER"
+fi
+
+# Project-type detect (warn only — does not change install set)
+detect_project_type() {
+  local t="$1"
+  local kinds=()
+  [[ -f "$t/package.json" ]] && kinds+=("node")
+  [[ -f "$t/pyproject.toml" || -f "$t/pytest.ini" || -f "$t/setup.py" || -f "$t/requirements.txt" ]] && kinds+=("python")
+  [[ -f "$t/go.mod" ]] && kinds+=("go")
+  [[ -f "$t/Cargo.toml" ]] && kinds+=("rust")
+  [[ -f "$t/pom.xml" || -f "$t/build.gradle" || -f "$t/build.gradle.kts" ]] && kinds+=("jvm")
+  [[ -f "$t/Gemfile" ]] && kinds+=("ruby")
+  if [[ ${#kinds[@]} -eq 0 ]]; then
+    log "Project detect: no common stack markers (ok for greenfield)"
+  else
+    log "Project detect: ${kinds[*]} — seed core-zero/project/tech-stack.md via /starter-init if empty"
+  fi
+}
+detect_project_type "$TARGET_DIR"
+
 REPO_ROOT="$(cd "$SOURCE_DIR/.." && pwd)"
+
+if [[ "$NON_INTERACTIVE" == "false" && "$DRY_RUN" != "true" ]]; then
+  log "=== External Integrations Setup ==="
+  echo "Configure Code Intelligence Provider?"
+  echo "  [1] None (skip)"
+  echo "  [2] GitNexus (knowledge graph)"
+  echo "  [3] codebase-memory-mcp (lightweight AST indexer)"
+  read -p "Selection [1-3] (default 1): " choice
+  case "$choice" in
+    2) CODE_INTEL="gitnexus" ;;
+    3) CODE_INTEL="codebase-memory-mcp" ;;
+    *) CODE_INTEL="none" ;;
+  esac
+  
+  read -p "Enable Headroom Context Compression? (y/N): " choice
+  if [[ "$choice" =~ ^[Yy]$ ]]; then
+    ENABLE_HEADROOM="true"
+  fi
+  
+  read -p "Enable Mermaid CLI (mmdc) SVG Rendering? (y/N): " choice
+  if [[ "$choice" =~ ^[Yy]$ ]]; then
+    ENABLE_MERMAID="true"
+  fi
+  log "==================================="
+fi
+
+check_and_install_dep() {
+  local cmd="$1" install_cmd="$2" label="$3"
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    log "  [WARN] Required command '$cmd' for $label is not installed."
+    if [[ "$NON_INTERACTIVE" == "false" && "$DRY_RUN" != "true" ]]; then
+      read -p "  Would you like to install it now via '$install_cmd'? (y/N): " choice
+      if [[ "$choice" =~ ^[Yy]$ ]]; then
+        log "  Running: $install_cmd"
+        eval "$install_cmd" || log "  [WARN] Installation failed. You will need to install it manually."
+      else
+        log "  Skipping. Please install it later."
+      fi
+    else
+      log "  To use $label, install it via: $install_cmd"
+    fi
+  else
+    log "  [OK]   $label dependency '$cmd' is available."
+  fi
+}
+
+if [[ "$DRY_RUN" != "true" ]]; then
+  if [[ "$CODE_INTEL" == "gitnexus" ]]; then
+    check_and_install_dep "gitnexus" "npm install -g gitnexus" "GitNexus"
+  elif [[ "$CODE_INTEL" == "codebase-memory-mcp" ]]; then
+    if ! command -v codebase-memory-mcp >/dev/null 2>&1; then
+      log "  [WARN] 'codebase-memory-mcp' command is not installed."
+      log "  To use it, download the binary from: https://github.com/DeusData/codebase-memory-mcp"
+    fi
+  fi
+  
+  if [[ "$ENABLE_HEADROOM" == "true" ]]; then
+    check_and_install_dep "headroom" "pip install \"headroom-ai[all]\"" "Headroom"
+  fi
+  
+  if [[ "$ENABLE_MERMAID" == "true" ]]; then
+    check_and_install_dep "mmdc" "npm install -g @mermaid-js/mermaid-cli" "Mermaid CLI"
+  fi
+fi
 
 mkdir -p "$TARGET_DIR"
 TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
@@ -293,7 +427,93 @@ while IFS= read -r rel; do
   seeded_count=$((seeded_count + 1))
 done < <(read_manifest_array "$MANIFEST" files.copyIfMissing)
 
+configure_code_intel() {
+  local provider="$1"
+  local file="$TARGET_DIR/core-zero/project/code-intelligence.md"
+  [[ -f "$file" ]] || return 0
+  
+  python3 - "$file" "$provider" <<'PY'
+import sys
+path = sys.argv[1]
+provider = sys.argv[2]
+
+lines = open(path).readlines()
+new_lines = []
+in_provider = None
+
+for line in lines:
+    stripped = line.strip()
+    if line.startswith('active_provider:'):
+        new_lines.append(f"active_provider: {provider}\n")
+        continue
+    
+    # Detect provider block
+    if stripped == 'gitnexus:':
+        in_provider = 'gitnexus'
+    elif stripped == 'codebase-memory-mcp:':
+        in_provider = 'codebase-memory-mcp'
+    elif stripped == '' or (not line.startswith(' ') and not line.startswith('\t') and ':' in stripped):
+        # Reset provider if we exit block
+        if stripped not in ['gitnexus:', 'codebase-memory-mcp:', 'providers:']:
+            in_provider = None
+            
+    if in_provider == provider and provider != 'none':
+        if stripped.startswith('enabled:'):
+            indent = line[:line.find('enabled:')]
+            new_lines.append(f"{indent}enabled: true\n")
+            continue
+        elif stripped.startswith('configured:'):
+            indent = line[:line.find('configured:')]
+            new_lines.append(f"{indent}configured: true\n")
+            continue
+    elif in_provider is not None and in_provider != provider:
+        if stripped.startswith('enabled:'):
+            indent = line[:line.find('enabled:')]
+            new_lines.append(f"{indent}enabled: false\n")
+            continue
+            
+    new_lines.append(line)
+
+open(path, 'w').writelines(new_lines)
+PY
+}
+
 if [[ "$DRY_RUN" != "true" ]]; then
+  # 1. Configure active Code Intelligence provider
+  configure_code_intel "$CODE_INTEL"
+
+  # 2. Delete unused Code Intelligence config files to clean up
+  if [[ "$CODE_INTEL" != "gitnexus" ]]; then
+    rm -f "$TARGET_DIR/core-zero/project/code-intelligence-gitnexus.md"
+  fi
+  if [[ "$CODE_INTEL" != "codebase-memory-mcp" ]]; then
+    rm -f "$TARGET_DIR/core-zero/project/code-intelligence-codebase-memory-mcp.md"
+  fi
+
+  # 3. Handle Headroom opt-out (remove rules and clean up index reference)
+  if [[ "$ENABLE_HEADROOM" != "true" ]]; then
+    rm -f "$TARGET_DIR/core-zero/rules/headroom.md"
+    if [[ -f "$TARGET_DIR/MASTER_INDEX.md" ]]; then
+      python3 - "$TARGET_DIR/MASTER_INDEX.md" <<'PY'
+import sys
+path = sys.argv[1]
+lines = open(path).readlines()
+new_lines = [l for l in lines if 'core-zero/rules/headroom.md' not in l]
+open(path, 'w').writelines(new_lines)
+PY
+    fi
+    if [[ -f "$TARGET_DIR/AGENTS.md" ]]; then
+      python3 - "$TARGET_DIR/AGENTS.md" <<'PY'
+import sys
+path = sys.argv[1]
+lines = open(path).readlines()
+new_lines = [l for l in lines if 'Headroom context compression' not in l]
+open(path, 'w').writelines(new_lines)
+PY
+    fi
+  fi
+
+  # 4. Correct script permissions
   find "$TARGET_DIR/scripts" -type f \( -name "*.sh" -o -name "*.py" \) -exec chmod +x {} +
 fi
 
@@ -367,7 +587,7 @@ validate_path() {
 if [[ "$DRY_RUN" != "true" ]]; then
   log ""
   log "Post-install validation"
-  validate_path "core-zero/policies/code-design.md" "Code design policy"
+  validate_path "core-zero/rules/code-design.md" "Code design policy"
   validate_path "skills" "Skills directory"
   validate_path "skills/context-status/SKILL.md" "Context-status skill"
   validate_path "skills/harness-maintain/SKILL.md" "Harness-maintain skill"
@@ -427,3 +647,4 @@ log "  8. Specialist visualization: /visualize (Mermaid validation bundled; Merm
 log "  9. Use documents/ only in the source repository when maintaining the kit itself"
 log ""
 log "Upgrade later: re-run this command. Memory and artifacts are preserved."
+log "Post-install: bash scripts/harness/doctor.sh  (check drift + chains)"

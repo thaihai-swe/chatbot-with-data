@@ -32,40 +32,9 @@ TELEMETRY_FILE="$RESOLVED_ROOT/core-zero/memories/repo/harness-telemetry.jsonl"
 [[ -f "$TELEMETRY_FILE" ]] || { echo "ERROR: $TELEMETRY_FILE not found"; exit 1; }
 
 python3 -c "
-import json, os, sys
-
-fn = '$TELEMETRY_FILE'
-rid = '$RECORD_ID'
-new_status = '${STATUS:-}' or None
-new_fix = '${FIX_APPLIED:-}' or None
-found = False
-lines = []
-
-with open(fn) as f:
-    for line in f:
-        line = line.rstrip('\n')
-        if not line.strip():
-            lines.append('')
-            continue
-        try:
-            rec = json.loads(line)
-            if rec.get('id') == rid:
-                found = True
-                rec['status'] = new_status or rec.get('status', 'open')
-                if new_fix is not None:
-                    rec['fix_applied'] = new_fix
-                lines.append(json.dumps(rec, ensure_ascii=False))
-            else:
-                lines.append(line)
-        except json.JSONDecodeError:
-            lines.append(line)
-
-if not found:
-    print(f'ERROR: no record with id {rid}', file=sys.stderr)
-    sys.exit(1)
-
-with open(fn, 'w') as f:
-    f.write('\n'.join(lines) + '\n')
-
-print(f'Updated {rid}: status={new_status or \"unchanged\"} fix_applied={\"updated\" if new_fix is not None else \"unchanged\"}')
+import os, sys
+sys.path.insert(0, os.path.join('$RESOLVED_ROOT', 'scripts/core'))
+from _lib.telemetry_store import update_record
+update_record('$RESOLVED_ROOT', '$RECORD_ID', '${STATUS:-}' or None, '${FIX_APPLIED:-}' or None)
+print('Updated $RECORD_ID')
 "

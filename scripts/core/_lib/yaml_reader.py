@@ -54,6 +54,14 @@ def _parse_value(text, indent=0):
         return text[1:-1]
     return text
 
+def _strip_inline_comment(text):
+    if text.startswith('"') or text.startswith("'") or text.startswith("[") or text.startswith("{"):
+        return text
+    pos = text.find(" #")
+    if pos >= 0:
+        return text[:pos].rstrip()
+    return text
+
 def _parse_atomic(text):
     return _parse_value(text)
 
@@ -70,6 +78,8 @@ def _parse_inline_mapping(text):
     return result
 
 def loads(text):
+    if not text.strip():
+        return {}
     lines = text.split("\n")
     lines, base_indent = _dedent(lines)
     result, consumed = _parse_block(lines, 0)
@@ -114,6 +124,7 @@ def _parse_mapping(lines, start, indent):
         key = key.strip()
         rest = after_key.strip()
         if rest:
+            rest = _strip_inline_comment(rest)
             if rest.startswith("|"):
                 value, i = _parse_literal_block(lines, i + 1)
             elif rest.startswith(">"):
@@ -193,16 +204,27 @@ def _parse_sequence(lines, start, indent):
 def _parse_literal_block(lines, start):
     value_lines = []
     i = start
+    block_indent = None
+    tmp = start
+    while tmp < len(lines):
+        if lines[tmp].strip():
+            block_indent = len(lines[tmp]) - len(lines[tmp].lstrip())
+            break
+        tmp += 1
+    if block_indent is None:
+        return "", start
     while i < len(lines):
-        if lines[i].strip():
-            value_lines.append(lines[i])
+        stripped = lines[i].strip()
+        if stripped:
+            line_content = lines[i][block_indent:] if len(lines[i]) > block_indent else stripped
+            value_lines.append(line_content)
             i += 1
         else:
             i += 1
             break
     while i < len(lines) and not lines[i].strip():
         i += 1
-    return "\n".join(value_lines), i
+    return "\n".join(value_lines) + "\n", i
 
 def _parse_folded_block(lines, start):
     value_lines = []
@@ -212,7 +234,7 @@ def _parse_folded_block(lines, start):
         i += 1
     while i < len(lines) and not lines[i].strip():
         i += 1
-    return " ".join(value_lines), i
+    return " ".join(value_lines) + "\n", i
 
 def _parse_scalar_block(lines, start, parent_indent):
     value_lines = []

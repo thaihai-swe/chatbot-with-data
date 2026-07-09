@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import os
 import re
 import sys
 from pathlib import Path
@@ -10,23 +9,9 @@ _PARENT = str(_SCRIPT_DIR.parent)
 if _PARENT not in sys.path:
     sys.path.insert(0, _PARENT)
 
+from core._lib.root import resolve_root
 from core._lib.token_counter import estimate_tokens, process_text
 from core._lib.yaml_reader import load as load_yaml
-
-
-def resolve_root(root_flag):
-    if root_flag:
-        p = Path(root_flag).resolve()
-        if (p / "AGENTS.md").exists() and (p / "core-zero/memories/repo").exists():
-            return p
-        if (p / "kit/AGENTS.md").exists():
-            return p / "kit"
-    for d in [Path.cwd()] + list(Path.cwd().parents):
-        if (d / "AGENTS.md").exists() and (d / "core-zero/memories/repo").exists():
-            return d
-        if (d / "kit/AGENTS.md").exists():
-            return d / "kit"
-    sys.exit("ERROR: Could not resolve repository root")
 
 
 class Scorer:
@@ -64,9 +49,27 @@ class Scorer:
 
 
 class BudgetTracker:
-    def __init__(self, warn=160000, hard=200000):
-        self.warn = warn
-        self.hard = hard
+    # Token budgets govern context window consumption.
+    # Memory file line thresholds (core-policies.md) govern memory file growth.
+    # These are complementary.
+    def __init__(self, warn=None, hard=None):
+        if warn is None or hard is None:
+            try:
+                _root = resolve_root()
+                if _root:
+                    _cfg_path = Path(_root) / 'core-zero' / 'project' / 'harness-config.yaml'
+                    if _cfg_path.exists():
+                        _cfg = load_yaml(str(_cfg_path))
+                        if _cfg and 'thresholds' in _cfg:
+                            t = _cfg['thresholds']
+                            if warn is None:
+                                warn = t.get('token_warn', 160000)
+                            if hard is None:
+                                hard = t.get('token_hard', 200000)
+            except Exception:
+                pass
+        self.warn = warn if warn is not None else 160000
+        self.hard = hard if hard is not None else 200000
         self.total = 0
         self.loaded = []
 
@@ -134,13 +137,45 @@ class Compressor:
         return compressed, compressed_tokens
 
 
-TIER_BOOST = {"Must": 40, "Should": 20, "Skip": 0}
+# Defaults; overridden by harness-config.yaml context: section when present.
+# ponytail: keyword scorer only; BM25/embeddings when multi-repo retrieval fails keyword recall
+DEFAULT_TIER_BOOST = {"Must": 40, "Should": 20, "Skip": 0}
+DEFAULT_SUMMARY_BUDGET = 800
+DEFAULT_PARTIAL_BUDGET = 1200
 
 PHASE_COLUMNS = {"spec": 1, "plan": 2, "implement": 3, "verify": 4}
 
 # Row index offsets in extended parse_phase_matrix tuples:
 # (source, spec_tier, spec_sec, plan_tier, plan_sec, implement_tier, implement_sec, verify_tier, verify_sec)
 PHASE_TIER_IDX = {"spec": (1, 2), "plan": (3, 4), "implement": (5, 6), "verify": (7, 8)}
+
+
+def load_context_config(root=None):
+    """Load context: section from harness-config.yaml with safe defaults."""
+    cfg = {
+        "tier_boost": dict(DEFAULT_TIER_BOOST),
+        "summary_budget": DEFAULT_SUMMARY_BUDGET,
+        "partial_budget": DEFAULT_PARTIAL_BUDGET,
+    }
+    try:
+        r = Path(root) if root else resolve_root()
+        if not r:
+            return cfg
+        path = Path(r) / "core-zero" / "project" / "harness-config.yaml"
+        if not path.exists():
+            return cfg
+        data = load_yaml(str(path)) or {}
+        ctx = data.get("context") or {}
+        if isinstance(ctx.get("tier_boost"), dict):
+            for k, v in ctx["tier_boost"].items():
+                cfg["tier_boost"][k] = int(v)
+        if "summary_budget" in ctx:
+            cfg["summary_budget"] = int(ctx["summary_budget"])
+        if "partial_budget" in ctx:
+            cfg["partial_budget"] = int(ctx["partial_budget"])
+    except Exception:
+        pass
+    return cfg
 
 
 def parse_tier(tier_str):
@@ -270,16 +305,16 @@ def resolve_route(root, phase):
     return results
 
 
-SUMMARY_BUDGET = 800   # ~3,200 chars for summary (low-confidence intent match)
-PARTIAL_BUDGET = 1200  # ~4,800 chars for partial (medium-confidence intent match)
-
-
 class ContextEngine:
     def __init__(self, root, intent="", budget=0, mode="full"):
         self.root = resolve_root(root)
         self.intent = intent
         self.budget = budget
         self.mode = mode
+        self.ctx_cfg = load_context_config(self.root)
+        self.tier_boost = self.ctx_cfg["tier_boost"]
+        self.summary_budget = self.ctx_cfg["summary_budget"]
+        self.partial_budget = self.ctx_cfg["partial_budget"]
         self.scorer = Scorer([intent] if intent else [])
         self.budget_tracker = BudgetTracker()
         self.compressor = Compressor()
@@ -296,7 +331,7 @@ class ContextEngine:
     def _get_base_score(self, filepath):
         rel = str(Path(filepath).resolve())
         tier = self.tier_map.get(rel)
-        return TIER_BOOST.get(tier, 0)
+        return self.tier_boost.get(tier, 0)
 
     def process_file(self, filepath, sections=None):
         fp = Path(filepath)
@@ -337,11 +372,11 @@ class ContextEngine:
             return
         if self.mode == "summary":
             text = fp.read_text(encoding="utf-8")
-            result, _ = process_text(text, SUMMARY_BUDGET, mode="summary")
+            result, _ = process_text(text, self.summary_budget, mode="summary")
             print(result)
         elif self.mode == "partial":
             text = fp.read_text(encoding="utf-8")
-            result, _ = process_text(text, PARTIAL_BUDGET, mode="partial")
+            result, _ = process_text(text, self.partial_budget, mode="partial")
             print(result)
         elif self.mode == "compress":
             result, _ = self.compressor.compress(str(fp))
@@ -383,6 +418,28 @@ class ContextEngine:
             if evicted:
                 print(f"Evicted {len(evicted)} files to meet budget", file=sys.stderr)
 
+    def run_session_start(self, phase=None, mode="summary"):
+        """Load Always-group files + optional phase matrix route.
+
+        Always paths are hardcoded to match MASTER_INDEX.md § Always.
+        Phase route is optional (spec/plan/implement/verify).
+        """
+        if not self.root:
+            return
+        always = [
+            "core-zero/memories/repo/core-policies.md",
+            "core-zero/rules/caveman.md",
+            "core-zero/rules/headroom.md",
+            "MASTER_INDEX.md",
+        ]
+        for rel in always:
+            fp = Path(self.root) / rel
+            if fp.exists():
+                self.set_tier(str(fp), "Must")
+                self.process_file(str(fp))
+        if phase:
+            self.run_route(phase, mode=mode)
+
 
 def main():
     parser = argparse.ArgumentParser(description="CoreZero Context Engine")
@@ -395,10 +452,17 @@ def main():
                         help="Phase name to load files from Phase×Guidance Matrix (spec/plan/implement/verify)")
     parser.add_argument("--section", default="",
                         help="Load only the named ## H2 section (case-insensitive); for use with --route or file arguments")
+    parser.add_argument("--session-start", action="store_true",
+                        help="Load Always-group files (+ optional --route phase matrix)")
     parser.add_argument("files", nargs="*", help="Files to process")
     args = parser.parse_args()
 
     engine = ContextEngine(args.root, args.intent, args.budget, args.mode)
+    if args.session_start:
+        mode = args.mode if args.mode != "full" else "summary"
+        engine.mode = mode
+        engine.run_session_start(phase=args.route or None, mode=mode)
+        return
     if args.route:
         engine.run_route(args.route, args.mode)
     if args.files:

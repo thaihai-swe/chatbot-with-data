@@ -625,7 +625,7 @@ def main():
         print(f"Error scanning workspace: {exc}", file=sys.stderr)
         return 1
 
-    # Render dashboard
+    try:
         html_content = get_html_template(
             json.dumps(features).replace("<", "\\u003c").replace(">", "\\u003e")
         )

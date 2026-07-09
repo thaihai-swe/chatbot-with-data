@@ -30,29 +30,9 @@ ROOT_DIR=$(resolve_repo_root "${ROOT_DIR:-}") || {
   echo "ERROR: Could not resolve repository root." >&2; exit 1
 }
 
-TELEMETRY_FILE="$ROOT_DIR/core-zero/memories/repo/harness-telemetry.jsonl"
-[[ -f "$TELEMETRY_FILE" ]] || { echo "0"; exit 0; }
-
 python3 -c "
-import json, sys
-
-fn = '$TELEMETRY_FILE'
-task_id = '$TASK_ID'
-feature_slug = '${FEATURE_SLUG:-}'
-count = 0
-
-with open(fn) as f:
-    for line in f:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            rec = json.loads(line)
-            if rec.get('task') == task_id and rec.get('status') == 'open':
-                if not feature_slug or rec.get('feature') == feature_slug:
-                    count += 1
-        except json.JSONDecodeError:
-            pass
-
-print(count)
+import os, sys
+sys.path.insert(0, os.path.join('$ROOT_DIR', 'scripts/core'))
+from _lib.telemetry_store import count_open
+print(count_open('$ROOT_DIR', '$TASK_ID', '${FEATURE_SLUG:-}' or None))
 "
