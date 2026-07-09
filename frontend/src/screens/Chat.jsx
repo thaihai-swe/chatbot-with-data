@@ -10,8 +10,6 @@ import {
 } from "../api/chat";
 import { listCollections } from "../api/knowledgeApi";
 import XRayPanel from "../components/XRayPanel";
-import CitationModal from "../components/CitationModal";
-import CitationBadge from "../components/CitationBadge";
 
 export default function ChatScreen() {
   const { sessionId } = useParams();
@@ -29,8 +27,6 @@ export default function ChatScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
   const [debugTrace, setDebugTrace] = useState(null);
-  const [activeCitation, setActiveCitation] = useState(null);
-  const [activeChunk, setActiveChunk] = useState(null);
 
   // Load sessions
   useEffect(() => {
@@ -226,78 +222,6 @@ export default function ChatScreen() {
     }
   };
 
-  const handleCitationClick = (citation, chunks) => {
-    const chunk = chunks.find(c => c.chunk_id === citation.chunk_id);
-    if (chunk) {
-      setActiveCitation(citation);
-      setActiveChunk(chunk);
-    }
-  };
-
-  const renderMessageContent = (msg) => {
-    if (msg.role !== "assistant" || !msg.citations || msg.citations.length === 0) {
-      return msg.content;
-    }
-
-    const parts = msg.content.split(/(\[Source\s+[^\]]+\])/g);
-    return parts.map((part, idx) => {
-      const match = part.match(/\[Source\s+([^\]]+)\]/);
-      if (match) {
-        const label = match[1].trim();
-        let title = "";
-        
-        if (/^\d+$/.test(label)) {
-          const index = parseInt(label, 10) - 1;
-          if (msg.chunks && msg.chunks[index]) {
-            title = msg.chunks[index].title || msg.chunks[index].metadata?.title;
-          } else if (msg.citations && msg.citations[index]) {
-            title = msg.citations[index].metadata?.title || msg.citations[index].title;
-          }
-        }
-        
-        if (!title && msg.citations) {
-          const cit = msg.citations.find(c => c.chunk_id === label);
-          if (cit) {
-            title = cit.metadata?.title || cit.title;
-          }
-        }
-
-        let targetCit = null;
-        if (/^\d+$/.test(label)) {
-          const index = parseInt(label, 10) - 1;
-          targetCit = msg.citations?.[index];
-        }
-        if (!targetCit && msg.citations) {
-          targetCit = msg.citations.find(c => c.chunk_id === label);
-        }
-
-        let targetChunk = null;
-        if (targetCit) {
-          targetChunk = (msg.chunks || []).find(c => c.chunk_id === targetCit.chunk_id);
-        }
-
-        if (!title) {
-          title = `Source ${label}`;
-        }
-
-        return (
-          <CitationBadge
-            key={idx}
-            label={title}
-            citation={targetCit}
-            chunk={targetChunk}
-            onClick={() => {
-              if (targetCit) {
-                handleCitationClick(targetCit, msg.chunks || []);
-              }
-            }}
-          />
-        );
-      }
-      return part;
-    });
-  };
-
   return (
     <div className="chat-container">
       <aside className="chat-sidebar">
@@ -373,7 +297,7 @@ export default function ChatScreen() {
           )}
           {messages.map((msg, idx) => (
             <div key={idx} className={`message-bubble ${msg.role === "user" ? "message-user" : "message-assistant"}`}>
-              {renderMessageContent(msg)}
+              {msg.content}
               {msg.conflict_status === "unresolved_conflict" && (
                 <div style={{
                   marginTop: "12px",
@@ -438,11 +362,6 @@ export default function ChatScreen() {
       </div>
 
       <XRayPanel trace={debugTrace} onClose={() => setDebugTrace(null)} />
-      <CitationModal 
-        citation={activeCitation} 
-        chunk={activeChunk} 
-        onClose={() => { setActiveCitation(null); setActiveChunk(null); }} 
-      />
     </div>
   );
 }

@@ -23,7 +23,7 @@ from chat.advanced_retrieval import AdvancedRetrievalService, get_advanced_retri
 from chat.collection_routing import CollectionRoutingService
 from chat.context import ContextService, get_context_service, load_chunk_notes
 from chat.generation import GenerationService, get_generation_service
-from chat.citations import CitationService, get_citation_service
+from chat.citations import CitationService, get_citation_service, finalize_turn
 from chat.grounding import GroundingService, get_grounding_service
 from chat.safety import SafetyService, get_safety_service
 from repositories.chat_repository import ChatRepository
@@ -207,56 +207,20 @@ class ChatService:
                 intent = trace.classification if trace else None
                 answer_text = self.generation_service.generate_answer(context_package, stream=False, intent=intent)
 
-                # 5.1 Calculate real groundedness for observability
-                score, reason = self.grounding_service.calculate_groundedness(
-                    answer_text, 
-                    safe_chunks
+                # 5.1 Shared finalize: provenance + groundedness + citations + conflict
+                finalize_result = finalize_turn(
+                    answer_text=answer_text,
+                    retrieved_chunks=safe_chunks,
+                    context_package=context_package,
+                    llm_provider=self.generation_service.llm_provider,
+                    grounding_service=self.grounding_service,
+                    chat_repository=ChatRepository,
+                    turn_id=turn_id,
+                    conflict_service=self.conflict_service,
                 )
+                score = finalize_result["groundedness_score"]
                 safety_trace.groundedness.score = score
                 safety_trace.groundedness.status = "supported" if score >= 0.7 else "partial"
-
-                # 6. Extract and validate citations
-                citation_labels = self.citation_service.extract_citations(answer_text)
-                valid_citations = self.citation_service.map_citations_to_chunks(
-                    citation_labels, safe_chunks,
-                    answer_text=answer_text,
-                    llm_provider=self.generation_service.llm_provider,
-                )
-
-                # 7. Persist citations and update turn
-                for cit_data in valid_citations:
-                    ChatRepository.create_citation(
-                        id=str(uuid.uuid4()),
-                        turn_id=turn_id,
-                        chunk_id=cit_data['chunk_id'],
-                        document_id=cit_data['document_id'],
-                        quote_text=cit_data.get('quote_text'),
-                        metadata_json=json.dumps(_json_safe(cit_data)),
-                    )
-
-                conflict_status = "no_conflict"
-                conflict_details = None
-
-                unique_doc_ids = {chunk.get("document_id") for chunk in safe_chunks if chunk.get("document_id")}
-                if len(unique_doc_ids) > 1:
-                    conflict_res = self.conflict_service.detect_conflict(answer_text, safe_chunks)
-                    if conflict_res.get("has_conflict"):
-                        if conflict_res.get("surfaced_correctly"):
-                            conflict_status = "resolved_conflict"
-                        else:
-                            conflict_status = "unresolved_conflict"
-                        conflict_details = conflict_res.get("conflict_details")
-
-                context_package["conflict_status"] = conflict_status
-                context_package["conflict_details"] = conflict_details
-
-                ChatRepository.update_turn_status(
-                    turn_id=turn_id,
-                    status="completed",
-                    answer_text=answer_text,
-                    groundedness_score=score,  # Persist score
-                    context_used_json=json.dumps(_json_safe(context_package)),
-                )
 
             # 8. Reload turn and return
             turn = ChatRepository.get_turn(turn_id)
@@ -266,6 +230,13 @@ class ChatService:
             try:
                 if turn.context_used_json:
                     context_data = json.loads(turn.context_used_json)
+            except Exception:
+                pass
+
+            provenance_payload = None
+            try:
+                if turn.provenance_json:
+                    provenance_payload = json.loads(turn.provenance_json)
             except Exception:
                 pass
 
@@ -300,6 +271,8 @@ class ChatService:
                 safety_trace=safety_trace,
                 conflict_status=context_data.get("conflict_status", "no_conflict"),
                 conflict_details=context_data.get("conflict_details"),
+                provenance=provenance_payload,
+                provenance_json=turn.provenance_json,
             )
 
         except Exception as e:

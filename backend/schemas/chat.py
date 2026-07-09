@@ -34,6 +34,33 @@ class CitationResponse(BaseModel):
     created_at: str
 
 
+class ClaimItem(BaseModel):
+    """One paragraph claim with optional citation binding."""
+    index: int
+    text: str
+    start: int
+    end: int
+    labels: List[str] = Field(default_factory=list)
+    chunks: List[str] = Field(default_factory=list)  # chunk_ids
+    cited: bool = False
+    quote_text: Optional[str] = None
+    match_score: Optional[float] = None
+    match_method: Optional[str] = None  # "jaccard" | None
+
+
+class ProvenanceCoverage(BaseModel):
+    """Coverage aggregate for a turn's claim graph."""
+    cited: int = 0
+    total: int = 0
+    uncited_indices: List[int] = Field(default_factory=list)
+
+
+class ProvenanceResponse(BaseModel):
+    """Claim graph + coverage for a completed turn."""
+    claims: List[ClaimItem] = Field(default_factory=list)
+    coverage: ProvenanceCoverage = Field(default_factory=ProvenanceCoverage)
+
+
 class RetrievalTransformations(BaseModel):
     rewritten_query: Optional[str] = None
     expanded_queries: List[str] = Field(default_factory=list)
@@ -128,6 +155,7 @@ class EvalResult(BaseModel):
     recall_status: bool = False
     groundedness_score: float = 0.0
     groundedness_reason: Optional[str] = None
+    citation_coverage: float = 0.0
     latency_ms: int = 0
     passed: bool = False
 
@@ -138,6 +166,7 @@ class SanityCheckResponse(BaseModel):
     passed_cases: int
     overall_recall: float
     overall_groundedness: float
+    overall_citation_coverage: Optional[float] = None
     results: List[EvalResult] = Field(default_factory=list)
 
 
@@ -161,9 +190,12 @@ class ChatTurnResponse(BaseModel):
     safety_trace: Optional[SafetyTrace] = None
     conflict_status: Optional[str] = "no_conflict"
     conflict_details: Optional[str] = None
+    provenance: Optional[ProvenanceResponse] = None
+    provenance_json: Optional[str] = None
 
 
 ChatTurnResponse.model_rebuild()
+
 
 class EvaluationRunResponse(BaseModel):
     id: str
@@ -173,4 +205,5 @@ class EvaluationRunResponse(BaseModel):
     passed_cases: int
     overall_recall: float
     overall_groundedness: float
+    overall_citation_coverage: Optional[float] = None
     created_at: str

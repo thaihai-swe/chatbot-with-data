@@ -10,6 +10,40 @@ from chat.prompts import QUOTE_EXTRACTION_PROMPT
 logger = logging.getLogger(__name__)
 
 _SENTENCE_SPLIT_RE = re.compile(r'(?<=[.!?])\s+')
+_PARAGRAPH_SPLIT_RE = re.compile(r'\n{2,}')
+
+
+def split_paragraphs(text: str) -> List[Dict[str, Any]]:
+    """Split answer text into paragraph blocks by blank lines.
+
+    Returns list of {text, start, end} where start/end are char offsets
+    into the original text. Empty paragraphs are skipped.
+    """
+    if not text:
+        return []
+    blocks: List[Dict[str, Any]] = []
+    last_end = 0
+    for match in _PARAGRAPH_SPLIT_RE.finditer(text):
+        chunk = text[last_end:match.start()]
+        stripped = chunk.strip()
+        if stripped:
+            # Adjust start/end to the stripped span within original
+            lead = len(chunk) - len(chunk.lstrip())
+            trail = len(chunk) - len(chunk.rstrip())
+            start = last_end + lead
+            end = match.start() - trail
+            blocks.append({"text": stripped, "start": start, "end": end})
+        last_end = match.end()
+    # Tail after last blank-line separator
+    chunk = text[last_end:]
+    stripped = chunk.strip()
+    if stripped:
+        lead = len(chunk) - len(chunk.lstrip())
+        trail = len(chunk) - len(chunk.rstrip())
+        start = last_end + lead
+        end = len(text) - trail
+        blocks.append({"text": stripped, "start": start, "end": end})
+    return blocks
 
 
 class CitationService:
@@ -181,6 +215,190 @@ class CitationService:
             "section_title": chunk.get('section_title'),
             "source_url": chunk.get('source_url'),
         }
+
+    def _jaccard_quote(self, claim_text: str, chunk_text: str) -> Dict[str, Any]:
+        """Extract best Jaccard quote from chunk for a claim.
+        Returns {quote_text, match_score, match_method}.
+        No LLM fallback — Jaccard only.
+        """
+        claim_words = set(claim_text.lower().split())
+        best_score = 0.0
+        best_sentence = ""
+        for sentence in _SENTENCE_SPLIT_RE.split(chunk_text):
+            sentence_stripped = sentence.strip()
+            if not sentence_stripped:
+                continue
+            chunk_words = set(sentence_stripped.lower().split())
+            if not chunk_words:
+                continue
+            inter = claim_words & chunk_words
+            union = claim_words | chunk_words
+            score = len(inter) / len(union) if union else 0.0
+            if score > best_score:
+                best_score = score
+                best_sentence = sentence_stripped
+        return {
+            "quote_text": best_sentence if best_score >= self.QUOTE_MATCH_THRESHOLD else "",
+            "match_score": best_score,
+            "match_method": "jaccard",
+        }
+
+    def build_provenance(
+        self,
+        answer_text: str,
+        retrieved_chunks: List[Dict[str, Any]],
+        llm_provider: Any = None,  # unused — Jaccard only
+    ) -> Dict[str, Any]:
+        """
+        Build claim-level provenance graph from answer text.
+
+        Args:
+            answer_text: Full generated answer
+            retrieved_chunks: List of chunk metadata used in context
+            llm_provider: Optional (unused in v1 — Jaccard only)
+
+        Returns:
+            Dict with keys:
+              claims: list of ClaimItem dicts
+              coverage: ProvenanceCoverage dict
+        """
+        paragraphs = split_paragraphs(answer_text)
+        claims: List[Dict[str, Any]] = []
+        for idx, para in enumerate(paragraphs):
+            labels = self.extract_citations(para["text"])
+            mapped = self.map_citations_to_chunks(
+                labels, retrieved_chunks, answer_text=para["text"], llm_provider=llm_provider
+            )
+            chunk_ids = [c["chunk_id"] for c in mapped]
+            # Use first citation's quote/score/method if any
+            quote_text = ""
+            match_score = None
+            match_method = None
+            if mapped:
+                q = mapped[0].get("quote_text")
+                if q:
+                    quote_text = q
+                # We don't store score/method from map_citations_to_chunks currently;
+                # we could add it there. For now, use Jaccard on the paragraph level.
+                j = self._jaccard_quote(para["text"], " ".join(
+                    c.get("text") or c.get("content") or "" for c in mapped
+                ))
+                match_score = j["match_score"]
+                match_method = j["match_method"]
+            claims.append({
+                "index": idx,
+                "text": para["text"],
+                "start": para["start"],
+                "end": para["end"],
+                "labels": labels,
+                "chunks": chunk_ids,
+                "cited": len(chunk_ids) > 0,
+                "quote_text": quote_text or None,
+                "match_score": match_score,
+                "match_method": match_method,
+            })
+        cited = sum(1 for c in claims if c["cited"])
+        total = len(claims)
+        uncited = [i for i, c in enumerate(claims) if not c["cited"]]
+        coverage = {"cited": cited, "total": total, "uncited_indices": uncited}
+        return {"claims": claims, "coverage": coverage}
+
+
+def finalize_turn(
+    answer_text: str,
+    retrieved_chunks: List[Dict[str, Any]],
+    context_package: Dict[str, Any],
+    llm_provider: Any,
+    grounding_service: Any,
+    chat_repository: Any,
+    turn_id: str,
+    conflict_service: Any = None,
+) -> Dict[str, Any]:
+    """
+    Shared finalize logic for sync and stream paths.
+
+    Computes provenance, groundedness, persists citations and turn update.
+    Returns dict ready for SSE citations event payload.
+    """
+    import json
+    import uuid
+    from chat.conflict import ConflictDetectionService
+
+    def _safe(obj: Any) -> Any:
+        if isinstance(obj, dict):
+            return {k: _safe(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_safe(v) for v in obj]
+        if hasattr(obj, "item"):
+            return obj.item()
+        return obj
+
+    citation_service = CitationService()
+
+    # 1. Build provenance
+    provenance = citation_service.build_provenance(answer_text, retrieved_chunks, llm_provider)
+
+    # 2. Groundedness score
+    score, reason = grounding_service.calculate_groundedness(answer_text, retrieved_chunks)
+
+    # 3. Persist citations (per label, like before)
+    citation_labels = citation_service.extract_citations(answer_text)
+    valid_citations = citation_service.map_citations_to_chunks(
+        citation_labels, retrieved_chunks, answer_text=answer_text, llm_provider=llm_provider
+    )
+
+    citation_objects = []
+    for cit_data in valid_citations:
+        cit = chat_repository.create_citation(
+            id=str(uuid.uuid4()),
+            turn_id=turn_id,
+            chunk_id=cit_data['chunk_id'],
+            document_id=cit_data['document_id'],
+            quote_text=cit_data.get('quote_text'),
+            metadata_json=json.dumps(_safe(cit_data)),
+        )
+        citation_objects.append({
+            "id": cit.id,
+            "chunk_id": cit.chunk_id,
+            "document_id": cit.document_id,
+            "quote_text": cit_data.get('quote_text'),
+            "metadata": cit_data,
+        })
+
+    # 4. Conflict status
+    conflict_status = "no_conflict"
+    conflict_details = None
+    unique_doc_ids = {chunk.get("document_id") for chunk in retrieved_chunks if chunk.get("document_id")}
+    if len(unique_doc_ids) > 1:
+        svc = conflict_service or ConflictDetectionService(llm_provider)
+        conflict_res = svc.detect_conflict(answer_text, retrieved_chunks)
+        if conflict_res.get("has_conflict"):
+            if conflict_res.get("surfaced_correctly"):
+                conflict_status = "resolved_conflict"
+            else:
+                conflict_status = "unresolved_conflict"
+            conflict_details = conflict_res.get("conflict_details")
+
+    # 5. Update turn with provenance_json, groundedness, context_used
+    context_package["conflict_status"] = conflict_status
+    context_package["conflict_details"] = conflict_details
+    chat_repository.update_turn_status(
+        turn_id=turn_id,
+        status="completed",
+        answer_text=answer_text,
+        groundedness_score=score,
+        context_used_json=json.dumps(_safe(context_package)),
+        provenance_json=json.dumps(_safe(provenance)),
+    )
+
+    return {
+        "provenance": provenance,
+        "citations": citation_objects,
+        "groundedness_score": score,
+        "groundedness_reason": reason,
+        "conflict_status": conflict_status,
+        "conflict_details": conflict_details,
+    }
 
 
 def get_citation_service() -> CitationService:

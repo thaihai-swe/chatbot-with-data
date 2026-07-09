@@ -39,3 +39,12 @@ Append-only index of Architecture Decision Records for this repository.
 ## Log
 
 <!-- Append new entries below in ADR-001, ADR-002, ... order. -->
+
+### ADR-001 — Source-to-Answer Provenance Mode
+
+- Date: 2026-07-09
+- Feature slug: 10.2-source-to-answer-provenance
+- Artifact: core-zero/project/adr/001-source-to-answer-provenance-mode.md
+- Status: Accepted
+- Superseded by: none
+- One-line summary: v1 uses post-generation claim→chunk provenance graph + coverage metrics stored as provenance_json; no constrained decoding or hard repair loops in v1.

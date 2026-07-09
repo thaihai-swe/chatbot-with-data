@@ -20,8 +20,10 @@
 - **Frontend**: React SPA at `frontend/` with Vite dev server
 - **Vector DB**: Weaviate 1.27.0 (Docker) for hybrid search (BM25 + semantic)
 - **LLM**: OpenAI GPT-4o / compatible endpoint via provider abstraction layer
-- **Metadata**: SQLite with 17 tables, 5 migration versions
+- **Metadata**: SQLite with 17 tables, migration versions through `0007_provenance_json`
 - **Document Understanding**: Module at `backend/indexing/understanding.py` for summary and section metadata generation
+- **Chat live path**: Routes `/chat` and `/chat/:sessionId` render `WorkspaceLayout` → `ChatPanel` (not legacy `screens/Chat.jsx`)
+- **Provenance**: Post-gen claim graph in `backend/chat/citations.py` (`build_provenance`, `finalize_turn`); column `chat_turns.provenance_json`
 - Design docs live under `documents/` (16 files covering architecture, API, schema, chunking, retrieval, security)
 - Harness policy and configuration live under `core-zero/`
 - Utility scripts live under `scripts/`
@@ -68,7 +70,9 @@ The shipped helpers own the following durable surfaces:
 | Query Intelligence | Pre-retrieval pipeline: intent classification, query expansion, HyDE (Hypothetical Document Embedding), query decomposition, synonym expansion, dynamic collection routing |
 | Prompt Injection Defense | 3-layer protection: heuristic scanner (49 regex patterns), fuzzy scanner (cosine similarity to known corpus), LLM scanner (LLM judges if query is adversarial) |
 | Grounded Generation | Evidence sufficiency scoring + groundedness checking + citation extraction to ensure answers are supported by retrieved chunks |
-| X-Ray Panel | Frontend debug panel showing retrieval internals, chunk scores, citation mapping, and generation details |
+| X-Ray Panel | Frontend debug panel: safety, claim provenance, retrieval transformations, strategy, latency (`XRayPanel.jsx`) |
+| Claim Provenance Graph | Paragraph → citation labels → chunk IDs with coverage; stored as `provenance_json` |
+| finalize_turn | Shared post-generation helper for sync + stream (provenance, groundedness, citations, conflict) |
 | Collection Routing | LLM-routed selection of which document collections to search based on the user's query |
 | CandidateMerger | RRF-based fusion of multi-strategy retrieval results (BM25 + semantic + optional HyDE) |
 | Cross-Encoder Reranker | Post-retrieval scoring step using FlashRank (ms-marco-MiniLM-L-12-v2) to sort the fused candidates by semantic relevance before passing to the LLM |
@@ -84,4 +88,5 @@ From archaeology sweep (see `memories/repo/brownfield/brownfield-map.md`):
 
 1. **Prompt injection defense must remain active**: The 3-layer safety check (heuristic → fuzzy → LLM) in `backend/chat/safety.py` must always run before any user query reaches the retrieval or generation pipeline.
 2. **Hybrid search (BM25 + vector) must remain the default retrieval strategy**: The `CandidateMerger` with RRF fusion in `backend/chat/retrieval.py` is the core differentiator.
-3. **SQLite schema must be backward-compatible**: 17 tables across 5 migration versions exist. Any schema changes must not break the existing migration chain in `backend/migrations/runner.py`.
+3. **SQLite schema must be backward-compatible**: 17 tables; migrations append-only through `0007_provenance_json` in `backend/migrations/runner.py`. Never edit past migration versions.
+4. **Chat finalize parity**: Post-generation work must run via shared `finalize_turn` (or equivalent) on both sync and stream paths so groundedness/provenance never drift.

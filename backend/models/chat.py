@@ -37,6 +37,7 @@ class ChatTurn:
     safety_reason: Optional[str] = None
     groundedness_score: Optional[float] = None
     error_message: Optional[str] = None
+    provenance_json: str = "{}"
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 

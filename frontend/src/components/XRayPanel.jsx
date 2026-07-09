@@ -3,16 +3,60 @@ import React from "react";
 export default function XRayPanel({ trace, onClose }) {
   if (!trace) return null;
 
-  const { retrieval, safety, evaluation } = trace;
+  const { retrieval, safety, evaluation, provenance } = trace;
+  const coverage = provenance?.coverage;
+  const claims = provenance?.claims || [];
+
+  // Reverse map: chunk_id → claim indices
+  const reverseMap = {};
+  claims.forEach((c) => {
+    (c.chunks || []).forEach((cid) => {
+      if (!reverseMap[cid]) reverseMap[cid] = [];
+      reverseMap[cid].push(c.index);
+    });
+  });
 
   return (
-    <div className="xray-panel" style={{ background: "var(--surface)", borderLeft: "1px solid var(--border)", boxShadow: "var(--shadow-lg)" }}>
-      <div className="xray-header" style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", background: "var(--surface-muted)" }}>
+    <div
+      className="xray-panel"
+      style={{
+        background: "var(--surface)",
+        borderLeft: "1px solid var(--border)",
+        boxShadow: "var(--shadow-lg)",
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        maxHeight: "100vh",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        className="xray-header"
+        style={{
+          padding: "16px 24px",
+          borderBottom: "1px solid var(--border)",
+          background: "var(--surface-muted)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexShrink: 0,
+        }}
+      >
         <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "600" }}>Pipeline X-Ray</h3>
         <button onClick={onClose} className="button button-ghost" style={{ padding: "0 8px", height: "28px", fontSize: "12px" }}>Close</button>
       </div>
-      
-      <div className="xray-content" style={{ padding: "24px" }}>
+
+      <div
+        className="xray-content"
+        style={{
+          padding: "24px",
+          overflowY: "auto",
+          overflowX: "hidden",
+          flex: 1,
+          minHeight: 0,
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
         {/* Groundedness & Safety Section */}
         <section className="xray-section" style={{ marginBottom: "32px" }}>
           <span className="eyebrow" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "4px", marginBottom: "16px" }}>Safety & Grounding</span>
@@ -40,6 +84,53 @@ export default function XRayPanel({ trace, onClose }) {
             </div>
           )}
         </section>
+
+        {/* Provenance Section */}
+        {provenance && (
+          <section className="xray-section" style={{ marginBottom: "32px" }}>
+            <span className="eyebrow" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "4px", marginBottom: "16px" }}>Provenance</span>
+            {coverage && (
+              <div style={{ marginBottom: "16px", fontSize: "13px", fontWeight: 600 }}>
+                {coverage.cited}/{coverage.total} paragraphs cited
+                {coverage.total > 0 ? ` (${Math.round((coverage.cited / coverage.total) * 100)}%)` : ""}
+              </div>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px", maxHeight: "280px", overflowY: "auto" }}>
+              {claims.map((c) => (
+                <div key={c.index} style={{ padding: "10px 12px", background: "var(--surface-muted)", borderRadius: "var(--radius-md)", borderLeft: `3px solid ${c.cited ? "var(--success)" : "var(--danger)"}`, flexShrink: 0 }}>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "4px", flexWrap: "wrap" }}>
+                    <span className="mono" style={{ fontSize: "11px", fontWeight: 700 }}>#{c.index}</span>
+                    <span className={`status-badge ${c.cited ? "status-success" : "status-danger"}`} style={{ height: "18px", fontSize: "10px" }}>
+                      {c.cited ? "cited" : "uncited"}
+                    </span>
+                    {(c.labels || []).map((l) => (
+                      <span key={l} className="mono" style={{ fontSize: "10px", color: "var(--accent-strong)" }}>[{l}]</span>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.4, wordBreak: "break-word" }}>
+                    {(c.text || "").slice(0, 120)}{(c.text || "").length > 120 ? "…" : ""}
+                  </div>
+                  {(c.chunks || []).length > 0 && (
+                    <div style={{ marginTop: "4px", fontSize: "10px", color: "var(--text-muted)", wordBreak: "break-all" }} className="mono">
+                      chunks: {c.chunks.join(", ")}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {Object.keys(reverseMap).length > 0 && (
+              <div>
+                <span className="eyebrow" style={{ fontSize: "11px", marginBottom: "6px" }}>Reverse map (chunk → claims)</span>
+                {Object.entries(reverseMap).map(([cid, idxs]) => (
+                  <div key={cid} style={{ fontSize: "12px", padding: "4px 0", borderBottom: "1px dotted var(--border)", display: "flex", justifyContent: "space-between" }}>
+                    <span className="mono" style={{ color: "var(--text-secondary)" }}>{cid.slice(0, 12)}…</span>
+                    <span className="mono" style={{ fontWeight: 600 }}>claims: {idxs.join(", ")}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Retrieval Transformations */}
         {retrieval?.transformations && (
@@ -101,7 +192,22 @@ export default function XRayPanel({ trace, onClose }) {
         {/* Raw JSON */}
         <details>
           <summary style={{ cursor: "pointer", fontSize: "11px", color: "var(--text-muted)", fontWeight: "600" }}>RAW TRACE DATA</summary>
-          <pre className="mono" style={{ fontSize: "11px", marginTop: "12px", padding: "16px", background: "#0B0D10", color: "#F7F7F5", borderRadius: "var(--radius-md)", overflowX: "auto" }}>
+          <pre
+            className="mono"
+            style={{
+              fontSize: "11px",
+              marginTop: "12px",
+              padding: "16px",
+              background: "#0B0D10",
+              color: "#F7F7F5",
+              borderRadius: "var(--radius-md)",
+              overflowX: "auto",
+              overflowY: "auto",
+              maxHeight: "240px",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+            }}
+          >
             {JSON.stringify(trace, null, 2)}
           </pre>
         </details>

@@ -20,6 +20,11 @@ triggers: [rag, retrieval, generation, rerank, hybrid search, bm25, vector searc
 | Context Assembly | Builds the LLM prompt from retrieved chunks, respecting token limits | `backend/chat/context_assembly.py` |
 | Grounded Generation | Generates answers with evidence sufficiency scoring + groundedness checking + citation extraction | `backend/chat/generation.py` |
 | Prompt Injection Defense | 3-layer protection: heuristic scanner (49 regex patterns) → fuzzy scanner (cosine similarity) → LLM scanner | `backend/chat/safety.py` |
-| X-Ray Panel | Frontend debug panel showing retrieval internals, chunk scores, citation mapping, generation details | `frontend/src/components/XRayPanel/` |
+| X-Ray Panel | Frontend debug panel showing safety, provenance claim graph, retrieval transformations, strategy, latency | `frontend/src/components/XRayPanel.jsx` |
 | Collection Routing | LLM-routed selection of which document collections to search based on user query intent | `backend/chat/query_intelligence.py` |
 | SSE Streaming | Server-Sent Events for real-time token streaming from LLM to frontend | `backend/chat/streaming.py` |
+| Claim Provenance Graph | Post-generation map of answer paragraphs → citation labels → chunk IDs with coverage stats | `backend/chat/citations.py` `build_provenance` |
+| Provenance Coverage | Aggregate `cited/total` paragraph counts plus `uncited_indices` for a turn | `provenance_json.coverage` on `chat_turns` |
+| finalize_turn | Shared post-generation helper: provenance + groundedness + citations + conflict + persist | `backend/chat/citations.py` |
+| Display-layer unsupported | UI marker `[unsupported]` for uncited paragraphs without mutating stored `answer_text` | `ChatPanel.jsx` + `provenance.claims` |
+| Citation Coverage (eval) | Eval metric: fraction of paragraphs with resolved citations | `EvalResult.citation_coverage` |

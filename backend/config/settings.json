@@ -33,7 +33,7 @@
         "retrieval_mode": "hybrid",
         "top_k": 20,
         "hybrid_weight": 0.5,
-        "query_expansion_enabled": true,
+        "query_expansion_enabled": false,
         "query_expansion_count": 3,
         "query_decomposition_enabled": false,
         "hyde_enabled": false,

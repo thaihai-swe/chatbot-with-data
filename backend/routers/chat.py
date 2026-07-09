@@ -13,6 +13,7 @@ from schemas.chat import (
     ChatTurnCreate,
     ChatTurnResponse,
     CitationResponse,
+    ProvenanceResponse,
     SanityCheckResponse,
     EvaluationRunResponse,
 )
@@ -151,6 +152,8 @@ def get_session_history(session_id: str) -> List[ChatTurnResponse]:
                 safety_trace=context_data.get("safety_trace"),
                 conflict_status=context_data.get("conflict_status", "no_conflict"),
                 conflict_details=context_data.get("conflict_details"),
+                provenance=json.loads(turn.provenance_json) if turn.provenance_json else None,
+                provenance_json=turn.provenance_json,
             )
         )
 
@@ -196,3 +199,18 @@ def cancel_chat_turn(turn_id: str) -> dict:
     """Cancel an ongoing chat turn."""
     cancel_turn(turn_id)
     return {"status": "cancellation_requested", "turn_id": turn_id}
+
+
+@router.get("/turns/{turn_id}/provenance", response_model=ProvenanceResponse)
+def get_turn_provenance(turn_id: str) -> ProvenanceResponse:
+    """Return claim-level provenance graph for a completed turn."""
+    turn = ChatRepository.get_turn(turn_id)
+    if not turn:
+        raise HTTPException(status_code=404, detail="Turn not found")
+    try:
+        data = json.loads(turn.provenance_json or "{}")
+    except Exception:
+        data = {}
+    if not data:
+        return ProvenanceResponse()
+    return ProvenanceResponse(**data)

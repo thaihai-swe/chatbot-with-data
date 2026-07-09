@@ -41,3 +41,33 @@
 - Log detection results for observability but never expose details to the user
 
 **Citation:** `backend/chat/safety.py` implements all 3 layers.
+
+---
+
+## Shared Finalize After Generation (Sync + Stream)
+
+**When to use:** Any new post-generation step (citations, groundedness, provenance, conflict, eval hooks).
+
+**Key implementation notes:**
+- Implement once as `finalize_turn(...)` (or equivalent) in a shared module
+- Call from both `ChatService.process_turn` and `StreamingOrchestrator.stream_turn`
+- Persist scores and JSON fields in the same helper so SSE and DB stay aligned
+- Accept injectable services (e.g. `conflict_service`) so unit/integration tests can mock without real LLM
+
+**Citation:** `backend/chat/citations.py` `finalize_turn`; wired in 10.2.
+
+---
+
+## Post-Generation Claim Provenance Graph
+
+**When to use:** Need claim→source traceability without constrained decoding.
+
+**Key implementation notes:**
+- Split answer into claim units (paragraphs via blank lines for v1)
+- Extract citation labels per unit with dual-format regex; map to chunks by index/UUID
+- Persist `provenance_json` on the turn: `claims[]` + `coverage {cited, total, uncited_indices}`
+- Emit on SSE `citations` event and expose `GET /chat/turns/{id}/provenance`
+- UI: display-layer `[unsupported]` for uncited claims; merge provenance into `msg.trace` for X-Ray
+- Prefer measure-first (ADR-001); hard enforcement is a later phase
+
+**Citation:** Feature `10.2-source-to-answer-provenance`; `build_provenance` in `citations.py`.

@@ -67,6 +67,12 @@ export async function getEvaluationHistory() {
   return response.json();
 }
 
+export async function getTurnProvenance(turnId) {
+  const response = await fetch(`${API_BASE_URL}/chat/turns/${turnId}/provenance`);
+  if (!response.ok) throw new Error("Failed to get turn provenance");
+  return response.json();
+}
+
 /**
  * Stream a chat turn using SSE.
  * 
@@ -120,16 +126,16 @@ export function streamChatTurn(sessionId, queryText, {
           switch (event) {
             case "status": onStatus?.(data); break;
             case "token": onToken?.(data.content); break;
-            case "citations": 
-              onCitations?.(data); 
-              if (data.retrieval_trace || data.safety_trace || data.evaluation_metrics) {
-                // Combine traces and metrics for the debug view
-                onTrace?.({
-                  retrieval: data.retrieval_trace,
-                  safety: data.safety_trace,
-                  evaluation: data.evaluation_metrics
-                });
-              }
+            case "citations":
+              onCitations?.(data);
+              // Always emit a combined trace for X-Ray (includes provenance)
+              onTrace?.({
+                retrieval: data.retrieval_trace,
+                safety: data.safety_trace,
+                evaluation: data.evaluation_metrics,
+                provenance: data.provenance,
+                groundedness_score: data.groundedness_score,
+              });
               break;
             case "trace": onTrace?.(data); break;
             case "error": onError?.(data); break;

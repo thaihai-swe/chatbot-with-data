@@ -250,6 +250,7 @@ SCHEMA_STATEMENTS = [
         safety_reason TEXT,
         groundedness_score REAL,
         error_message TEXT,
+        provenance_json TEXT NOT NULL DEFAULT '{}',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
@@ -419,13 +420,32 @@ def apply_migrations() -> None:
                     """
                 )
                 connection.execute("DROP TABLE IF EXISTS chat_session_collections")
-            
+
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_chat_sessions_collection_id ON chat_sessions(collection_id)"
             )
             connection.execute(
                 "INSERT INTO schema_migrations(version) VALUES (?)",
                 ("0006_single_collection_chat",),
+            )
+
+        # 0007_provenance_json
+        cursor = connection.execute(
+            "SELECT 1 FROM schema_migrations WHERE version = ?",
+            ("0007_provenance_json",),
+        )
+        if not cursor.fetchone():
+            try:
+                connection.execute(
+                    "ALTER TABLE chat_turns ADD COLUMN provenance_json TEXT NOT NULL DEFAULT '{}'"
+                )
+            except Exception as e:
+                # Fresh CREATE TABLE already has the column
+                if "duplicate column name" not in str(e).lower():
+                    raise e
+            connection.execute(
+                "INSERT INTO schema_migrations(version) VALUES (?)",
+                ("0007_provenance_json",),
             )
 
 

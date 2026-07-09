@@ -105,6 +105,7 @@ class ChatRepository:
         safety_reason: Optional[str] = None,
         groundedness_score: Optional[float] = None,
         error_message: Optional[str] = None,
+        provenance_json: str = "{}",
     ) -> ChatTurn:
         """Create a new chat turn."""
         with get_connection() as connection:
@@ -113,8 +114,8 @@ class ChatRepository:
                 INSERT INTO chat_turns
                 (id, session_id, query_text, answer_text, retrieved_chunks_json,
                  context_used_json, status, safety_status, safety_risk_score,
-                 safety_reason, groundedness_score, error_message)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 safety_reason, groundedness_score, error_message, provenance_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     id,
@@ -129,6 +130,7 @@ class ChatRepository:
                     safety_reason,
                     groundedness_score,
                     error_message,
+                    provenance_json,
                 ),
             )
         return ChatRepository.get_turn(id)
@@ -141,7 +143,8 @@ class ChatRepository:
                 """
                 SELECT id, session_id, query_text, answer_text, retrieved_chunks_json,
                        context_used_json, status, safety_status, safety_risk_score,
-                       safety_reason, groundedness_score, error_message, created_at, updated_at
+                       safety_reason, groundedness_score, error_message, provenance_json,
+                       created_at, updated_at
                 FROM chat_turns
                 WHERE id = ?
                 """,
@@ -165,8 +168,9 @@ class ChatRepository:
             safety_reason=row[9],
             groundedness_score=row[10],
             error_message=row[11],
-            created_at=row[12],
-            updated_at=row[13],
+            provenance_json=row[12],
+            created_at=row[13],
+            updated_at=row[14],
         )
 
     @staticmethod
@@ -177,7 +181,8 @@ class ChatRepository:
                 """
                 SELECT id, session_id, query_text, answer_text, retrieved_chunks_json,
                        context_used_json, status, safety_status, safety_risk_score,
-                       safety_reason, groundedness_score, error_message, created_at, updated_at
+                       safety_reason, groundedness_score, error_message, provenance_json,
+                       created_at, updated_at
                 FROM chat_turns
                 WHERE session_id = ?
                 ORDER BY created_at ASC
@@ -200,8 +205,9 @@ class ChatRepository:
                 safety_reason=row[9],
                 groundedness_score=row[10],
                 error_message=row[11],
-                created_at=row[12],
-                updated_at=row[13],
+                provenance_json=row[12],
+                created_at=row[13],
+                updated_at=row[14],
             )
             for row in rows
         ]
@@ -217,6 +223,7 @@ class ChatRepository:
         groundedness_score: Optional[float] = None,
         error_message: Optional[str] = None,
         context_used_json: Optional[str] = None,
+        provenance_json: Optional[str] = None,
     ) -> ChatTurn:
         """Update turn status and optionally answer/error/safety fields."""
         query = "UPDATE chat_turns SET status = ?, updated_at = CURRENT_TIMESTAMP"
@@ -225,11 +232,11 @@ class ChatRepository:
         if answer_text is not None:
             query += ", answer_text = ?"
             params.append(answer_text)
-        
+
         if context_used_json is not None:
             query += ", context_used_json = ?"
             params.append(context_used_json)
-        
+
         if safety_status is not None:
             query += ", safety_status = ?"
             params.append(safety_status)
@@ -249,6 +256,10 @@ class ChatRepository:
         if error_message is not None:
             query += ", error_message = ?"
             params.append(error_message)
+
+        if provenance_json is not None:
+            query += ", provenance_json = ?"
+            params.append(provenance_json)
 
         query += " WHERE id = ?"
         params.append(turn_id)

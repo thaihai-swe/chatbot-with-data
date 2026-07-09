@@ -21,7 +21,7 @@ def _json_safe(obj: Any) -> Any:
 from chat.advanced_retrieval import AdvancedRetrievalService
 from chat.context import ContextService, load_chunk_notes
 from chat.generation import GenerationService
-from chat.citations import CitationService
+from chat.citations import CitationService, finalize_turn
 from chat.grounding import GroundingService, get_grounding_service
 from chat.safety import SafetyService, get_safety_service
 from repositories.chat_repository import ChatRepository
@@ -209,62 +209,31 @@ class StreamingOrchestrator:
                 yield self._format_sse("status", {"stage": "cancelled", "message": "Cancelled."})
                 return
 
-            citation_labels = self.citation_service.extract_citations(full_answer)
-            valid_citations = self.citation_service.map_citations_to_chunks(
-                citation_labels, retrieved_chunks,
+            # Shared finalize: provenance + groundedness + citations + conflict
+            finalize_result = finalize_turn(
                 answer_text=full_answer,
+                retrieved_chunks=retrieved_chunks,
+                context_package=context_package,
                 llm_provider=self.generation_service.llm_provider,
-            )
-
-            citation_objects = []
-            for cit_data in valid_citations:
-                cit = ChatRepository.create_citation(
-                    id=str(uuid.uuid4()),
-                    turn_id=turn_id,
-                    chunk_id=cit_data['chunk_id'],
-                    document_id=cit_data['document_id'],
-                    quote_text=cit_data.get('quote_text'),
-                    metadata_json=json.dumps(_json_safe(cit_data)),
-                )
-                citation_objects.append({
-                    "id": cit.id,
-                    "chunk_id": cit.chunk_id,
-                    "document_id": cit.document_id,
-                    "quote_text": cit_data.get('quote_text'),
-                    "metadata": cit_data,
-                })
-
-            conflict_status = "no_conflict"
-            conflict_details = None
-
-            unique_doc_ids = {chunk.get("document_id") for chunk in retrieved_chunks if chunk.get("document_id")}
-            if len(unique_doc_ids) > 1:
-                conflict_res = self.conflict_service.detect_conflict(full_answer, retrieved_chunks)
-                if conflict_res.get("has_conflict"):
-                    if conflict_res.get("surfaced_correctly"):
-                        conflict_status = "resolved_conflict"
-                    else:
-                        conflict_status = "unresolved_conflict"
-                    conflict_details = conflict_res.get("conflict_details")
-
-            context_package["conflict_status"] = conflict_status
-            context_package["conflict_details"] = conflict_details
-
-            ChatRepository.update_turn_status(
+                grounding_service=self.grounding_service,
+                chat_repository=ChatRepository,
                 turn_id=turn_id,
-                status="completed",
-                answer_text=full_answer,
-                context_used_json=json.dumps(_json_safe(context_package)),
+                conflict_service=getattr(self, "conflict_service", None),
             )
+            score = finalize_result["groundedness_score"]
+            safety_trace.groundedness.score = score
+            safety_trace.groundedness.status = "supported" if score >= 0.7 else "partial"
 
-            # Include safety trace, retrieval trace, and full chunks
+            # Include safety trace, retrieval trace, full chunks, and provenance
             yield self._format_sse("citations", {
-                "citations": citation_objects,
+                "citations": finalize_result["citations"],
                 "retrieved_chunks": retrieved_chunks,
                 "retrieval_trace": trace.model_dump() if hasattr(trace, 'model_dump') else (trace.dict() if hasattr(trace, 'dict') else trace),
                 "safety_trace": safety_trace.model_dump() if hasattr(safety_trace, 'model_dump') else (safety_trace.dict() if hasattr(safety_trace, 'dict') else safety_trace),
-                "conflict_status": conflict_status,
-                "conflict_details": conflict_details,
+                "conflict_status": finalize_result["conflict_status"],
+                "conflict_details": finalize_result["conflict_details"],
+                "groundedness_score": score,
+                "provenance": finalize_result["provenance"],
             })
             yield self._format_sse("done", {"turn_id": turn_id})
 

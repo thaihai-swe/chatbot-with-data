@@ -22,4 +22,10 @@ Track all architecture decisions in one place for discoverability. Each ADR live
 
 ## Log
 
+| ID | Title | Status | Date | Feature | Impact |
+| --- | ----- | ------ | ---- | ------- | ------ |
+| ADR-001 | Source-to-Answer Provenance Mode | Accepted | 2026-07-09 | 10.2-source-to-answer-provenance | Post-gen claim graph + coverage; no constrained decoding in v1 |
+
 <!-- Append new entries below. Most recent first. -->
+
+- [ADR-001: Source-to-Answer Provenance Mode](001-source-to-answer-provenance-mode.md) — Accepted 2026-07-09

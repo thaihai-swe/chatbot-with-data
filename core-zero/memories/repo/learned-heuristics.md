@@ -80,3 +80,31 @@ This file captures repeated, evidence-backed heuristics that improve maintenance
 - **Recurrence count**: 1
 - **Confidence**: High
 - **Last reviewed**: 2026-07-01
+
+### LH-011: Sync and stream chat paths must share one finalize helper
+- **Status**: Active
+- **Trigger**: Adding post-generation steps (citations, groundedness, provenance, conflict) to chat.
+- **Working heuristic**: Put finalize logic in one function (e.g. `finalize_turn` in `citations.py`) called by both `service.py` and `streaming.py`. Dual copies drift (stream missed `groundedness_score` until 10.2).
+- **Evidence**: `10.2-source-to-answer-provenance` — stream path lacked groundedness; shared `finalize_turn` fixed parity.
+- **Recurrence count**: 2
+- **Confidence**: High
+- **Last reviewed**: 2026-07-10
+- **Promote to stronger rule?** Yes when count >= 3
+
+### LH-012: Debug/X-Ray UI must not depend on dead screens or unset gates
+- **Status**: Active
+- **Trigger**: Adding debug panels or citation tooling in chat UX.
+- **Working heuristic**: Live route is `WorkspaceLayout` → `ChatPanel`, not `screens/Chat.jsx`. Seed `debugTrace` from SSE `citations` and history load; keep header X-Ray always clickable with fallback to last assistant `msg.trace`.
+- **Evidence**: 10.2 — Debug toggle only on Chat.jsx; ChatPanel `debugMode` never set; header disabled when `debugTrace` null.
+- **Recurrence count**: 1
+- **Confidence**: High
+- **Last reviewed**: 2026-07-10
+
+### LH-013: Absolute side drawers need flex column + overflow-y on body
+- **Status**: Active
+- **Trigger**: Side panels with `position: absolute; inset: 0 0 0 auto` (X-Ray, drawers).
+- **Working heuristic**: Panel root: `display:flex; flex-direction:column; height:100%; overflow:hidden`. Header `flex-shrink:0`. Body `flex:1; min-height:0; overflow-y:auto`. Cap raw JSON / long lists with `max-height` + scroll.
+- **Evidence**: 10.2 X-Ray Provenance section overflowed and broke layout until flex/overflow applied.
+- **Recurrence count**: 1
+- **Confidence**: High
+- **Last reviewed**: 2026-07-10

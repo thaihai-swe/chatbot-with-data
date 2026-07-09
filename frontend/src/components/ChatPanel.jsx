@@ -8,11 +8,11 @@ import {
   streamChatTurn,
   cancelChatTurn,
   deleteChatSession,
+  getTurnProvenance,
 } from "../api/chat";
 import { generateProduct, listCollections, listDocuments } from "../api/knowledgeApi";
 import { useWorkspace } from "../context/WorkspaceContext";
 import XRayPanel from "./XRayPanel";
-import CitationModal from "./CitationModal";
 import CitationBadge from "./CitationBadge";
 
 const PRODUCT_TYPES = [
@@ -76,10 +76,8 @@ export default function ChatPanel() {
   const generateMenuRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  const [debugMode, setDebugMode] = useState(false);
-  const [debugTrace, setDebugTrace] = useState(null);
-  const [activeCitation, setActiveCitation] = useState(null);
-  const [activeChunk, setActiveChunk] = useState(null);
+  const [debugTrace, setDebugTrace] = useState(null); // last turn trace (always kept)
+  const [xrayOpen, setXrayOpen] = useState(false);
   const [showSessionList, setShowSessionList] = useState(false);
   const [showGenerateMenu, setShowGenerateMenu] = useState(false);
 
@@ -124,9 +122,26 @@ export default function ChatPanel() {
         .then((history) => {
           if (isGenerating && history.length === 0) return;
           const formatted = [];
+          let lastTrace = null;
           history.forEach((turn) => {
             formatted.push({ role: "user", content: turn.query_text });
             if (turn.answer_text) {
+              let provenance = turn.provenance || null;
+              if (!provenance && turn.provenance_json) {
+                try {
+                  provenance = typeof turn.provenance_json === "string"
+                    ? JSON.parse(turn.provenance_json)
+                    : turn.provenance_json;
+                } catch {
+                  provenance = null;
+                }
+              }
+              const trace = {
+                retrieval: turn.retrieval_trace,
+                safety: turn.safety_trace,
+                evaluation: turn.evaluation_metrics,
+                provenance,
+              };
               formatted.push({
                 role: "assistant",
                 content: turn.answer_text,
@@ -141,18 +156,17 @@ export default function ChatPanel() {
                   : [],
                 conflict_status: turn.conflict_status || "no_conflict",
                 conflict_details: turn.conflict_details,
-                trace: {
-                  retrieval: turn.retrieval_trace,
-                  safety: turn.safety_trace,
-                  evaluation: turn.evaluation_metrics,
-                },
+                provenance,
+                trace,
               });
-              if (turn.retrieval_trace) {
-                setActiveTrace({ retrieval: turn.retrieval_trace });
-              }
+              lastTrace = trace;
             }
           });
           setMessages(formatted);
+          if (lastTrace) {
+            setDebugTrace(lastTrace);
+            setActiveTrace(lastTrace);
+          }
         })
         .catch(console.error);
     } else {
@@ -213,6 +227,19 @@ export default function ChatPanel() {
         });
       },
       onCitations: (data) => {
+        // Always seed X-Ray from the citations SSE payload (retrieval + safety + provenance)
+        const nextTrace = {
+          retrieval: data.retrieval_trace,
+          safety: data.safety_trace,
+          evaluation: data.evaluation_metrics,
+          provenance: data.provenance,
+          groundedness_score: data.groundedness_score,
+          conflict_status: data.conflict_status,
+          conflict_details: data.conflict_details,
+        };
+        setDebugTrace(nextTrace);
+        setActiveTrace(nextTrace);
+
         setMessages((prev) => {
           if (prev.length === 0) return prev;
           const last = prev[prev.length - 1];
@@ -225,6 +252,8 @@ export default function ChatPanel() {
               chunks: data.retrieved_chunks,
               conflict_status: data.conflict_status || "no_conflict",
               conflict_details: data.conflict_details,
+              provenance: data.provenance,
+              trace: { ...(last.trace || {}), ...nextTrace },
             },
           ];
         });
@@ -234,9 +263,14 @@ export default function ChatPanel() {
           if (prev.length === 0) return prev;
           const last = prev[prev.length - 1];
           if (last.role !== "assistant") return prev;
-          return [...prev.slice(0, -1), { ...last, trace }];
+          const merged = { ...(last.trace || {}), ...trace, provenance: last.provenance || last.trace?.provenance || trace.provenance };
+          return [...prev.slice(0, -1), { ...last, trace: merged }];
         });
-        setDebugTrace(trace);
+        setDebugTrace((prev) => ({
+          ...(prev || {}),
+          ...trace,
+          provenance: prev?.provenance || trace.provenance,
+        }));
         setActiveTrace(trace);
       },
       onError: (err) => {
@@ -294,12 +328,10 @@ export default function ChatPanel() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showGenerateMenu]);
 
-  const handleCitationClick = (citation, chunks) => {
-    const chunk = chunks.find((c) => c.chunk_id === citation.chunk_id);
-    if (chunk) {
-      setActiveCitation(citation);
-      setActiveChunk(chunk);
-    }
+  const handleCitationClick = (citation) => {
+    if (!citation?.chunk_id) return;
+    const documentId = citation.document_id || citation.metadata?.document_id;
+    setActiveChunkId(citation.chunk_id, documentId);
   };
 
   const handleInlineGenerate = async (productType) => {
@@ -353,32 +385,8 @@ export default function ChatPanel() {
     }
   };
 
-  const renderMessageContent = (msg) => {
-    if (msg.isGenerated) {
-      if (msg.isGenerating) {
-        return <span className="status-badge" style={{ background: "var(--ai-thinking)", color: "var(--accent-strong)", border: "none", height: "auto", padding: "6px 12px" }}>Generating {msg.productLabel}...</span>;
-      }
-      if (msg.productType === "flashcards") {
-        const cards = Array.isArray(msg.content) ? msg.content : [];
-        return (
-          <div>
-            <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px" }}>🃏 {msg.productLabel}</div>
-            {cards.map((card, i) => <FlashcardBlock key={i} card={card} />)}
-          </div>
-        );
-      }
-      const text = typeof msg.content === "string" ? msg.content : "";
-      return (
-        <div>
-          <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px" }}>{msg.productLabel}</div>
-          <MarkdownBlock content={text} />
-        </div>
-      );
-    }
-    if (msg.role !== "assistant" || !msg.citations || msg.citations.length === 0) {
-      return msg.content;
-    }
-    const parts = msg.content.split(/(\[Source\s+[^\]]+\]|\[\d+\])/g);
+  const renderInlineWithCitations = (text, msg) => {
+    const parts = text.split(/(\[Source\s+[^\]]+\]|\[\d+\])/g);
     return parts.map((part, idx) => {
       const match = part.match(/\[Source\s+([^\]]+)\]|\[(\d+)\]/);
       if (match) {
@@ -410,13 +418,68 @@ export default function ChatPanel() {
             citation={targetCit}
             chunk={targetChunk}
             onClick={() => {
-              if (targetCit) handleCitationClick(targetCit, msg.chunks || []);
+              if (targetCit) handleCitationClick(targetCit);
             }}
           />
         );
       }
       return part;
     });
+  };
+
+  const renderMessageContent = (msg) => {
+    if (msg.isGenerated) {
+      if (msg.isGenerating) {
+        return <span className="status-badge" style={{ background: "var(--ai-thinking)", color: "var(--accent-strong)", border: "none", height: "auto", padding: "6px 12px" }}>Generating {msg.productLabel}...</span>;
+      }
+      if (msg.productType === "flashcards") {
+        const cards = Array.isArray(msg.content) ? msg.content : [];
+        return (
+          <div>
+            <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px" }}>🃏 {msg.productLabel}</div>
+            {cards.map((card, i) => <FlashcardBlock key={i} card={card} />)}
+          </div>
+        );
+      }
+      const text = typeof msg.content === "string" ? msg.content : "";
+      return (
+        <div>
+          <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px" }}>{msg.productLabel}</div>
+          <MarkdownBlock content={text} />
+        </div>
+      );
+    }
+    if (msg.role !== "assistant") {
+      return msg.content;
+    }
+
+    // Display-layer [unsupported] markers from provenance (no answer_text mutation)
+    if (msg.provenance?.claims?.length) {
+      return msg.provenance.claims.map((claim, i) => (
+        <div key={i} style={{ marginBottom: "8px" }}>
+          {!claim.cited && (
+            <span
+              style={{
+                color: "var(--text-muted)",
+                opacity: 0.6,
+                cursor: "default",
+                fontSize: "11px",
+                fontWeight: 600,
+                marginRight: "6px",
+              }}
+            >
+              [unsupported]
+            </span>
+          )}
+          <span>{renderInlineWithCitations(claim.text, msg)}</span>
+        </div>
+      ));
+    }
+
+    if (!msg.citations || msg.citations.length === 0) {
+      return msg.content;
+    }
+    return renderInlineWithCitations(msg.content, msg);
   };
 
   const accentColor = "var(--kb-accent)";
@@ -436,7 +499,7 @@ export default function ChatPanel() {
   }
 
   return (
-    <div className="chat-panel" style={{ height: "100%", display: "flex", flexDirection: "column", background: "var(--surface)" }}>
+    <div className="chat-panel" style={{ height: "100%", display: "flex", flexDirection: "column", background: "var(--surface)", position: "relative", overflow: "hidden" }}>
       {/* 1. Header Area matching mockup */}
       <div className="chat-panel-header" style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "2px", alignItems: "flex-start" }}>
@@ -457,7 +520,41 @@ export default function ChatPanel() {
           </span>
         </div>
         
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+          <button
+            onClick={() => {
+              // Prefer last debugTrace; fall back to latest assistant message with trace/provenance
+              let trace = debugTrace;
+              if (!trace) {
+                for (let i = messages.length - 1; i >= 0; i--) {
+                  const m = messages[i];
+                  if (m.role === "assistant" && (m.trace || m.provenance)) {
+                    trace = {
+                      ...(m.trace || {}),
+                      provenance: m.provenance || m.trace?.provenance,
+                    };
+                    break;
+                  }
+                }
+              }
+              if (trace) {
+                setDebugTrace(trace);
+                setXrayOpen(true);
+              } else {
+                alert("No X-Ray data yet. Send a chat question and wait for the answer to finish, then try again.");
+              }
+            }}
+            className={`button ${xrayOpen ? "button-primary" : "button-ghost"}`}
+            style={{
+              fontSize: "11px",
+              height: "30px",
+              padding: "0 10px",
+              borderRadius: "var(--radius-sm)",
+            }}
+            title="Open Pipeline X-Ray for the latest turn"
+          >
+            🔍 X-Ray
+          </button>
           <button
             onClick={() => setShowSessionList(!showSessionList)}
             className={`button ${showSessionList ? "button-primary" : "button-ghost"}`}
@@ -465,15 +562,15 @@ export default function ChatPanel() {
           >
             Sessions
           </button>
-          
+
           {/* Settings wheel redirect */}
           <button
             onClick={() => navigate("/settings")}
             className="button button-ghost"
-            style={{ 
-              fontSize: "11px", 
-              height: "30px", 
-              padding: "0 10px", 
+            style={{
+              fontSize: "11px",
+              height: "30px",
+              padding: "0 10px",
               borderRadius: "var(--radius-sm)",
               display: "flex",
               alignItems: "center",
@@ -652,10 +749,16 @@ export default function ChatPanel() {
                 </div>
               )}
               
-              {debugMode && msg.trace && (
+              {(msg.trace || msg.provenance) && (
                 <div style={{ marginTop: "12px" }}>
                   <button
-                    onClick={() => setDebugTrace(msg.trace)}
+                    onClick={() => {
+                      setDebugTrace({
+                        ...(msg.trace || {}),
+                        provenance: msg.provenance || msg.trace?.provenance,
+                      });
+                      setXrayOpen(true);
+                    }}
                     className="button button-ghost"
                     style={{ fontSize: "11px", height: "24px", padding: "0 8px", background: "var(--surface)" }}
                   >
@@ -811,12 +914,9 @@ export default function ChatPanel() {
         </div>
       </form>
 
-      <XRayPanel trace={debugTrace} onClose={() => setDebugTrace(null)} />
-      <CitationModal
-        citation={activeCitation}
-        chunk={activeChunk}
-        onClose={() => { setActiveCitation(null); setActiveChunk(null); }}
-      />
+      {xrayOpen && debugTrace && (
+        <XRayPanel trace={debugTrace} onClose={() => setXrayOpen(false)} />
+      )}
     </div>
   );
 }

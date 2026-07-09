@@ -75,6 +75,7 @@ class EvaluationService:
         passed = sum(1 for r in results if r.passed)
         avg_recall = sum(1 for r in results if r.recall_status) / total if total > 0 else 0.0
         avg_groundedness = sum(r.groundedness_score for r in results) / total if total > 0 else 0.0
+        avg_citation_coverage = sum(getattr(r, "citation_coverage", 0.0) or 0.0 for r in results) / total if total > 0 else 0.0
 
         # Save run to database
         from repositories.evaluation_repository import EvaluationRepository
@@ -93,6 +94,7 @@ class EvaluationService:
             passed_cases=passed,
             overall_recall=avg_recall,
             overall_groundedness=avg_groundedness,
+            overall_citation_coverage=avg_citation_coverage,
             results=results
         )
 
@@ -145,12 +147,26 @@ class EvaluationService:
             logger.info(f"EVAL [{case_id}] Recall Result: {recall_status}")
 
             # 2. Groundedness
-            # Actually, I haven't updated ChatService yet.
-            # Let's call calculate_groundedness directly here to be sure.
             score, reason = self.chat_service.grounding_service.calculate_groundedness(
                 response.answer_text,
                 retrieved_chunks
             )
+
+            # 3. Citation coverage from provenance
+            citation_coverage = 0.0
+            try:
+                prov = None
+                if response.provenance_json:
+                    prov = json.loads(response.provenance_json)
+                elif response.provenance:
+                    prov = response.provenance if isinstance(response.provenance, dict) else response.provenance.model_dump()
+                if prov and prov.get("coverage"):
+                    cov = prov["coverage"]
+                    total = cov.get("total", 0) or 0
+                    cited = cov.get("cited", 0) or 0
+                    citation_coverage = (cited / total) if total > 0 else 0.0
+            except Exception:
+                citation_coverage = 0.0
 
             latency = int((time.time() - t0) * 1000)
 
@@ -165,6 +181,7 @@ class EvaluationService:
                 recall_status=recall_status,
                 groundedness_score=score,
                 groundedness_reason=reason,
+                citation_coverage=citation_coverage,
                 latency_ms=latency,
                 passed=passed
             )
