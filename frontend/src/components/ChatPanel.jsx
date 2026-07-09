@@ -65,7 +65,7 @@ function MarkdownBlock({ content }) {
 export default function ChatPanel() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
-  const { selectedCollectionId, selectedDocumentIds, collectionName, addGeneratedProduct, selectCollection, setActiveChunkId } = useWorkspace();
+  const { selectedCollectionId, selectedDocumentIds, collectionName, addGeneratedProduct, selectCollection, setActiveChunkId, setActiveTrace } = useWorkspace();
 
   const [sessions, setChatSessions] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -147,6 +147,9 @@ export default function ChatPanel() {
                   evaluation: turn.evaluation_metrics,
                 },
               });
+              if (turn.retrieval_trace) {
+                setActiveTrace({ retrieval: turn.retrieval_trace });
+              }
             }
           });
           setMessages(formatted);
@@ -234,6 +237,7 @@ export default function ChatPanel() {
           return [...prev.slice(0, -1), { ...last, trace }];
         });
         setDebugTrace(trace);
+        setActiveTrace(trace);
       },
       onError: (err) => {
         setStatusMessage(`Error: ${err.message}`);

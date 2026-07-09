@@ -164,3 +164,13 @@ class ChatTurnResponse(BaseModel):
 
 
 ChatTurnResponse.model_rebuild()
+
+class EvaluationRunResponse(BaseModel):
+    id: str
+    dataset_name: Optional[str] = None
+    model_name: Optional[str] = None
+    total_cases: int
+    passed_cases: int
+    overall_recall: float
+    overall_groundedness: float
+    created_at: str

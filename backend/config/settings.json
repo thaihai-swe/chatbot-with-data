@@ -25,7 +25,9 @@
         "embedding_provider": "openai-compatible",
         "embedding_model": "openrouter/openai/text-embedding-3-small",
         "embedding_batch_size": 100,
-        "vector_db_collection": "DocumentChunk"
+        "vector_db_collection": "DocumentChunk",
+        "doc_understanding_enabled": true,
+        "doc_understanding_model": null
     },
     "retrieval": {
         "retrieval_mode": "hybrid",
@@ -35,7 +37,7 @@
         "query_expansion_count": 3,
         "query_decomposition_enabled": false,
         "hyde_enabled": false,
-        "synonym_expansion_enabled": true,
+        "synonym_expansion_enabled": false,
         "dynamic_routing_enabled": true,
         "reranker_enabled": true,
         "reranker_provider": "flashrank",
@@ -63,6 +65,7 @@
     "safety": {
         "groundedness_check_enabled": true,
         "prompt_injection_detection_enabled": true,
+        "fuzzy_matching_enabled": true,
         "safety_mode": "moderate",
         "injection_risk_threshold": 0.7,
         "refusal_threshold": 0.5,

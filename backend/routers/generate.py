@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Depends
-from typing import List, Dict, Any
+from fastapi import APIRouter, HTTPException, Depends, Query
+from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 
 from providers.base import BaseLLMProvider
@@ -26,10 +26,11 @@ def get_knowledge_product_service(
 @router.post("/study-guide", response_model=TextProductResponse)
 async def generate_study_guide(
     collection_id: str,
+    document_id: Optional[str] = Query(None),
     service: KnowledgeProductService = Depends(get_knowledge_product_service)
 ) -> TextProductResponse:
     try:
-        content = service.generate_study_guide(collection_id)
+        content = service.generate_study_guide(collection_id, document_id)
         return TextProductResponse(content=content)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -39,10 +40,11 @@ async def generate_study_guide(
 @router.post("/briefing-doc", response_model=TextProductResponse)
 async def generate_briefing_doc(
     collection_id: str,
+    document_id: Optional[str] = Query(None),
     service: KnowledgeProductService = Depends(get_knowledge_product_service)
 ) -> TextProductResponse:
     try:
-        content = service.generate_briefing_doc(collection_id)
+        content = service.generate_briefing_doc(collection_id, document_id)
         return TextProductResponse(content=content)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -52,10 +54,11 @@ async def generate_briefing_doc(
 @router.post("/faq", response_model=TextProductResponse)
 async def generate_faq(
     collection_id: str,
+    document_id: Optional[str] = Query(None),
     service: KnowledgeProductService = Depends(get_knowledge_product_service)
 ) -> TextProductResponse:
     try:
-        content = service.generate_faq(collection_id)
+        content = service.generate_faq(collection_id, document_id)
         return TextProductResponse(content=content)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -65,10 +68,11 @@ async def generate_faq(
 @router.post("/timeline", response_model=TextProductResponse)
 async def generate_timeline(
     collection_id: str,
+    document_id: Optional[str] = Query(None),
     service: KnowledgeProductService = Depends(get_knowledge_product_service)
 ) -> TextProductResponse:
     try:
-        content = service.generate_timeline(collection_id)
+        content = service.generate_timeline(collection_id, document_id)
         return TextProductResponse(content=content)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -78,10 +82,11 @@ async def generate_timeline(
 @router.post("/glossary", response_model=TextProductResponse)
 async def generate_glossary(
     collection_id: str,
+    document_id: Optional[str] = Query(None),
     service: KnowledgeProductService = Depends(get_knowledge_product_service)
 ) -> TextProductResponse:
     try:
-        content = service.generate_glossary(collection_id)
+        content = service.generate_glossary(collection_id, document_id)
         return TextProductResponse(content=content)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -91,10 +96,11 @@ async def generate_glossary(
 @router.post("/flashcards", response_model=List[FlashcardResponse])
 async def generate_flashcards(
     collection_id: str,
+    document_id: Optional[str] = Query(None),
     service: KnowledgeProductService = Depends(get_knowledge_product_service)
 ) -> List[FlashcardResponse]:
     try:
-        cards = service.generate_flashcards(collection_id)
+        cards = service.generate_flashcards(collection_id, document_id)
         return [FlashcardResponse(question=c["question"], answer=c["answer"]) for c in cards]
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

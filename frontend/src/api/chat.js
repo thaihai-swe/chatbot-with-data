@@ -59,6 +59,14 @@ export async function runSanityCheck() {
   return response.json();
 }
 
+export async function getEvaluationHistory() {
+  const response = await fetch(`${API_BASE_URL}/chat/evaluate/history`, {
+    method: "GET",
+  });
+  if (!response.ok) throw new Error("Failed to get evaluation history");
+  return response.json();
+}
+
 /**
  * Stream a chat turn using SSE.
  * 

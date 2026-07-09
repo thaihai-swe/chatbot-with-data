@@ -76,6 +76,17 @@ class EvaluationService:
         avg_recall = sum(1 for r in results if r.recall_status) / total if total > 0 else 0.0
         avg_groundedness = sum(r.groundedness_score for r in results) / total if total > 0 else 0.0
 
+        # Save run to database
+        from repositories.evaluation_repository import EvaluationRepository
+        EvaluationRepository.save_run(
+            dataset_name=dataset_path.split("/")[-1] if dataset_path else "eval_dataset.json",
+            model_name=get_settings().llm_provider,
+            total_cases=total,
+            passed_cases=passed,
+            overall_recall=avg_recall,
+            overall_groundedness=avg_groundedness
+        )
+
         return SanityCheckResponse(
             timestamp=datetime.now().isoformat(),
             total_cases=total,

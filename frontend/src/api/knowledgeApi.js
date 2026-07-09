@@ -108,8 +108,12 @@ export function upsertChunkNote(chunkId, noteText) {
   });
 }
 
-export function generateProduct(collectionId, productType) {
-  return apiRequest(`/collections/${collectionId}/generate/${productType}`, {
+export function generateProduct(collectionId, productType, documentId = null) {
+  let url = `/collections/${collectionId}/generate/${productType}`;
+  if (documentId) {
+    url += `?document_id=${encodeURIComponent(documentId)}`;
+  }
+  return apiRequest(url, {
     method: "POST",
   });
 }

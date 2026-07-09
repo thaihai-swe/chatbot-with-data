@@ -291,10 +291,26 @@ SCHEMA_STATEMENTS = [
     """
     CREATE INDEX IF NOT EXISTS idx_chunk_notes_chunk_id ON chunk_notes(chunk_id)
     """,
+    """
+    CREATE TABLE IF NOT EXISTS evaluation_runs (
+        id TEXT PRIMARY KEY,
+        dataset_name TEXT,
+        model_name TEXT,
+        total_cases INTEGER,
+        passed_cases INTEGER,
+        overall_recall REAL,
+        overall_groundedness REAL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_evaluation_runs_created_at ON evaluation_runs(created_at)
+    """,
 ]
 
 
 DROP_STATEMENTS = [
+    "DROP TABLE IF EXISTS evaluation_runs",
     "DROP TABLE IF EXISTS chunk_notes",
     "DROP TABLE IF EXISTS citations",
     "DROP TABLE IF EXISTS chat_turns",

@@ -64,11 +64,16 @@ class KnowledgeProductService:
             logger.error(f"Failed to generate fallback summary for {doc_id}: {e}")
             return f"Document: {title}\nSummary: Summary generation failed.\n"
 
-    def _assemble_collection_context(self, collection_id: str) -> str:
+    def _assemble_collection_context(self, collection_id: str, document_id: str = None) -> str:
         """Retrieve all collection documents and construct a joint summary context."""
         docs = self.collection_repository.get_collection_members(collection_id)
         if not docs:
             raise ValueError(f"Collection {collection_id} has no documents.")
+            
+        if document_id:
+            docs = [d for d in docs if d.get("id") == document_id]
+            if not docs:
+                raise ValueError(f"Document {document_id} not found in collection {collection_id}.")
             
         summaries = []
         for doc in docs:
@@ -76,33 +81,33 @@ class KnowledgeProductService:
             
         return "\n---\n".join(summaries)
 
-    def generate_study_guide(self, collection_id: str) -> str:
-        context_text = self._assemble_collection_context(collection_id)
+    def generate_study_guide(self, collection_id: str, document_id: str = None) -> str:
+        context_text = self._assemble_collection_context(collection_id, document_id)
         prompt = STUDY_GUIDE_PROMPT.format(context_text=context_text)
         return self.llm_provider.generate_completion([{"role": "user", "content": prompt}])
 
-    def generate_briefing_doc(self, collection_id: str) -> str:
-        context_text = self._assemble_collection_context(collection_id)
+    def generate_briefing_doc(self, collection_id: str, document_id: str = None) -> str:
+        context_text = self._assemble_collection_context(collection_id, document_id)
         prompt = BRIEFING_DOC_PROMPT.format(context_text=context_text)
         return self.llm_provider.generate_completion([{"role": "user", "content": prompt}])
 
-    def generate_faq(self, collection_id: str) -> str:
-        context_text = self._assemble_collection_context(collection_id)
+    def generate_faq(self, collection_id: str, document_id: str = None) -> str:
+        context_text = self._assemble_collection_context(collection_id, document_id)
         prompt = FAQ_PROMPT.format(context_text=context_text)
         return self.llm_provider.generate_completion([{"role": "user", "content": prompt}])
 
-    def generate_timeline(self, collection_id: str) -> str:
-        context_text = self._assemble_collection_context(collection_id)
+    def generate_timeline(self, collection_id: str, document_id: str = None) -> str:
+        context_text = self._assemble_collection_context(collection_id, document_id)
         prompt = TIMELINE_PROMPT.format(context_text=context_text)
         return self.llm_provider.generate_completion([{"role": "user", "content": prompt}])
 
-    def generate_glossary(self, collection_id: str) -> str:
-        context_text = self._assemble_collection_context(collection_id)
+    def generate_glossary(self, collection_id: str, document_id: str = None) -> str:
+        context_text = self._assemble_collection_context(collection_id, document_id)
         prompt = GLOSSARY_PROMPT.format(context_text=context_text)
         return self.llm_provider.generate_completion([{"role": "user", "content": prompt}])
 
-    def generate_flashcards(self, collection_id: str) -> List[Dict[str, str]]:
-        context_text = self._assemble_collection_context(collection_id)
+    def generate_flashcards(self, collection_id: str, document_id: str = None) -> List[Dict[str, str]]:
+        context_text = self._assemble_collection_context(collection_id, document_id)
         prompt = FLASHCARDS_PROMPT.format(context_text=context_text)
         response = self.llm_provider.generate_completion([{"role": "user", "content": prompt}])
         data = parse_json_from_llm(response)

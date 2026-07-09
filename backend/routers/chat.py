@@ -14,6 +14,7 @@ from schemas.chat import (
     ChatTurnResponse,
     CitationResponse,
     SanityCheckResponse,
+    EvaluationRunResponse,
 )
 from chat.service import get_chat_service, ChatService
 from chat.evaluation import get_evaluation_service, EvaluationService
@@ -29,6 +30,14 @@ async def run_sanity_check(
 ) -> SanityCheckResponse:
     """Run the 10-20 golden test cases evaluation."""
     return await evaluation_service.run_sanity_check()
+
+
+@router.get("/evaluate/history", response_model=List[EvaluationRunResponse])
+def get_evaluation_history() -> List[EvaluationRunResponse]:
+    """Retrieve the 10 most recent evaluation runs."""
+    from repositories.evaluation_repository import EvaluationRepository
+    runs = EvaluationRepository.list_recent_runs(limit=10)
+    return [EvaluationRunResponse(**r) for r in runs]
 
 
 @router.post("/sessions", response_model=ChatSessionResponse, status_code=status.HTTP_201_CREATED)

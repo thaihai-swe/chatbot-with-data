@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { generateProduct } from "../api/knowledgeApi";
+import { getSettings, updateSettings } from "../api/settings";
 import { useWorkspace } from "../context/WorkspaceContext";
 
 const PRODUCT_TYPES = [
@@ -18,6 +19,7 @@ export default function StudioPanel() {
     documents,
     activeDocumentId,
     setActiveDocument,
+    activeTrace,
   } = useWorkspace();
 
   const [loading, setLoading] = useState(null);
@@ -25,14 +27,63 @@ export default function StudioPanel() {
   const [activeTab, setActiveTab] = useState("active");
   const [activeMainTab, setActiveMainTab] = useState("analytics");
   const [alpha, setAlpha] = useState(0.75);
+  const [retrievalMode, setRetrievalMode] = useState("hybrid");
+  const isInitialMount = useRef(true);
+
+
+
+  useEffect(() => {
+    getSettings().then(data => {
+      if (data?.retrieval) {
+        setAlpha(data.retrieval.hybrid_weight ?? 0.75);
+        setRetrievalMode(data.retrieval.retrieval_mode ?? "hybrid");
+      }
+    }).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      updateSettings({ retrieval: { hybrid_weight: alpha } }).catch(console.error);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [alpha]);
 
   const hasScope = !!selectedCollectionId;
+
+  const histogramBins = useMemo(() => {
+    const rawBins = [0, 0, 0, 0, 0];
+    if (activeTrace?.retrieval?.retrieved_chunks) {
+      activeTrace.retrieval.retrieved_chunks.forEach(chunk => {
+        const score = chunk.similarity_score || 0;
+        if (score <= 0.2) rawBins[0]++;
+        else if (score <= 0.4) rawBins[1]++;
+        else if (score <= 0.6) rawBins[2]++;
+        else if (score <= 0.8) rawBins[3]++;
+        else rawBins[4]++;
+      });
+    }
+    const max = Math.max(...rawBins, 1);
+    return rawBins.map((count, i) => {
+      const labels = ["0.0-0.2", "0.2-0.4", "0.4-0.6", "0.6-0.8", "0.8-1.0"];
+      // Show at least 5% height so the bar isn't completely invisible if 0
+      const h = count === 0 ? 5 : (count / max) * 100;
+      return {
+        height: `${h}%`,
+        value: count.toString(),
+        label: labels[i]
+      };
+    });
+  }, [activeTrace]);
 
   const handleGenerate = async (productType) => {
     if (!hasScope || loading) return;
     setLoading(productType);
     try {
-      const result = await generateProduct(selectedCollectionId, productType);
+      const result = await generateProduct(selectedCollectionId, productType, activeDocumentId);
       const product = {
         id: `${productType}-${Date.now()}`,
         type: productType,
@@ -160,8 +211,9 @@ export default function StudioPanel() {
                     max="1.00"
                     step="0.05"
                     value={alpha}
+                    disabled={retrievalMode !== "hybrid"}
                     onChange={(e) => setAlpha(parseFloat(e.target.value))}
-                    style={{ width: "100%", height: "6px", accentColor: accentColor }}
+                    style={{ width: "100%", height: "6px", accentColor: accentColor, opacity: retrievalMode !== "hybrid" ? 0.5 : 1, cursor: retrievalMode !== "hybrid" ? "not-allowed" : "pointer" }}
                   />
 
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "var(--text-muted)" }}>
@@ -190,95 +242,23 @@ export default function StudioPanel() {
                 >
                   {/* flex bar container */}
                   <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", height: "80px", padding: "0 8px 4px 8px", borderBottom: "1px solid var(--border)" }}>
-                    {[
-                      { height: "55%", value: "4.5k" },
-                      { height: "78%", value: "3.5k" },
-                      { height: "64%", value: "4.1k" },
-                      { height: "72%", value: "3.8k" },
-                      { height: "48%", value: "2.9k" },
-                      { height: "85%", value: "4.3k" }
-                    ].map((bar, i) => (
+                    {histogramBins.map((bar, i) => (
                       <div 
                         key={i} 
                         style={{ 
-                          width: "22px", 
+                          width: "30px", 
                           height: bar.height, 
                           background: `linear-gradient(180deg, ${accentColor}, rgba(0, 217, 146, 0.2))`,
                           borderRadius: "4px 4px 0 0",
                           position: "relative",
                           transition: "height 0.4s ease"
                         }}
-                        title={`Score bin: ${bar.value}`}
+                        title={`Score bin: ${bar.label} (${bar.value} chunks)`}
                       />
                     ))}
                   </div>
                   <div style={{ fontSize: "10px", color: "var(--text-secondary)", textAlign: "center", fontStyle: "italic", margin: 0 }}>
                     Query Relevance Score Range
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. Evaluation Metrics */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <span style={{ fontSize: "12px", fontWeight: "750", color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.02em" }}>
-                  3. Evaluation Metrics
-                </span>
-
-                <div 
-                  className="panel glassmorphic" 
-                  style={{ 
-                    padding: "16px", 
-                    borderRadius: "var(--radius-md)", 
-                    border: "1px solid var(--border)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "12px"
-                  }}
-                >
-                  {/* Groundedness */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div>
-                      <span style={{ fontSize: "12.5px", fontWeight: "600", color: "var(--text-primary)", display: "block" }}>Groundedness</span>
-                      <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Source citation overlap</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ fontSize: "13px", fontWeight: "800", color: accentColor }}>98.2%</span>
-                      <span style={{ color: accentColor }}>✅</span>
-                    </div>
-                  </div>
-
-                  {/* Relevancy Progress Bar */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px", borderTop: "1px solid var(--border)", paddingTop: "10px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
-                      <span style={{ fontWeight: "600" }}>Relevancy Score</span>
-                      <span style={{ fontWeight: "800", color: accentColor }}>95.1%</span>
-                    </div>
-                    <div style={{ width: "100%", height: "4px", background: "var(--border)", borderRadius: "2px", overflow: "hidden" }}>
-                      <div style={{ width: "95.1%", height: "100%", background: accentColor }} />
-                    </div>
-                  </div>
-
-                  {/* Latency */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid var(--border)", paddingTop: "10px" }}>
-                    <div>
-                      <span style={{ fontSize: "12.5px", fontWeight: "600", color: "var(--text-primary)", display: "block" }}>Latency</span>
-                      <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Search generation time</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ fontSize: "13px", fontWeight: "800", color: accentColor }}>450ms</span>
-                      <span style={{ color: accentColor }}>✅</span>
-                    </div>
-                  </div>
-
-                  {/* Context Recall */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px", borderTop: "1px solid var(--border)", paddingTop: "10px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
-                      <span style={{ fontWeight: "600" }}>Context Recall</span>
-                      <span style={{ fontWeight: "800", color: accentColor }}>96.5%</span>
-                    </div>
-                    <div style={{ width: "100%", height: "4px", background: "var(--border)", borderRadius: "2px", overflow: "hidden" }}>
-                      <div style={{ width: "96.5%", height: "100%", background: accentColor }} />
-                    </div>
                   </div>
                 </div>
               </div>

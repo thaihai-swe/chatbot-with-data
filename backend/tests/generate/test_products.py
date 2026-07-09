@@ -122,6 +122,15 @@ def test_generate_endpoints_http():
             resp = client.post("/collections/col-123/generate/flashcards")
             assert resp.status_code == 200
             assert resp.json() == [{"question": "Q?", "answer": "A."}]
+
+            # Test document_id query param
+            resp = client.post("/collections/col-123/generate/study-guide?document_id=doc-1")
+            assert resp.status_code == 200
+            
+            # Test non-existent document
+            resp = client.post("/collections/col-123/generate/study-guide?document_id=doc-999")
+            assert resp.status_code == 404
+            assert "not found in collection" in resp.json()["detail"]
     finally:
         app.dependency_overrides.clear()
 

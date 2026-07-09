@@ -12,6 +12,7 @@ const initialState = {
   generatedProducts: [],
   sourcesCollapsed: true,
   studioCollapsed: true,
+  activeTrace: null,
 };
 
 function reducer(state, action) {
@@ -25,6 +26,7 @@ function reducer(state, action) {
         selectedDocumentIds: action.documents.map((d) => d.id),
         activeDocumentId: null,
         activeChunkId: null,
+        activeTrace: null,
       };
     case "TOGGLE_DOCUMENT": {
       const ids = state.selectedDocumentIds.includes(action.documentId)
@@ -62,6 +64,8 @@ function reducer(state, action) {
     }
     case "TOGGLE_STUDIO_PANEL":
       return { ...state, studioCollapsed: !state.studioCollapsed };
+    case "SET_ACTIVE_TRACE":
+      return { ...state, activeTrace: action.trace };
     default:
       return state;
   }
@@ -111,6 +115,11 @@ export function WorkspaceProvider({ children }) {
     []
   );
 
+  const setActiveTrace = useCallback(
+    (trace) => dispatch({ type: "SET_ACTIVE_TRACE", trace }),
+    []
+  );
+
   return (
     <WorkspaceContext.Provider
       value={{
@@ -123,6 +132,7 @@ export function WorkspaceProvider({ children }) {
         addGeneratedProduct,
         toggleSourcesPanel,
         toggleStudioPanel,
+        setActiveTrace,
       }}
     >
       {children}
