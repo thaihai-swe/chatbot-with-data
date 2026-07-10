@@ -85,6 +85,9 @@ class SafetySettings(BaseModel):
     refusal_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
     min_similarity_threshold: float = Field(default=0.1)
     min_results_count: int = Field(default=1)
+    grounding_jaccard_top_k: int = Field(default=3, ge=1)
+    grounding_jaccard_min_overlap: float = Field(default=0.1, ge=0.0, le=1.0)
+    conflict_score_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
 
 class EvaluationSettings(BaseModel):
     enabled_metrics: List[str] = Field(default=["faithfulness", "answer_relevance"])

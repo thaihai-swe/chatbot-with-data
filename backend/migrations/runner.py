@@ -17,6 +17,7 @@ SCHEMA_STATEMENTS = [
         description TEXT,
         is_default INTEGER NOT NULL DEFAULT 0,
         routing_enabled INTEGER NOT NULL DEFAULT 0,
+        min_similarity_threshold REAL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         deleted_at TEXT
@@ -471,6 +472,24 @@ def apply_migrations() -> None:
             connection.execute(
                 "INSERT INTO schema_migrations(version) VALUES (?)",
                 ("0008_ablation_variants",),
+            )
+
+        # 0009_collection_similarity_threshold
+        cursor = connection.execute(
+            "SELECT 1 FROM schema_migrations WHERE version = ?",
+            ("0009_collection_similarity_threshold",),
+        )
+        if not cursor.fetchone():
+            try:
+                connection.execute(
+                    "ALTER TABLE collections ADD COLUMN min_similarity_threshold REAL"
+                )
+            except Exception as e:
+                if "duplicate column name" not in str(e).lower():
+                    raise e
+            connection.execute(
+                "INSERT INTO schema_migrations(version) VALUES (?)",
+                ("0009_collection_similarity_threshold",),
             )
 
 

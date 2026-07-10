@@ -137,6 +137,7 @@ class DocumentRepository(BaseRepository):
         record["collections"] = [dict(item) for item in collection_rows]
         record["latest_attempt"] = dict(latest_attempt) if latest_attempt else None
         record["chunks"] = [dict(item) for item in chunk_rows]
+        record["chunk_count"] = len(record["chunks"])
         return record
 
     def get_document_batch(self, ids: list[str]) -> dict[str, dict[str, Any]]:
@@ -186,7 +187,8 @@ class DocumentRepository(BaseRepository):
                 f"""
                 SELECT d.*,
                     (SELECT ia.status FROM ingestion_attempts ia WHERE ia.document_id = d.id ORDER BY ia.created_at DESC LIMIT 1) AS latest_status,
-                    (SELECT ia.duplicate_status FROM ingestion_attempts ia WHERE ia.document_id = d.id ORDER BY ia.created_at DESC LIMIT 1) AS latest_duplicate_status
+                    (SELECT ia.duplicate_status FROM ingestion_attempts ia WHERE ia.document_id = d.id ORDER BY ia.created_at DESC LIMIT 1) AS latest_duplicate_status,
+                    (SELECT COUNT(*) FROM chunks c WHERE c.document_id = d.id) AS chunk_count
                 FROM documents d {join_clause}
                 WHERE {where_clause}
                 ORDER BY d.created_at DESC

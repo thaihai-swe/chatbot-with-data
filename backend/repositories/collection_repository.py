@@ -16,16 +16,17 @@ class CollectionRepository(BaseRepository):
         description: str | None = None,
         is_default: bool = False,
         routing_enabled: bool = False,
+        min_similarity_threshold: float | None = None,
     ) -> dict[str, Any]:
         collection_id = str(uuid.uuid4())
         now = _utc_now()
         with get_connection() as connection:
             connection.execute(
                 """
-                INSERT INTO collections(id, name, description, is_default, routing_enabled, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO collections(id, name, description, is_default, routing_enabled, min_similarity_threshold, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (collection_id, name, description, int(is_default), int(routing_enabled), now, now),
+                (collection_id, name, description, int(is_default), int(routing_enabled), min_similarity_threshold, now, now),
             )
         return self.get_collection(collection_id)
 
@@ -86,6 +87,7 @@ class CollectionRepository(BaseRepository):
         description: str | None = None,
         is_default: bool | None = None,
         routing_enabled: bool | None = None,
+        min_similarity_threshold: float | None = None,
     ) -> dict[str, Any] | None:
         current = self.get_collection(collection_id)
         if not current:
@@ -94,7 +96,7 @@ class CollectionRepository(BaseRepository):
             connection.execute(
                 """
                 UPDATE collections
-                SET name = ?, description = ?, is_default = ?, routing_enabled = ?, updated_at = ?
+                SET name = ?, description = ?, is_default = ?, routing_enabled = ?, min_similarity_threshold = ?, updated_at = ?
                 WHERE id = ?
                 """,
                 (
@@ -102,6 +104,7 @@ class CollectionRepository(BaseRepository):
                     description if description is not None else current["description"],
                     int(is_default) if is_default is not None else current["is_default"],
                     int(routing_enabled) if routing_enabled is not None else current["routing_enabled"],
+                    min_similarity_threshold if min_similarity_threshold is not None else current.get("min_similarity_threshold"),
                     _utc_now(),
                     collection_id,
                 ),

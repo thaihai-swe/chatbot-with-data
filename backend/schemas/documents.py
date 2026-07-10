@@ -24,6 +24,7 @@ class DocumentSummary(BaseModel):
     updated_at: str
     metadata: dict[str, Any]
     collections: list[CollectionMembership]
+    chunk_count: int | None = None
 
 
 class ChunkResponse(BaseModel):

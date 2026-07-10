@@ -69,9 +69,9 @@ class TestContextAnnotationInjection:
         context = result["context_string"]
 
         # Chunks 0 and 1 have notes, chunk 2 does not
-        assert 'user_note="Pay attention to dates"' in context
-        assert 'user_note="Verify this claim"' in context
-        assert context.count("user_note=") == 2  # Only 2 out of 3 chunks have notes
+        assert 'Note: Pay attention to dates' in context
+        assert 'Note: Verify this claim' in context
+        assert context.count("Note:") == 2  # Only 2 out of 3 chunks have notes
 
     def test_no_user_note_when_no_annotations(self, seed_chunks):
         chunks = [
@@ -80,7 +80,7 @@ class TestContextAnnotationInjection:
         svc = ContextService()
         result = svc.assemble_context("test query", chunks, [])
         context = result["context_string"]
-        assert "user_note=" not in context
+        assert "Note:" not in context
 
     def test_notes_query_sub_10ms(self, seed_chunks):
         import time

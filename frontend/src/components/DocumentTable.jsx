@@ -169,10 +169,13 @@ function DocumentTable({
     return "TXT";
   };
 
-  const getMockSize = (title) => {
-    const len = title?.length || 10;
-    const mb = ((len * 7.7) % 18) + 1.2;
-    return `${mb.toFixed(1)} MB`;
+  const formatBytes = (bytes, decimals = 1) => {
+    if (!bytes || bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
   };
 
   const getFormatDate = (dateStr) => {
@@ -183,13 +186,6 @@ function DocumentTable({
     } catch (e) {
       return "Oct 26, 2023";
     }
-  };
-
-  const getMockChunkCount = (doc) => {
-    if (doc.is_attempt) return "—";
-    const hash = doc.id ? doc.id.charCodeAt(0) : 0;
-    const count = 45 + (hash % 180);
-    return `${count} Chunks`;
   };
 
   // Simulates progress value for processing status
@@ -247,7 +243,7 @@ function DocumentTable({
                           {doc.title}
                         </div>
                         <div style={{ fontSize: "10.5px", color: "var(--text-muted)", marginTop: "2px" }}>
-                          {getFileType(doc.title)} • {getMockSize(doc.title)}
+                          {getFileType(doc.title)} • {formatBytes(doc.metadata?.file_size)}
                         </div>
                       </div>
                     </div>
@@ -260,7 +256,7 @@ function DocumentTable({
 
                   {/* Chunk Count */}
                   <td style={{ padding: "14px 16px", fontSize: "12.5px", color: "var(--text-secondary)" }}>
-                    {getMockChunkCount(doc)}
+                    {doc.chunk_count !== undefined ? `${doc.chunk_count} Chunks` : "—"}
                   </td>
 
                   {/* Pipeline Status */}

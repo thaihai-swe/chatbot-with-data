@@ -1,0 +1,87 @@
+# Financial Compliance Guide - Version A
+
+## Corporate Governance Requirements
+
+### Board Composition
+- Minimum 3 independent directors
+- Maximum board size: 15 members
+- CEO and Chair roles must be separate
+
+### Audit Committee
+- Must have at least 3 members
+- All members must be financially literate
+- At least one financial expert required
+
+### Executive Compensation
+- Say-on-pay vote required annually
+- Golden parachute payments limited to 2.99x base salary
+- Clawback provisions for restatements
+
+## Risk Management
+
+### Enterprise Risk Management (ERM)
+- Annual risk assessment required
+- Board oversight of risk appetite
+- Chief Risk Officer reporting directly to board
+
+### Cybersecurity
+- Annual penetration testing mandatory
+- Incident response plan required
+- Board-level cybersecurity expertise recommended
+
+## Compliance Reporting
+
+### Quarterly Filings
+- Form 10-Q due 40 days after quarter end
+- MD&A must discuss material risks
+- Controls testing results disclosed
+
+### Annual Filings
+- Form 10-K due 60 days after fiscal year end
+- SOX 404 assessment for accelerated filers
+- Auditor attestation required for large accelerated filers
+
+---
+
+# Financial Compliance Guide - Version B
+
+## Corporate Governance Requirements
+
+### Board Composition
+- Minimum 5 independent directors (DIFFERENT from Version A)
+- Maximum board size: 20 members (DIFFERENT from Version A)
+- CEO and Chair roles may be combined with lead independent director (DIFFERENT)
+
+### Audit Committee
+- Must have at least 3 members
+- All members must be financially literate
+- At least one financial expert required
+
+### Executive Compensation
+- Say-on-pay vote required every 3 years (DIFFERENT from Version A)
+- Golden parachute payments limited to 3x base salary (DIFFERENT)
+- Clawback provisions for restatements
+
+## Risk Management
+
+### Enterprise Risk Management (ERM)
+- Annual risk assessment required
+- Board oversight of risk appetite
+- Chief Risk Officer reporting to CEO (DIFFERENT from Version A)
+
+### Cybersecurity
+- Annual penetration testing mandatory
+- Incident response plan required
+- Board-level cybersecurity expertise recommended
+
+## Compliance Reporting
+
+### Quarterly Filings
+- Form 10-Q due 45 days after quarter end (DIFFERENT from Version A)
+- MD&A must discuss material risks
+- Controls testing results disclosed
+
+### Annual Filings
+- Form 10-K due 75 days after fiscal year end (DIFFERENT from Version A)
+- SOX 404 assessment for accelerated filers
+- Auditor attestation required for large accelerated filers

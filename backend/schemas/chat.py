@@ -45,7 +45,8 @@ class ClaimItem(BaseModel):
     cited: bool = False
     quote_text: Optional[str] = None
     match_score: Optional[float] = None
-    match_method: Optional[str] = None  # "jaccard" | None
+    match_method: Optional[str] = None  # "jaccard" | "llm" | "none" | None
+    matched_chunk_id: Optional[str] = None
 
 
 class ProvenanceCoverage(BaseModel):
@@ -126,6 +127,8 @@ class RetrievalTrace(BaseModel):
     reasoning_chain: Optional[ReasoningChainTrace] = None
     parent_child_expansions_count: int = 0
     execution_time_ms: dict[str, int] = Field(default_factory=dict)
+    grounding_threshold_used: Optional[float] = Field(None, description="Effective similarity threshold used for grounding evaluation")
+    grounding_filtered_chunks: List[str] = Field(default_factory=list, description="Chunk IDs that passed Jaccard filter for grounding evaluation")
 
 
 class SafetyGroundedness(BaseModel):

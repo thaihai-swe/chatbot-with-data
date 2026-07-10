@@ -40,8 +40,8 @@ class TestExtractCitations:
         assert service.extract_citations(text) == ["1"]
 
     def test_handles_uuid_labels(self, service):
-        text = "Revenue grew [Source abc-123]."
-        assert service.extract_citations(text) == ["abc-123"]
+        text = "Revenue grew [Source 123e4567-e89b-12d3-a456-426614174000]."
+        assert service.extract_citations(text) == ["123e4567-e89b-12d3-a456-426614174000"]
 
     def test_no_citations(self, service):
         text = "Revenue grew."

@@ -45,6 +45,17 @@ class AdvancedRetrievalService:
 
         trace = RetrievalTrace(original_query=query_text)
 
+        # Determine effective grounding threshold (collection override > global default)
+        if collection_ids and len(collection_ids) == 1:
+            from repositories.collection_repository import CollectionRepository
+            collection = CollectionRepository().get_collection(collection_ids[0])
+            if collection and collection.get("min_similarity_threshold") is not None:
+                trace.grounding_threshold_used = float(collection["min_similarity_threshold"])
+            else:
+                trace.grounding_threshold_used = global_config.safety.min_similarity_threshold
+        else:
+            trace.grounding_threshold_used = global_config.safety.min_similarity_threshold
+
         if config.intelligence_enabled:
             t0 = time.time()
             intent, confidence = self.query_intelligence_service.classify_query(query_text)
@@ -237,6 +248,10 @@ class AdvancedRetrievalService:
 
             final_chunks = expanded_chunks
             trace.execution_time_ms["parent_child_expansion"] = int((time.time() - t0) * 1000)
+
+        # TODO: Populate trace.grounding_filtered_chunks after grounding evaluation
+        # This requires passing grounding_service to AdvancedRetrievalService or
+        # moving the filtering logic to be accessible here
 
         return final_chunks, trace
 

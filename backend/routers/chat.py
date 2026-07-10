@@ -46,10 +46,12 @@ def create_session(payload: ChatSessionCreate) -> ChatSessionResponse:
     """Create a new chat session."""
     session_id = str(uuid.uuid4())
     metadata_json = json.dumps(payload.metadata or {})
+    
+    collection_id = payload.collection_id if payload.collection_id else None
 
     session = ChatRepository.create_session(
         id=session_id,
-        collection_id=payload.collection_id,
+        collection_id=collection_id,
         metadata_json=metadata_json,
     )
 

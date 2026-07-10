@@ -86,13 +86,17 @@ class ContextService:
                 except Exception:
                     chunk_text = ""
 
-            attrs = f'label="{source_label}" id="{source_id}" title="{title}" page="{page}"'
+            block_lines = []
+            block_lines.append(f"[Source {source_id}]")
+            block_lines.append(f"Title: {title}")
+            block_lines.append(f"Page: {page}")
             if section:
-                attrs += f' section="{section}"'
+                block_lines.append(f"Section: {section}")
             if annotations and source_id in annotations:
-                note_text = annotations[source_id].replace('"', "&quot;")
-                attrs += f' user_note="{note_text}"'
-            part = f'<source {attrs}>\n{chunk_text}\n</source>'
+                block_lines.append(f"Note: {annotations[source_id]}")
+            block_lines.append(f"Content: {chunk_text}")
+            
+            part = "\n".join(block_lines)
             context_parts.append(part)
 
         context_string = "\n\n".join(context_parts)

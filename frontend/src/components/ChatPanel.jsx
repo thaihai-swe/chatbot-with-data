@@ -399,7 +399,9 @@ export default function ChatPanel() {
           targetCit = msg.citations?.[index];
         }
         if (!targetCit && msg.citations) {
-          targetCit = msg.citations.find((c) => c.chunk_id === label);
+          const uuidMatch = label.match(/([a-f0-9-]{36})/i);
+          const searchId = uuidMatch ? uuidMatch[1] : label;
+          targetCit = msg.citations.find((c) => c.chunk_id === searchId);
         }
         let targetChunk = null;
         if (targetCit) {

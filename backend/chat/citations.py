@@ -9,7 +9,7 @@ from chat.prompts import QUOTE_EXTRACTION_PROMPT
 
 logger = logging.getLogger(__name__)
 
-_SENTENCE_SPLIT_RE = re.compile(r'(?<=[.!?])\s+')
+_SENTENCE_SPLIT_RE = re.compile(r'(?<=[.!?])\s+|\n+')
 _PARAGRAPH_SPLIT_RE = re.compile(r'\n{2,}')
 
 
@@ -43,29 +43,61 @@ def split_paragraphs(text: str) -> List[Dict[str, Any]]:
         start = last_end + lead
         end = len(text) - trail
         blocks.append({"text": stripped, "start": start, "end": end})
-    return blocks
+    # Merge trailing citation-only blocks backward
+    merged_blocks: List[Dict[str, Any]] = []
+    for block in blocks:
+        # Check if the block consists only of [Source ...] citations and whitespace
+        is_only_citation = bool(re.match(r"^(\[Source\s+[^\]]+\]|\s)*$", block["text"]))
+        if is_only_citation and merged_blocks:
+            merged_blocks[-1]["text"] += "\n\n" + block["text"]
+            merged_blocks[-1]["end"] = block["end"]
+        else:
+            merged_blocks.append(block)
+
+    return merged_blocks
 
 
 class CitationService:
     """Service for managing citations in generated answers."""
 
-    # Pattern to match [Source N], [Source UUID], or [N]
+    # Pattern to match [Source <uuid>] (UUID format) or legacy [Source N] / [N]
+    # UUID format: 8-4-4-4-12 hex digits (e.g., abc-123-def-ghi-jkl)
+    # The pattern ignores any text after the UUID inside the brackets
+    UUID_PATTERN = re.compile(r'\[Source\s+([a-f0-9-]{36})(?:[^\]]*)\]')
+    LEGACY_PATTERN = re.compile(r'\[Source\s+(\d+)\]|\[(\d+)\]')
+    # Combined pattern for extraction
     CITATION_PATTERN = re.compile(r'\[Source\s+([^\]]+)\]|\[(\d+)\]')
 
     # Jaccard similarity threshold for sentence overlap matching
-    QUOTE_MATCH_THRESHOLD = 0.5
+    QUOTE_MATCH_THRESHOLD = 0.35
 
     def extract_citations(self, text: str) -> List[str]:
         """
         Extract citation labels from text.
 
+        Prefers UUID format [Source abc-123-def] over legacy numeric [Source 1].
+
         Args:
             text: The text to parse
 
         Returns:
-            List of extracted labels (e.g., ["1", "2", "uuid-abc"])
+            List of extracted labels (UUIDs preferred, legacy numeric as fallback)
         """
-        matches = self.CITATION_PATTERN.finditer(text)
+        # First try UUID format
+        uuid_matches = self.UUID_PATTERN.findall(text)
+        if uuid_matches:
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_citations = []
+            for val in uuid_matches:
+                val = val.strip()
+                if val not in seen:
+                    seen.add(val)
+                    unique_citations.append(val)
+            return unique_citations
+
+        # Fallback to legacy numeric format
+        matches = self.LEGACY_PATTERN.finditer(text)
         seen = set()
         unique_citations = []
         for match in matches:
@@ -75,6 +107,8 @@ class CitationService:
                 if val not in seen:
                     seen.add(val)
                     unique_citations.append(val)
+        if unique_citations:
+            logger.warning("Legacy numeric citation format detected. Consider updating to UUID format [Source <chunk_id>].")
         return unique_citations
 
     def extract_quote(
@@ -123,8 +157,8 @@ class CitationService:
             if not chunk_words:
                 continue
             intersection = claim_words & chunk_words
-            union = claim_words | chunk_words
-            score = len(intersection) / len(union) if union else 0.0
+            min_len = min(len(claim_words), len(chunk_words))
+            score = len(intersection) / min_len if min_len > 0 else 0.0
 
             if score > best_score:
                 best_score = score
@@ -208,8 +242,8 @@ class CitationService:
     def _format_citation(self, chunk: Dict[str, Any]) -> Dict[str, Any]:
         """Format a chunk into a citation metadata object."""
         return {
-            "chunk_id": chunk['chunk_id'],
-            "document_id": chunk['document_id'],
+            "chunk_id": chunk.get('chunk_id', ''),
+            "document_id": chunk.get('document_id', ''),
             "title": chunk.get('title'),
             "page_number": chunk.get('page_number'),
             "section_title": chunk.get('section_title'),
@@ -232,8 +266,9 @@ class CitationService:
             if not chunk_words:
                 continue
             inter = claim_words & chunk_words
-            union = claim_words | chunk_words
-            score = len(inter) / len(union) if union else 0.0
+            # Use overlap coefficient to handle paragraph vs sentence length discrepancy
+            min_len = min(len(claim_words), len(chunk_words))
+            score = len(inter) / min_len if min_len > 0 else 0.0
             if score > best_score:
                 best_score = score
                 best_sentence = sentence_stripped
@@ -269,22 +304,54 @@ class CitationService:
             mapped = self.map_citations_to_chunks(
                 labels, retrieved_chunks, answer_text=para["text"], llm_provider=llm_provider
             )
+            # IMPLICIT PROVENANCE: If LLM failed to cite, try to find a Jaccard match anyway!
+            if not mapped and len(para["text"].strip()) > 10:
+                best_score = -1.0
+                best_chunk = None
+                for chunk in retrieved_chunks:
+                    chunk_text = chunk.get("text") or chunk.get("content") or ""
+                    j = self._jaccard_quote(para["text"], chunk_text)
+                    if j["match_score"] > best_score:
+                        best_score = j["match_score"]
+                        best_chunk = chunk
+                
+                if best_score >= self.QUOTE_MATCH_THRESHOLD and best_chunk:
+                    chunk_id = best_chunk.get("chunk_id")
+                    if chunk_id:
+                        cit = self._format_citation(best_chunk)
+                        mapped = [cit]
+                        # Inject the missing citation into the text so frontend renders a pill
+                        para["text"] += f" [Source {chunk_id}]"
+                        labels.append(chunk_id)
+
             chunk_ids = [c["chunk_id"] for c in mapped]
             # Use first citation's quote/score/method if any
             quote_text = ""
-            match_score = None
-            match_method = None
+            match_score = 0.0
+            match_method = "none"
+            matched_chunk_id = None
+            
             if mapped:
                 q = mapped[0].get("quote_text")
                 if q:
                     quote_text = q
-                # We don't store score/method from map_citations_to_chunks currently;
-                # we could add it there. For now, use Jaccard on the paragraph level.
-                j = self._jaccard_quote(para["text"], " ".join(
-                    c.get("text") or c.get("content") or "" for c in mapped
-                ))
-                match_score = j["match_score"]
-                match_method = j["match_method"]
+                
+                best_score = -1.0
+                best_chunk_id = None
+                
+                for c in mapped:
+                    # c is from _format_citation, so it lacks 'text'. Find original chunk.
+                    orig_chunk = next((rc for rc in retrieved_chunks if rc["chunk_id"] == c["chunk_id"]), {})
+                    chunk_text = orig_chunk.get("text") or orig_chunk.get("content") or ""
+                    j = self._jaccard_quote(para["text"], chunk_text)
+                    if j["match_score"] > best_score:
+                        best_score = j["match_score"]
+                        best_chunk_id = c.get("chunk_id")
+                
+                match_score = best_score if best_score >= 0 else 0.0
+                match_method = "jaccard"
+                matched_chunk_id = best_chunk_id
+                
             claims.append({
                 "index": idx,
                 "text": para["text"],
@@ -296,6 +363,7 @@ class CitationService:
                 "quote_text": quote_text or None,
                 "match_score": match_score,
                 "match_method": match_method,
+                "matched_chunk_id": matched_chunk_id,
             })
         cited = sum(1 for c in claims if c["cited"])
         total = len(claims)
