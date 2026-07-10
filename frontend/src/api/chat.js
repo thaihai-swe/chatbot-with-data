@@ -59,6 +59,19 @@ export async function runSanityCheck() {
   return response.json();
 }
 
+export async function runAblation(variants) {
+  const response = await fetch(`${API_BASE_URL}/evaluate/ablation`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ variants }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to run ablation evaluation");
+  }
+  return response.json();
+}
+
 export async function getEvaluationHistory() {
   const response = await fetch(`${API_BASE_URL}/chat/evaluate/history`, {
     method: "GET",

@@ -7,6 +7,7 @@ from routers.chat import router as chat_router
 from routers.settings import router as settings_router
 from routers.generate import router as generate_router
 from routers.notes import router as notes_router
+from routers.ablation import router as ablation_router
 
 __all__ = [
     "collections_router",

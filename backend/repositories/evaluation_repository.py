@@ -15,7 +15,9 @@ class EvaluationRepository:
         total_cases: int,
         passed_cases: int,
         overall_recall: float,
-        overall_groundedness: float
+        overall_groundedness: float,
+        config_variant_name: Optional[str] = None,
+        config_snapshot_json: Optional[str] = None
     ) -> str:
         run_id = str(uuid.uuid4())
         with get_connection() as conn:
@@ -23,8 +25,9 @@ class EvaluationRepository:
                 """
                 INSERT INTO evaluation_runs (
                     id, dataset_name, model_name, total_cases, passed_cases, 
-                    overall_recall, overall_groundedness
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    overall_recall, overall_groundedness,
+                    config_variant_name, config_snapshot_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     run_id,
@@ -33,7 +36,9 @@ class EvaluationRepository:
                     total_cases,
                     passed_cases,
                     overall_recall,
-                    overall_groundedness
+                    overall_groundedness,
+                    config_variant_name,
+                    config_snapshot_json
                 )
             )
         return run_id

@@ -1,0 +1,162 @@
+[
+  {
+    "id": "CASE-001",
+    "question": "What is the function of mitochondria in a cell?",
+    "expected_document_id": "DOC-BIO-001",
+    "expected_answer": "Mitochondria are membrane-bound organelles that generate most of the cell's supply of ATP, used as a source of chemical energy.",
+    "category": "factual",
+    "difficulty": "easy"
+  },
+  {
+    "id": "CASE-002",
+    "question": "Explain how photosynthesis converts light energy into chemical energy",
+    "expected_document_id": "DOC-BIO-002",
+    "expected_answer": "Photosynthesis uses chlorophyll to capture light energy and convert carbon dioxide and water into glucose and oxygen.",
+    "category": "factual",
+    "difficulty": "medium"
+  },
+  {
+    "id": "CASE-003",
+    "question": "What are the differences between DNA and RNA?",
+    "expected_document_id": "DOC-BIO-003",
+    "expected_answer": "DNA is double-stranded and contains deoxyribose sugar, while RNA is single-stranded and contains ribose sugar. DNA uses thymine, RNA uses uracil.",
+    "category": "comparison",
+    "difficulty": "medium"
+  },
+  {
+    "id": "CASE-004",
+    "question": "How does natural selection drive evolution according to Darwin's theory?",
+    "expected_document_id": "DOC-BIO-004",
+    "expected_answer": "Natural selection is the differential survival and reproduction of individuals due to differences in phenotype, leading to evolutionary change.",
+    "category": "factual",
+    "difficulty": "medium"
+  },
+  {
+    "id": "CASE-005",
+    "question": "What is the CRISPR-Cas9 gene editing technique and how does it work?",
+    "expected_document_id": "DOC-BIO-005",
+    "expected_answer": "CRISPR-Cas9 is a genome editing tool that uses a guide RNA to target specific DNA sequences, where the Cas9 enzyme cuts the DNA for modification.",
+    "category": "exploratory",
+    "difficulty": "hard"
+  },
+  {
+    "id": "CASE-006",
+    "question": "How do antibodies protect the human body from pathogens?",
+    "expected_document_id": "DOC-BIO-006",
+    "expected_answer": "Antibodies are proteins produced by B cells that bind specifically to antigens on pathogens, neutralizing them or marking them for destruction.",
+    "category": "factual",
+    "difficulty": "easy"
+  },
+  {
+    "id": "CASE-007",
+    "question": "Compare mitosis and meiosis: what are the key differences?",
+    "expected_document_id": "DOC-BIO-007",
+    "expected_answer": "Mitosis produces two identical diploid daughter cells for growth and repair, while meiosis produces four genetically diverse haploid gametes for reproduction.",
+    "category": "comparison",
+    "difficulty": "medium"
+  },
+  {
+    "id": "CASE-008",
+    "question": "How to configure a load balancer for a high-availability web application?",
+    "expected_document_id": "DOC-DEVOPS-001",
+    "expected_answer": "Configure a reverse proxy like Nginx or HAProxy to distribute traffic across multiple application servers with health checks and session persistence.",
+    "category": "how_to",
+    "difficulty": "medium"
+  },
+  {
+    "id": "CASE-009",
+    "question": "What are the steps to troubleshoot a database connection timeout?",
+    "expected_document_id": "DOC-DEVOPS-002",
+    "expected_answer": "Check network connectivity, verify database credentials, review connection pool settings, examine database logs, and test with a minimal client.",
+    "category": "troubleshooting",
+    "difficulty": "medium"
+  },
+  {
+    "id": "CASE-010",
+    "question": "How does Docker containerization differ from traditional virtual machines?",
+    "expected_document_id": "DOC-DEVOPS-003",
+    "expected_answer": "Docker containers share the host OS kernel and are lightweight, while VMs include a full guest OS with hypervisor, making containers more efficient.",
+    "category": "comparison",
+    "difficulty": "easy"
+  },
+  {
+    "id": "CASE-011",
+    "question": "How to set up a CI/CD pipeline using GitHub Actions?",
+    "expected_document_id": "DOC-DEVOPS-004",
+    "expected_answer": "Create a .github/workflows YAML file defining triggers, jobs, and steps for build, test, and deploy stages using GitHub-hosted or self-hosted runners.",
+    "category": "how_to",
+    "difficulty": "medium"
+  },
+  {
+    "id": "CASE-012",
+    "question": "What is the company policy on remote work and hybrid scheduling?",
+    "expected_document_id": "DOC-HR-001",
+    "expected_answer": "Employees may work remotely up to three days per week with manager approval, and must be present in the office for core collaboration days.",
+    "category": "factual",
+    "difficulty": "easy"
+  },
+  {
+    "id": "CASE-013",
+    "question": "How to submit a travel reimbursement request?",
+    "expected_document_id": "DOC-HR-002",
+    "expected_answer": "Complete the expense report form, attach itemized receipts, obtain manager approval, and submit through the HR portal within 30 days of travel.",
+    "category": "how_to",
+    "difficulty": "easy"
+  },
+  {
+    "id": "CASE-014",
+    "question": "What is the annual leave accrual rate for full-time employees?",
+    "expected_document_id": "DOC-HR-003",
+    "expected_answer": "Full-time employees accrue 15 days of annual leave per year, prorated monthly, with carryover of up to 5 unused days.",
+    "category": "factual",
+    "difficulty": "easy"
+  },
+  {
+    "id": "CASE-015",
+    "question": "My laptop screen is flickering intermittently — what should I try first?",
+    "expected_document_id": "DOC-IT-001",
+    "expected_answer": "Check display cable connections, update graphics drivers, adjust refresh rate settings, and test with an external monitor to isolate the issue.",
+    "category": "troubleshooting",
+    "difficulty": "easy"
+  },
+  {
+    "id": "CASE-016",
+    "question": "How to reset a forgotten corporate email password?",
+    "expected_document_id": "DOC-IT-002",
+    "expected_answer": "Visit the self-service password reset portal, verify your identity via registered mobile number, and follow the prompts to set a new password.",
+    "category": "how_to",
+    "difficulty": "easy"
+  },
+  {
+    "id": "CASE-017",
+    "question": "What are the best practices for securing a REST API?",
+    "expected_document_id": "DOC-SEC-001",
+    "expected_answer": "Use HTTPS, implement authentication via OAuth2 or JWT, validate and sanitize all inputs, apply rate limiting, and follow least-privilege access control.",
+    "category": "exploratory",
+    "difficulty": "hard"
+  },
+  {
+    "id": "CASE-018",
+    "question": "How to handle JSON Web Token (JWT) expiration and refresh tokens?",
+    "expected_document_id": "DOC-SEC-002",
+    "expected_answer": "Issue short-lived access tokens (15 min) with a long-lived refresh token stored securely; the client uses the refresh token to obtain new access tokens.",
+    "category": "how_to",
+    "difficulty": "medium"
+  },
+  {
+    "id": "CASE-019",
+    "question": "What are the SQL JOIN types and when should each be used?",
+    "expected_document_id": "DOC-DB-001",
+    "expected_answer": "INNER JOIN returns matching rows, LEFT JOIN returns all left rows, RIGHT JOIN returns all right rows, and FULL OUTER JOIN returns all rows from both.",
+    "category": "comparison",
+    "difficulty": "medium"
+  },
+  {
+    "id": "CASE-020",
+    "question": "How does indexing improve database query performance?",
+    "expected_document_id": "DOC-DB-002",
+    "expected_answer": "Indexes create a data structure (B-tree or hash) that allows the database to locate rows without scanning the entire table, reducing I/O operations.",
+    "category": "factual",
+    "difficulty": "medium"
+  }
+]

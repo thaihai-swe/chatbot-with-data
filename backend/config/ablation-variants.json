@@ -1,0 +1,52 @@
+[
+  {
+    "name": "baseline",
+    "label": "BM25 Baseline",
+    "description": "Keyword-only retrieval with all intelligence enhancements disabled",
+    "overrides": {
+      "retrieval_mode": "keyword",
+      "intelligence_enabled": false,
+      "query_expansion_enabled": false,
+      "query_decomposition_enabled": false,
+      "hyde_enabled": false,
+      "synonym_expansion_enabled": false,
+      "dynamic_routing_enabled": false,
+      "reranker_enabled": false,
+      "parent_child_enabled": false,
+      "multi_hop_enabled": false,
+      "collection_routing_enabled": false
+    }
+  },
+  {
+    "name": "semantic",
+    "label": "Semantic Search",
+    "description": "Semantic vector search with all intelligence enhancements disabled",
+    "overrides": {
+      "retrieval_mode": "semantic",
+      "intelligence_enabled": false,
+      "query_expansion_enabled": false,
+      "query_decomposition_enabled": false,
+      "hyde_enabled": false,
+      "synonym_expansion_enabled": false,
+      "dynamic_routing_enabled": false,
+      "reranker_enabled": false,
+      "parent_child_enabled": false,
+      "multi_hop_enabled": false,
+      "collection_routing_enabled": false
+    }
+  },
+  {
+    "name": "full_pipeline",
+    "label": "Full Pipeline",
+    "description": "Full processing pipeline using whatever is in settings.json",
+    "overrides": {}
+  },
+  {
+    "name": "full_minus_reranker",
+    "label": "Full Pipeline (no reranker)",
+    "description": "Full pipeline with reranker explicitly disabled",
+    "overrides": {
+      "reranker_enabled": false
+    }
+  }
+]

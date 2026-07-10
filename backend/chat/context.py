@@ -1,6 +1,7 @@
 """Service for assembling context from retrieval results and chat history."""
 from __future__ import annotations
 
+import json
 import logging
 from typing import List, Dict, Any, Optional
 
@@ -11,7 +12,6 @@ from repositories.chunk_repository import ChunkRepository
 from repositories.document_repository import DocumentRepository
 
 logger = logging.getLogger(__name__)
-
 
 def load_chunk_notes(chunk_ids: List[str]) -> Dict[str, str]:
     """Query chunk_notes for the given chunk IDs.

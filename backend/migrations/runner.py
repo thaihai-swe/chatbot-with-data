@@ -448,6 +448,31 @@ def apply_migrations() -> None:
                 ("0007_provenance_json",),
             )
 
+        # 0008_ablation_variants
+        cursor = connection.execute(
+            "SELECT 1 FROM schema_migrations WHERE version = ?",
+            ("0008_ablation_variants",),
+        )
+        if not cursor.fetchone():
+            try:
+                connection.execute(
+                    "ALTER TABLE evaluation_runs ADD COLUMN config_variant_name TEXT"
+                )
+            except Exception as e:
+                if "duplicate column name" not in str(e).lower():
+                    raise e
+            try:
+                connection.execute(
+                    "ALTER TABLE evaluation_runs ADD COLUMN config_snapshot_json TEXT"
+                )
+            except Exception as e:
+                if "duplicate column name" not in str(e).lower():
+                    raise e
+            connection.execute(
+                "INSERT INTO schema_migrations(version) VALUES (?)",
+                ("0008_ablation_variants",),
+            )
+
 
 def reset_database() -> None:
     with get_connection() as connection:

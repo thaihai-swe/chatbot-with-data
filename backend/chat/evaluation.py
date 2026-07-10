@@ -5,13 +5,15 @@ import logging
 import json
 import time
 import asyncio
+import copy
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
 from fastapi import Depends
 from chat.service import ChatService, get_chat_service
 from schemas.chat import EvalResult, SanityCheckResponse, ChatTurnCreate
-from config import get_settings
+from schemas.settings import RetrievalSettings
+from config import get_settings, get_settings_manager
 
 logger = logging.getLogger(__name__)
 
@@ -30,26 +32,22 @@ class EvaluationService:
             logger.error(f"Failed to load eval dataset: {str(e)}")
             return []
 
-    async def run_sanity_check(self, dataset_path: Optional[str] = None) -> SanityCheckResponse:
+    async def run_sanity_check(
+        self,
+        dataset_path: Optional[str] = None,
+        config_override: Optional[RetrievalSettings] = None,
+        config_variant_name: Optional[str] = None,
+    ) -> SanityCheckResponse:
         """
         Run the 10-20 'golden' test cases.
+        If config_override is provided, temporarily apply it for the duration of the run.
         """
         if dataset_path is None:
-            # Try to find eval_dataset.json in common locations
             import os
-            possible_paths = [
-                "test_test_data/eval_dataset.json",
-                "backend/test_test_data/eval_dataset.json",
-                "../test_test_data/eval_dataset.json"
-            ]
-            for path in possible_paths:
-                if os.path.exists(path):
-                    dataset_path = path
-                    break
-
-            if dataset_path is None:
-                # Default fallback if not found
-                dataset_path = "backend/test_data/eval_dataset.json"
+            _this_dir = os.path.dirname(os.path.abspath(__file__))
+            dataset_path = os.path.normpath(
+                os.path.join(_this_dir, "..", "test_data", "eval_dataset.json")
+            )
 
         dataset = self._load_dataset(dataset_path)
         if not dataset:
@@ -65,11 +63,26 @@ class EvaluationService:
         import uuid
         session_id = f"eval-{uuid.uuid4().hex[:8]}"
 
-        tasks = []
-        for case in dataset:
-            tasks.append(self._evaluate_case(case))
+        # Apply config override if provided
+        manager = get_settings_manager()
+        original_retrieval = None
+        if config_override is not None:
+            original_retrieval = manager.config.retrieval
 
-        results = await asyncio.gather(*tasks)
+        try:
+            tasks = []
+            for case in dataset:
+                if config_override is not None:
+                    # Deep-copy per case to prevent mutation from dynamic routing
+                    manager.config.retrieval = copy.deepcopy(config_override)
+                tasks.append(self._evaluate_case(case, session_id))
+
+            results = await asyncio.gather(*tasks)
+        except Exception:
+            results = []
+        finally:
+            if original_retrieval is not None:
+                manager.config.retrieval = original_retrieval
 
         total = len(results)
         passed = sum(1 for r in results if r.passed)
@@ -77,7 +90,10 @@ class EvaluationService:
         avg_groundedness = sum(r.groundedness_score for r in results) / total if total > 0 else 0.0
         avg_citation_coverage = sum(getattr(r, "citation_coverage", 0.0) or 0.0 for r in results) / total if total > 0 else 0.0
 
-        # Save run to database
+        snapshot_path = None
+        if config_variant_name:
+            snapshot_path = manager.save_run_snapshot(f"abl-{uuid.uuid4().hex[:8]}", domain="eval")
+
         from repositories.evaluation_repository import EvaluationRepository
         EvaluationRepository.save_run(
             dataset_name=dataset_path.split("/")[-1] if dataset_path else "eval_dataset.json",
@@ -85,7 +101,9 @@ class EvaluationService:
             total_cases=total,
             passed_cases=passed,
             overall_recall=avg_recall,
-            overall_groundedness=avg_groundedness
+            overall_groundedness=avg_groundedness,
+            config_variant_name=config_variant_name,
+            config_snapshot_json=snapshot_path,
         )
 
         return SanityCheckResponse(
@@ -98,7 +116,7 @@ class EvaluationService:
             results=results
         )
 
-    async def _evaluate_case(self, case: Dict[str, Any]) -> EvalResult:
+    async def _evaluate_case(self, case: Dict[str, Any], session_id: str) -> EvalResult:
         t0 = time.time()
         case_id = case.get("id", "unknown")
         question = case.get("question", "")
@@ -115,7 +133,7 @@ class EvaluationService:
             try:
                 from repositories.chat_repository import ChatRepository
                 if not ChatRepository.get_session(session_id):
-                    ChatRepository.create_session(session_id, [])
+                    ChatRepository.create_session(session_id)
             except Exception as exc:
                 logger.warning(f"Could not create eval session: {exc}")
 
@@ -136,9 +154,9 @@ class EvaluationService:
                     retrieved_doc_ids.append(str(doc_id).strip())
 
             # Case-insensitive comparison
-            recall_status = any(expected_document_id.lower() == rid.lower() for rid in retrieved_doc_ids)
+            recall_status = any(expected_doc_id.lower() == rid.lower() for rid in retrieved_doc_ids)
 
-            logger.info(f"EVAL [{case_id}] Expected: {expected_document_id}")
+            logger.info(f"EVAL [{case_id}] Expected: {expected_doc_id}")
             logger.info(f"EVAL [{case_id}] Retrieved Doc IDs: {retrieved_doc_ids}")
             if retrieved_chunks:
                 logger.info(f"EVAL [{case_id}] FULL FIRST CHUNK: {json.dumps(retrieved_chunks[0], indent=2)}")

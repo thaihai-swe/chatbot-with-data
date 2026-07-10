@@ -3,7 +3,7 @@ import React from "react";
 export default function XRayPanel({ trace, onClose }) {
   if (!trace) return null;
 
-  const { retrieval, safety, evaluation, provenance } = trace;
+  const { retrieval, safety, evaluation, provenance, groundedness_score } = trace;
   const coverage = provenance?.coverage;
   const claims = provenance?.claims || [];
 
@@ -63,8 +63,8 @@ export default function XRayPanel({ trace, onClose }) {
           <div className="grid" style={{ gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>
             <div className="surface-card" style={{ padding: "12px", textAlign: "center", background: "var(--surface-muted)" }}>
               <span className="eyebrow" style={{ fontSize: "10px", marginBottom: "4px" }}>Grounded</span>
-              <span className={`mono`} style={{ fontWeight: "700", color: safety?.groundedness?.score >= 0.7 ? "var(--success)" : "var(--danger)" }}>
-                {safety?.groundedness?.score !== undefined ? (safety.groundedness.score * 100).toFixed(0) + "%" : "N/A"}
+              <span className={`mono`} style={{ fontWeight: "700", color: (groundedness_score ?? safety?.groundedness?.score) >= 0.7 ? "var(--success)" : "var(--danger)" }}>
+                {(groundedness_score ?? safety?.groundedness?.score) !== undefined ? (((groundedness_score ?? safety?.groundedness?.score)) * 100).toFixed(0) + "%" : "N/A"}
               </span>
             </div>
             <div className="surface-card" style={{ padding: "12px", textAlign: "center", background: "var(--surface-muted)" }}>

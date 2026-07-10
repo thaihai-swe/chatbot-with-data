@@ -112,10 +112,8 @@ class ChatService:
                 safety_trace=safety_trace,
             )
 
-        # 3. Retrieve chunks
+        # 3. Collection routing (if enabled)
         advanced_config = get_config().retrieval
-
-        # 3.1 Collection routing (if enabled)
         collection_ids = [session.collection_id] if session.collection_id else []
         routing_trace = None
         if advanced_config.collection_routing_enabled and not collection_ids:
@@ -160,8 +158,8 @@ class ChatService:
             safety_trace.groundedness.status = "unsupported"
         else:
             safety_trace.groundedness.status = "supported"
-            # We could compute a real score here if GroundingService supported it
-            safety_trace.groundedness.score = 1.0 
+            # Real score computed later in finalize_turn; leave as None until then
+            safety_trace.groundedness.score = None
 
         # 6. Create turn record (pending)
         # turn_id was pre-generated for snapshot

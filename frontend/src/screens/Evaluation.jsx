@@ -1,6 +1,103 @@
 import React, { useState, useEffect } from "react";
-import { runSanityCheck, getEvaluationHistory } from "../api/chat";
+import { runSanityCheck, getEvaluationHistory, runAblation } from "../api/chat";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
+
+function AblationTable({ data, accentColor }) {
+  if (!data) return null;
+  const variants = ["baseline", "semantic", "full_pipeline", "full_minus_reranker"];
+
+  const getLabel = (name) => {
+    const labels = {
+      baseline: "BM25 Baseline",
+      semantic: "Semantic Search",
+      full_pipeline: "Full Pipeline",
+      full_minus_reranker: "Full (no reranker)",
+    };
+    return labels[name] || name;
+  };
+
+  const metricColumns = [
+    { key: "overall_recall", label: "Recall", format: (v) => `${(v * 100).toFixed(1)}%` },
+    { key: "overall_groundedness", label: "Groundedness", format: (v) => `${(v * 100).toFixed(1)}%` },
+    { key: "overall_citation_coverage", label: "Citation", format: (v) => `${(v * 100).toFixed(1)}%` },
+    { key: null, label: "Latency", format: (v) => `${v}ms` },
+    { key: "passed_cases", label: "Pass Rate", format: (v, r) => `${r.total_cases > 0 ? ((v / r.total_cases) * 100).toFixed(1) : 0}%` },
+  ];
+
+  return (
+    <div className="panel glassmorphic" style={{ padding: "20px", borderRadius: "var(--radius-lg)", border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: "16px" }}>
+      <div>
+        <h3 style={{ fontSize: "14px", fontWeight: "750", margin: 0, color: "var(--text-primary)" }}>
+          ABLATION COMPARISON
+        </h3>
+        <p style={{ margin: "2px 0 0 0", color: "var(--text-secondary)", fontSize: "11px" }}>
+          Side-by-side metrics across pipeline configurations.
+        </p>
+      </div>
+
+      <div className="table-scroll" style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+        <table>
+          <thead>
+            <tr>
+              <th>Variant</th>
+              {metricColumns.map((col) => (
+                <th key={col.label} style={{ textAlign: "right" }}>{col.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.comparisons.map((vc, i) => {
+              const r = vc.result;
+              const baselineResult = i === 0 ? r : data.comparisons[0].result;
+              return (
+                <tr key={vc.variant_name}>
+                  <td style={{ fontSize: "13px", fontWeight: "700" }}>
+                    {getLabel(vc.variant_name)}
+                  </td>
+                  {metricColumns.map((col) => {
+                    let val, baselineVal;
+                    if (col.key === null) {
+                      const latencies = (r.results || []).map((x) => x.latency_ms || 0);
+                      val = latencies.length > 0 ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
+                      const baseLatencies = (baselineResult.results || []).map((x) => x.latency_ms || 0);
+                      baselineVal = baseLatencies.length > 0 ? Math.round(baseLatencies.reduce((a, b) => a + b, 0) / baseLatencies.length) : 0;
+                    } else if (col.key === "passed_cases") {
+                      return (
+                        <td key={col.label} style={{ textAlign: "right", fontSize: "13px", fontWeight: "600" }}>
+                          {col.format(r[col.key], r)}
+                        </td>
+                      );
+                    } else {
+                      val = r[col.key];
+                      baselineVal = baselineResult[col.key];
+                    }
+                    const delta = val - baselineVal;
+                    const isNegative = delta < -0.001;
+                    return (
+                      <td key={col.label} style={{ textAlign: "right", fontSize: "13px", fontWeight: "600" }}>
+                        <span>{col.format(val, r)}</span>
+                        {i > 0 && (
+                          <span style={{
+                            marginLeft: "6px",
+                            fontSize: "10px",
+                            fontWeight: "700",
+                            color: isNegative ? "#ef4444" : accentColor,
+                          }}>
+                            {delta > 0 ? "▲" : delta < 0 ? "▼" : "―"}
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 export default function EvaluationScreen() {
   const [isRunning, setIsRunning] = useState(false);
@@ -11,6 +108,9 @@ export default function EvaluationScreen() {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [history, setHistory] = useState([]);
+  const [ablationData, setAblationData] = useState(null);
+  const [isAblationRunning, setIsAblationRunning] = useState(false);
+  const [ablationError, setAblationError] = useState(null);
 
   useEffect(() => {
     async function loadHistory() {
@@ -41,6 +141,20 @@ export default function EvaluationScreen() {
       setError(err.message);
     } finally {
       setIsRunning(false);
+    }
+  };
+
+  const handleRunAblation = async () => {
+    setIsAblationRunning(true);
+    setAblationData(null);
+    setAblationError(null);
+    try {
+      const data = await runAblation(["baseline", "semantic", "full_pipeline", "full_minus_reranker"]);
+      setAblationData(data);
+    } catch (err) {
+      setAblationError(err.message);
+    } finally {
+      setIsAblationRunning(false);
     }
   };
 
@@ -85,22 +199,40 @@ export default function EvaluationScreen() {
           </p>
         </div>
         
-        <button 
-          onClick={handleRunEval} 
-          className="button button-primary" 
-          disabled={isRunning}
-          style={{ 
-            height: "40px", 
-            padding: "0 20px", 
-            background: accentColor, 
-            color: "black", 
-            fontWeight: "750",
-            border: "none",
-            borderRadius: "var(--radius-md)"
-          }}
-        >
-          {isRunning ? "Evaluating System..." : "⚡ Run Sanity Check"}
-        </button>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button 
+            onClick={handleRunEval} 
+            className="button button-primary" 
+            disabled={isRunning}
+            style={{ 
+              height: "40px", 
+              padding: "0 20px", 
+              background: accentColor, 
+              color: "black", 
+              fontWeight: "750",
+              border: "none",
+              borderRadius: "var(--radius-md)"
+            }}
+          >
+            {isRunning ? "Evaluating System..." : "⚡ Run Sanity Check"}
+          </button>
+          <button 
+            onClick={handleRunAblation} 
+            className="button button-secondary" 
+            disabled={isAblationRunning}
+            style={{ 
+              height: "40px", 
+              padding: "0 20px", 
+              background: "transparent", 
+              color: "var(--text-primary)", 
+              fontWeight: "750",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-md)"
+            }}
+          >
+            {isAblationRunning ? "Running Ablation..." : "⚗ Run Ablation"}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -275,6 +407,26 @@ export default function EvaluationScreen() {
         </div>
 
       </div>
+
+      {ablationError && (
+        <div className="error-banner" style={{ margin: 0 }}>
+          <strong>Ablation Failed:</strong> {ablationError}
+        </div>
+      )}
+
+      {isAblationRunning && (
+        <div className="panel glassmorphic" style={{ padding: "48px 32px", textAlign: "center", borderRadius: "var(--radius-lg)" }}>
+          <div className="spinner" style={{ margin: "0 auto 20px auto" }}></div>
+          <p className="mono" style={{ fontSize: "13px", fontWeight: "600", color: "var(--text-primary)", margin: 0 }}>
+            Running ablation across 4 pipeline variants...
+          </p>
+          <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "6px", margin: 0 }}>
+            This may take several minutes.
+          </p>
+        </div>
+      )}
+
+      {ablationData && <AblationTable data={ablationData} accentColor={accentColor} />}
 
       {/* 4. Active results Case Verdicts table */}
       {results && (

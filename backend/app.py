@@ -19,6 +19,7 @@ from routers import (
     settings_router,
     generate_router,
     notes_router,
+    ablation_router,
 )
 
 def create_app() -> FastAPI:
@@ -59,6 +60,7 @@ def create_app() -> FastAPI:
     app.include_router(settings_router)
     app.include_router(generate_router)
     app.include_router(notes_router)
+    app.include_router(ablation_router)
 
     # 4. Error handlers
     register_error_handlers(app)

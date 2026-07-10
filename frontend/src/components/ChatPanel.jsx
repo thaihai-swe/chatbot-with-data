@@ -14,6 +14,7 @@ import { generateProduct, listCollections, listDocuments } from "../api/knowledg
 import { useWorkspace } from "../context/WorkspaceContext";
 import XRayPanel from "./XRayPanel";
 import CitationBadge from "./CitationBadge";
+import FaithfulnessChip from "./FaithfulnessChip";
 
 const PRODUCT_TYPES = [
   { key: "study-guide", label: "Study Guide", emoji: "📘" },
@@ -141,6 +142,7 @@ export default function ChatPanel() {
                 safety: turn.safety_trace,
                 evaluation: turn.evaluation_metrics,
                 provenance,
+                groundedness_score: turn.groundedness_score,
               };
               formatted.push({
                 role: "assistant",
@@ -690,6 +692,13 @@ export default function ChatPanel() {
               <div style={{ fontSize: "13px", lineHeight: "1.6" }}>
                 {renderMessageContent(msg)}
               </div>
+
+              {/* Faithfulness chip */}
+              {msg.role !== "user" && msg.trace?.groundedness_score !== undefined && (
+                <div style={{ marginTop: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <FaithfulnessChip score={msg.trace.groundedness_score} />
+                </div>
+              )}
 
               {/* Cited References bottom list */}
               {msg.role !== "user" && msg.citations && msg.citations.length > 0 && (

@@ -108,6 +108,7 @@ class StreamingOrchestrator:
                 return
 
             config = get_config().retrieval
+            history = ChatRepository.list_turns_by_session(session_id)
 
             # Retrieval
             retrieved_chunks, trace = self.advanced_retrieval_service.retrieve(
@@ -138,10 +139,10 @@ class StreamingOrchestrator:
                 safety_trace.groundedness.status = "unsupported"
             else:
                 safety_trace.groundedness.status = "supported"
-                safety_trace.groundedness.score = 1.0
+                # Real score computed later in finalize_turn; leave as None until then
+                safety_trace.groundedness.score = None
 
             # Create turn record
-            history = ChatRepository.list_turns_by_session(session_id)
             chunk_ids = [c["chunk_id"] for c in retrieved_chunks if c.get("chunk_id")]
             annotations = load_chunk_notes(chunk_ids)
             context_package = self.context_service.assemble_context(

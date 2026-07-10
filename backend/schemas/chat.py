@@ -207,3 +207,25 @@ class EvaluationRunResponse(BaseModel):
     overall_groundedness: float
     overall_citation_coverage: Optional[float] = None
     created_at: str
+    config_variant_name: Optional[str] = None
+    config_snapshot_json: Optional[str] = None
+
+
+class VariantResult(BaseModel):
+    variant_name: str
+    label: str
+    result: SanityCheckResponse
+
+
+class VariantDelta(BaseModel):
+    variant_name: str
+    recall_delta: Optional[float] = None
+    groundedness_delta: Optional[float] = None
+    citation_coverage_delta: Optional[float] = None
+    pass_rate_delta: Optional[float] = None
+
+
+class AblationComparisonResponse(BaseModel):
+    variants: List[str]
+    comparisons: List[VariantResult]
+    deltas: List[VariantDelta]
