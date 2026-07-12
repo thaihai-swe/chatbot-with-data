@@ -33,6 +33,22 @@ DEPENDS_RE = re.compile(
 )
 STATUS_RE = re.compile(r"(?im)^\s*Status:\s*(.+)$")
 DONE_STATUSES = {"done", "deferred"}
+TASK_STATUSES = {"Not Started", "In Progress", "Blocked", "Done", "Deferred"}
+ALLOWED_TRANSITIONS = {
+    "Not Started": {"Not Started", "In Progress", "Blocked", "Deferred"},
+    "In Progress": {"Not Started", "In Progress", "Blocked", "Done", "Deferred"},
+    "Blocked": {"Not Started", "In Progress", "Blocked", "Deferred"},
+    "Done": {"Done", "In Progress"},
+    "Deferred": {"Deferred", "Not Started", "In Progress"},
+}
+
+
+def normalize_status(status: str) -> str:
+    """Normalize legacy casing without changing the Markdown until a write."""
+    for canonical in TASK_STATUSES:
+        if canonical.lower() == (status or "").strip().lower():
+            return canonical
+    return (status or "Not Started").strip()
 
 
 def _normalize_id(token: str) -> str | None:
@@ -157,6 +173,48 @@ def next_tasks(tasks: list[dict]) -> list[dict]:
 
 def feature_tasks_path(root: Path, slug: str) -> Path:
     return root / "artifacts" / "features" / slug / "tasks.md"
+
+
+def update_task_text(path: Path, task_id: str, status: str, evidence=None, note=None):
+    """Update one task's state while preserving the rest of tasks.md."""
+    if status not in TASK_STATUSES:
+        raise ValueError(f"invalid task status: {status}")
+    path = Path(path)
+    text = path.read_text(encoding="utf-8")
+    matches = list(TASK_HEADER_RE.finditer(text))
+    target = [match for match in matches if match.group(3) == task_id]
+    if not target:
+        raise ValueError(f"task not found: {task_id}")
+    if len(target) > 1:
+        raise ValueError(f"duplicate task ID: {task_id}")
+
+    match = target[0]
+    end = next((item.start() for item in matches if item.start() > match.start()), len(text))
+    block = text[match.start():end]
+    current = parse_tasks(block)
+    current_status = normalize_status(current[0]["status"] if current else "Not Started")
+    if status not in ALLOWED_TRANSITIONS.get(current_status, set()):
+        raise ValueError(f"invalid task transition: {current_status} -> {status}")
+
+    checked = "x" if status.lower() in DONE_STATUSES else " "
+    header = match.group(0)
+    header = re.sub(r"^(\s*[-*]\s+)\[[ xX]\]", rf"\g<1>[{checked}]", header)
+    block = header + block[match.end() - match.start():]
+    status_pattern = re.compile(r"(?im)^(\s*Status:\s*).*$", re.MULTILINE)
+    if status_pattern.search(block):
+        block = status_pattern.sub(rf"\g<1>{status}", block, count=1)
+    else:
+        newline = "\r\n" if "\r\n" in block else "\n"
+        block = header + newline + f"  Status: {status}" + block[len(header):]
+
+    additions = []
+    additions.extend(f"  Validation evidence: {item.strip()}" for item in (evidence or []) if item.strip())
+    if note and note.strip():
+        additions.append(f"  Session note: {note.strip()}")
+    if additions:
+        block = block.rstrip() + "\n" + "\n".join(additions) + "\n\n"
+    updated = text[:match.start()] + block + text[end:]
+    return updated, {"id": task_id, "from": current_status, "to": status}
 
 
 def format_next(ready: list[dict]) -> str:

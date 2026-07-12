@@ -9,7 +9,7 @@
 <!-- Business and product language. These terms have specific meaning in this project's context. -->
 
 | Term | Definition | Used In |
-|------|-----------|---------|
+|-|-|-|
 | | | |
 
 ## Technical Terms
@@ -17,7 +17,7 @@
 <!-- Project-specific technical jargon that might be ambiguous without context. -->
 
 | Term | Definition | Used In |
-|------|-----------|---------|
+|-|-|-|
 | | | |
 
 ## Abbreviations
@@ -25,7 +25,7 @@
 <!-- Acronyms and shorthand used in code, docs, or conversation. -->
 
 | Abbreviation | Expansion | Context |
-|--------------|-----------|---------|
+|-|-|-|
 | | | |
 
 ## Naming Conventions
@@ -33,7 +33,7 @@
 <!-- How domain terms map to code identifiers. -->
 
 | Domain Concept | Code Name | Pattern | Example |
-|---------------|-----------|---------|---------|
+|-|-|-|-|
 | | | | |
 
 <!-- Example:
@@ -46,7 +46,7 @@
 <!-- Terms that should NOT be used because they're ambiguous, deprecated, or confusing. -->
 
 | Avoid | Use Instead | Reason |
-|-------|-------------|--------|
+|-|-|-|
 | | | |
 
 ## Status & Phase Vocabulary
@@ -54,7 +54,7 @@
 <!-- Standard terms for work states in this project. -->
 
 | Term | Meaning |
-|------|---------|
+|-|-|
 | | |
 
 <!-- The kit uses these phases by default: Researching, Spec'ing, Planning, Implementing, Verifying, Done -->

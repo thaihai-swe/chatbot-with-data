@@ -9,21 +9,69 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_lib/root.sh"
 
-KIT_ROOT=$(resolve_repo_root) || {
-  echo "FAIL: Could not resolve kit root (no AGENTS.md + core-zero/memories/repo/)"
-  exit 1
-}
+JSON_MODE=false
+ROOT_ARG=""
+for arg in "$@"; do
+  if [[ "$arg" == "--json" ]]; then
+    JSON_MODE=true
+  else
+    ROOT_ARG="$arg"
+  fi
+done
+
+if [[ -n "$ROOT_ARG" ]]; then
+  KIT_ROOT="$ROOT_ARG"
+else
+  KIT_ROOT=$(resolve_repo_root) || {
+    echo "FAIL: Could not resolve kit root (no AGENTS.md + core-zero/memories/repo/)"
+    exit 1
+  }
+fi
 
 errors=0
-warn()  { echo "  WARN: $*"; }
-fail()  { echo "  FAIL: $*"; errors=$((errors + 1)); }
-pass()  { echo "  PASS: $*"; }
+RESULTS_FILE=$(mktemp)
+current_check=0
+current_check_name="initial"
 
-echo "CoreZero doctor — $KIT_ROOT"
-echo ""
+start_check() {
+  current_check="$1"
+  current_check_name="$2"
+}
 
+warn() {
+  if [ "$JSON_MODE" = true ]; then
+    echo "$current_check|$current_check_name|warn|$*" >> "$RESULTS_FILE"
+  else
+    echo "  WARN: $*"
+  fi
+}
+
+fail() {
+  errors=$((errors + 1))
+  if [ "$JSON_MODE" = true ]; then
+    echo "$current_check|$current_check_name|fail|$*" >> "$RESULTS_FILE"
+  else
+    echo "  FAIL: $*"
+  fi
+}
+
+pass() {
+  if [ "$JSON_MODE" = true ]; then
+    echo "$current_check|$current_check_name|pass|$*" >> "$RESULTS_FILE"
+  else
+    echo "  PASS: $*"
+  fi
+}
+
+if [ "$JSON_MODE" = false ]; then
+  echo "CoreZero doctor — $KIT_ROOT"
+  echo ""
+fi
+
+run_checks() {
 # --- Check 2: Sections referenced by SKILL.md exist ---
 echo "--- Check 2: Referenced sections exist ---"
+start_check 2 "referenced_sections_exist"
 
 # ## Security Policy in core-policies.md
 if grep -q "^## Security Policy" "$KIT_ROOT/core-zero/memories/repo/core-policies.md" 2>/dev/null; then
@@ -55,6 +103,7 @@ fi
 
 # --- Check 3: No kit/-prefixed paths in installed SKILL.md files ---
 echo "--- Check 3: No kit/-prefixed paths in skills ---"
+start_check 3 "no_kit/_prefixed_paths_in_skills"
 KIT_PREFIX_HITS=$(grep -rn '"kit/' "$KIT_ROOT/skills/" 2>/dev/null || true)
 if [[ -z "$KIT_PREFIX_HITS" ]]; then
   pass "No kit/-prefixed paths in skills/"
@@ -65,6 +114,7 @@ fi
 
 # --- Check 4: MASTER_INDEX.md routes point to existing files ---
 echo "--- Check 4: MASTER_INDEX.md routes exist ---"
+start_check 4 "master_index.md_routes_exist"
 # Dynamically extract backtick-quoted paths from MASTER_INDEX.md
 # Resolves bare filenames via PATH_MAP lookup; skips glob/placeholder paths
 PY_ROUTES=$(python3 -c "
@@ -112,6 +162,7 @@ esac
 
 # --- Check 5: Threshold consistency (100/200/3200) ---
 echo "--- Check 5: Threshold consistency ---"
+start_check 5 "threshold_consistency"
 PY_THRESH=$(python3 -c "
 import sys; sys.path.insert(0, '$KIT_ROOT/scripts/core')
 from _lib.doctor_checks import read_thresholds
@@ -127,6 +178,7 @@ fi
 
 # --- Check 6: Task ID grammar is TASK-NNN ---
 echo "--- Check 6: Task ID grammar (no T-01/T-NN in SKILL.md) ---"
+start_check 6 "task_id_grammar_no_t_01/t_nn_in_skill.md"
 T01_HITS=$(grep -rnE "\bT-[0-9]+\b|\bT-NN\b" "$KIT_ROOT/skills/" --include="SKILL.md" 2>/dev/null || true)
 if [[ -z "$T01_HITS" ]]; then
   pass "No T-01/T-NN in SKILL.md files"
@@ -137,6 +189,7 @@ fi
 
 # --- Check 7: ADR status vocabulary is unified ---
 echo "--- Check 7: ADR status consistency ---"
+start_check 7 "adr_status_consistency"
 if grep -q "Rejected" "$KIT_ROOT/core-zero/memories/repo/adr-log.md" 2>/dev/null; then
   fail "adr-log.md still has 'Rejected' status (should be Deprecated/Superseded)"
 else
@@ -145,6 +198,7 @@ fi
 
 # --- Check 8: Telemetry pipeline (JSONL) ---
 echo "--- Check 8: Telemetry pipeline ---"
+start_check 8 "telemetry_pipeline"
 if python3 -c "
 with open('$KIT_ROOT/scripts/harness/telemetry-collector.sh') as f:
     c = f.read()
@@ -166,6 +220,7 @@ done
 
 # --- Check 9: Version consistency ---
 echo "--- Check 9: Version consistency ---"
+start_check 9 "version_consistency"
 if [[ -f "$KIT_ROOT/manifest.json" ]]; then
   MANIFEST_VER=$(python3 -c "import json; print(json.load(open('$KIT_ROOT/manifest.json'))['version'])" 2>/dev/null | tr -d ' \n\r')
   if [[ -n "$MANIFEST_VER" ]]; then
@@ -179,6 +234,7 @@ fi
 
 # --- Check 10: Phase×Guidance Matrix section annotations exist ---
 echo "--- Check 10: Phase×Guidance Matrix section annotations ---"
+start_check 10 "phase×guidance_matrix_section_annotations"
 TMPFILE=$(mktemp /tmp/doctor-section-check.XXXXXX 2>/dev/null || mktemp -t doctor-section-check)
 cat > "$TMPFILE" << 'CHKPY'
 import os, re, sys
@@ -238,6 +294,7 @@ rm -f "$TMPFILE"
 
 # --- Check 11: Executable bits assertion ---
 echo "--- Check 11: Executable bits for harness scripts ---"
+start_check 11 "executable_bits_for_harness_scripts"
 for f in "$KIT_ROOT"/scripts/harness/*.sh; do
   if [[ -f "$f" ]]; then
     if [[ -x "$f" ]]; then
@@ -250,6 +307,7 @@ done
 
 # --- Check 12: next_skill chain validation (supports scalar and list form) ---
 echo "--- Check 12: next_skill chain validation ---"
+start_check 12 "next_skill_chain_validation"
 SKILL_DIR="$KIT_ROOT/skills"
 next_skill_errors=0
 while IFS= read -r skill_file; do
@@ -320,6 +378,7 @@ fi
 
 # --- Check 13: Memory file size warnings (thresholds from core-policies.md) ---
 echo "--- Check 13: Memory file size warnings ---"
+start_check 13 "memory_file_size_warnings"
 # Read canonical thresholds from core-policies.md via shared module
 PY_THRESH=$(python3 -c "
 import sys; sys.path.insert(0, '$KIT_ROOT/scripts/core')
@@ -340,7 +399,10 @@ for mem_file in \
     continue
   fi
   line_count=$(wc -l < "$full_path" | tr -d ' ')
-  if [[ $line_count -ge $threshold_breach ]]; then
+  if [[ $line_count -ge $hard_cap ]]; then
+    fail "$mem_file: $line_count lines — HARD CAP BREACHED (compaction required and doctor check failed)"
+    mem_warn=$((mem_warn + 1))
+  elif [[ $line_count -ge $threshold_breach ]]; then
     warn "$mem_file: $line_count lines — THRESHOLD BREACH (compaction required before appends)"
     mem_warn=$((mem_warn + 1))
   elif [[ $line_count -ge $early_warn ]]; then
@@ -354,6 +416,7 @@ fi
 
 # --- Check 14: Code intelligence provider configuration consistency ---
 echo "--- Check 14: Code intelligence provider consistency ---"
+start_check 14 "code_intelligence_provider_consistency"
 CI_FILE="$KIT_ROOT/core-zero/project/code-intelligence.md"
 if [[ -f "$CI_FILE" ]]; then
   PY_PROBE=$(python3 -c "
@@ -422,6 +485,7 @@ fi
 
 # --- Check 15: Manifest-filesystem drift ---
 echo "--- Check 15: Manifest-filesystem drift ---"
+start_check 15 "manifest_filesystem_drift"
 PY_MANIFEST_DRIFT=$(python3 -c "
 import sys; sys.path.insert(0, '$KIT_ROOT/scripts/core')
 from _lib.doctor_checks import check_manifest_drift
@@ -440,6 +504,7 @@ esac
 
 # --- Check 16: Cross-file reference integrity in SKILL.md ---
 echo "--- Check 16: Cross-file reference integrity ---"
+start_check 16 "cross_file_reference_integrity"
 PY_REF_INTEGRITY=$(python3 -c "
 import os, re, sys
 
@@ -510,22 +575,28 @@ case "$PY_REF_INTEGRITY" in
 esac
 
 
-# --- Check 17: All SKILL.md files have next_skill field ---
-echo "--- Check 17: next_skill field presence ---"
-missing_next=0
+# --- Check 17: All SKILL.md files have next_skill and context_load fields ---
+echo "--- Check 17: next_skill and context_load field presence ---"
+start_check 17 "skill_fields_presence"
+missing_fields=0
 while IFS= read -r skill_file; do
   skill_name=$(basename "$(dirname "$skill_file")")
   if ! grep -q "^next_skill:" "$skill_file" 2>/dev/null; then
-    warn "$skill_name/SKILL.md missing next_skill field"
-    missing_next=$((missing_next + 1))
+    fail "$skill_name/SKILL.md missing next_skill field"
+    missing_fields=$((missing_fields + 1))
+  fi
+  if ! grep -q "^context_load:" "$skill_file" 2>/dev/null; then
+    fail "$skill_name/SKILL.md missing context_load field"
+    missing_fields=$((missing_fields + 1))
   fi
 done < <(find "$KIT_ROOT/skills" -name "SKILL.md" 2>/dev/null)
-if [[ $missing_next -eq 0 ]]; then
-  pass "All SKILL.md files have next_skill field"
+if [[ $missing_fields -eq 0 ]]; then
+  pass "All SKILL.md files have next_skill and context_load fields"
 fi
 
 # --- Check 18: Root-resolution consistency (root.py ↔ root.sh) ---
 echo "--- Check 18: Root-resolution consistency ---"
+start_check 18 "root_resolution_consistency"
 PY_ROOT=$(python3 -c "
 import sys; sys.path.insert(0, '$KIT_ROOT/scripts/core')
 from _lib.root import resolve_root
@@ -546,6 +617,7 @@ fi
 
 # --- Check 19: Feature artifact structure + ID traceability ---
 echo "--- Check 19: Feature artifact validation ---"
+start_check 19 "feature_artifact_validation"
 FEATURES_DIR="$KIT_ROOT/artifacts/features"
 VALIDATE_PY="$KIT_ROOT/scripts/core/validate_artifacts.py"
 artifact_errors=0
@@ -594,7 +666,40 @@ else
 fi
 
 
+
+}
+
+if [ "$JSON_MODE" = true ]; then
+  run_checks >/dev/null
+else
+  run_checks
+fi
+
 # --- Summary ---
+if [ "$JSON_MODE" = true ]; then
+  python3 -c "
+import json, sys
+results = []
+try:
+    with open('$RESULTS_FILE') as f:
+        for line in f:
+            parts = line.strip().split('|', 3)
+            if len(parts) == 4:
+                results.append({
+                    'check': int(parts[0]),
+                    'name': parts[1],
+                    'status': parts[2],
+                    'message': parts[3]
+                })
+except Exception as e:
+    pass
+print(json.dumps(results, indent=2))
+"
+  rm -f "$RESULTS_FILE"
+  exit $errors
+fi
+
+rm -f "$RESULTS_FILE"
 echo ""
 if [[ $errors -eq 0 ]]; then
   echo "All checks passed."

@@ -3,20 +3,18 @@
 > Normative rules for structural design, separation of concerns, and domain modeling.
 > Load this file when making architectural choices, defining new entities, or structuring layers.
 
-## Principles
+## Clean Architecture
 
-### Clean Architecture
-- **Dependency Rule:** Source code dependencies must point inward, toward higher-level policies (domain). Inner circles (domain/entities) must know nothing about outer circles (DB, UI, frameworks).
-- **Separation of Concerns:** Keep business rules isolated from UI and Database. Never pass a database cursor or HTTP request object into the domain layer.
-- **Interfaces (Ports & Adapters):** When the domain needs to communicate with the outside world, use interfaces defined in the domain layer. The outer layer implements these interfaces.
-- **Anti-Patterns:** Layering Violation (e.g., domain logic directly importing and calling a specific DB driver); Anemic Domain Model (services holding all logic while entities are just getters/setters).
+- **Dependency Rule:** Source code dependencies MUST point inward, toward higher-level policies (domain). Inner circles (domain/entities) MUST NOT import or reference outer circles (DB, UI, frameworks, external APIs).
+- **Separation of Concerns:** MUST keep business rules isolated from UI and database layers. MUST NOT pass infrastructure objects (database cursors, HTTP request/response objects, ORM sessions) into the domain layer.
+- **Ports & Adapters:** When the domain needs to communicate with the outside world, MUST define interfaces (ports) in the domain layer. The outer (infrastructure) layer MUST implement these interfaces. MUST NOT let the domain layer depend on concrete infrastructure implementations.
+- **Layering Violations:** MUST NOT import a specific DB driver, ORM, or framework from within the domain layer. If the domain needs persistence, it defines a port interface and the infrastructure layer provides the adapter.
+- **Anemic Domain Model:** MUST NOT create domain entities as pure getters/setters with all behavior in services. Entities MUST own their invariants, state transitions, and business rules. Services complement entities — they do not replace their behavior.
 
-### Domain-Driven Design (DDD)
-- **Ubiquitous Language:** Use the exact terminology from the `glossary.md` in your code (classes, variables, methods). Do not translate terms.
-- **Aggregates:** Group related entities into an aggregate with a single root. All modifications must go through the aggregate root to enforce invariants.
-- **Value Objects:** Prefer immutable value objects (e.g., `Money(amount, currency)`) over primitives when the primitive has business meaning or rules.
-- **Domain Services:** Use domain services for operations that do not naturally belong to a single entity or value object, but still encapsulate business rules.
-- **Anti-Patterns:** Primitive Obsession (using plain strings or ints instead of Value Objects for structured concepts); Missing Aggregate Root (allowing direct modification of child entities bypassing the root's invariants).
+## Domain-Driven Design (DDD)
 
-### SOLID Principles
-- For SOLID enforcement rules, see `rules/code-design.md` § Practical SOLID.
+- **Ubiquitous Language:** MUST use the exact terminology from `core-zero/project/glossary.md` in code identifiers (classes, variables, methods, tables). MUST NOT translate domain terms into generic technical synonyms (e.g., "Order" → "Record", "Invoice" → "Document").
+- **Aggregate Root:** MUST group related entities into an aggregate with a single root entity. All modifications to aggregate children MUST go through the aggregate root to enforce invariants. MUST NOT allow direct modification of child entities bypassing the root.
+- **Value Objects:** SHOULD prefer immutable value objects (e.g., `Money(amount, currency)`) over primitives when the primitive has business meaning or validation rules. MUST NOT use plain strings or ints for structured concepts that have invariants (primitive obsession).
+- **Domain Services:** SHOULD use domain services for operations that do not naturally belong to a single entity or value object, but still encapsulate business rules. MUST NOT put domain logic in application services, controllers, or UI handlers when it belongs on a domain entity.
+- **Bounded Contexts:** MUST NOT share a single domain model across contexts with different definitions of the same term. When contexts diverge, MUST define separate models with explicit translation maps at integration points.

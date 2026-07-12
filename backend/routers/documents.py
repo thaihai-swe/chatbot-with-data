@@ -45,9 +45,8 @@ def delete_document(
     document_id: str,
     svc: IngestionService = Depends(get_ingestion_service),
 ) -> None:
-    if not repository.delete_document(document_id):
+    if not svc.delete_document(document_id):
         raise HTTPException(status_code=404, detail="Document not found")
-    svc.delete_document_vectors(document_id)
 
 
 @router.post("/{document_id}/move", response_model=DocumentResponse)

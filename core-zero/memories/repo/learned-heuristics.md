@@ -1,110 +1,64 @@
-# Learned Heuristics
+# CoreZero Learned Heuristics
+
+## Index
+
+- LH-001 — Docs drift at workflow surface; update in same wave
+- LH-002 — Bootstrap and docs verified together
+- LH-003 — Generated references worth seeding early (code-map.md)
+- LH-004 — Agent overscaffolds new files [ARCHIVED — promoted to code-design.md]
+- LH-005 — Vague task validation leads to skipped verification
+- LH-006 — Token budget underestimation triggers mid-task compaction
+- LH-007 — Memory thresholds trigger post-oversize; track proactively
+- LH-008 — Domain packs ignored when building features [ARCHIVED — promoted to spec-requirements]
+- LH-009 — Module-level python mock bindings bypass definition-module patching
 
 ## Purpose
-This file captures repeated, evidence-backed heuristics that improve maintenance of the project.
+
+This file captures repeated, evidence-backed heuristics that improve maintenance of the kit.
 
 ## Heuristics
 
-### LH-001: Safety check must run before any query pipeline processing
-- **Trigger**: New query endpoints or modifications to `backend/chat/safety.py`.
-- **Working heuristic**: Always pass user input through the 3-layer check in `safety.py` before retrieval or generation.
-- **Evidence**: `backend/routers/chat.py` routes through safety checks; direct LLM/DB queries are blocked.
-- **Confidence**: High
-- **Last reviewed**: 2026-07-01
+### LH-001: Docs drift fastest at the workflow surface
+- Trigger:
+  - a backend route or API contract changes
+- Working heuristic:
+  - update API documentation/endpoints in the same wave
+- Evidence:
+  - repeated drift found in lifecycle docs, command references, and install guidance
+- Confidence: High
+- Last reviewed: 2026-05-27
+- Promote to stronger rule? No
 
-### LH-002: Default retrieval must be hybrid search via RRF fusion
-- **Trigger**: Modifying `backend/chat/retrieval.py` or retrieval strategy.
-- **Working heuristic**: Hybrid search (BM25 + semantic vector) using CandidateMerger with RRF fusion is the core retrieval pattern.
-- **Evidence**: `backend/chat/retrieval.py` uses CandidateMerger with RRF.
-- **Confidence**: High
-- **Last reviewed**: 2026-07-01
+### LH-005: Task validation evidence must be specific and machine-verifiable
+- Trigger:
+  - creating tasks in `tasks.md`
+- Working heuristic:
+  - every task must specify a concrete command or test file that runs and exits 0 as its validation proof, rather than vague human descriptions.
+- Evidence:
+  - tasks with vague proof criteria (e.g. "manual verify") lead to incomplete or skipped validation during alignment audits
+- Confidence: High
+- Last reviewed: 2026-06-23
+- Promote to stronger rule? No
 
-### LH-003: SQLite migrations are append-only — never modify past versions
-- **Trigger**: Modifying database schemas or runner scripts in `backend/migrations/`.
-- **Working heuristic**: Always append new migrations sequentially rather than editing past migrations to maintain backward compatibility.
-- **Evidence**: Migration runners execute `0001` through `0005_user_annotations` sequentially.
-- **Confidence**: High
-- **Last reviewed**: 2026-07-01
+### LH-006: Token budget underestimation causes context compaction mid-complex task
+- Trigger:
+  - running a complex feature that loads many memory files and generates large tool output
+- Working heuristic:
+  - estimate token cost at feature start: count loaded files, add 2x buffer for tool output. If total exceeds 60% of capacity, split work into smaller phases and checkpoint between them.
+- Evidence:
+  - context compaction triggered mid-implementation, causing loss of design details and rework
+- Confidence: High
+- Last reviewed: 2026-06-18
+- Promote to stronger rule? No — operational guidance, not normative
 
-### LH-004: API routers have no authentication — changes must handle all 8 routers consistently
-- **Trigger**: Modifying routing middleware or security structures in `backend/routers/`.
-- **Working heuristic**: All 8 route modules have no auth. When applying security controls, handle all routers consistently.
-- **Evidence**: `backend/routers/` contains 8 route modules without authentication.
-- **Confidence**: High
-- **Last reviewed**: 2026-07-01
+### LH-009: Python mock patching of module-level imports
+- Trigger:
+  - Patching class-level imports in Python tests where the target class is already imported at the module level in other modules.
+- Working heuristic:
+  - When patching a class (e.g. `WeaviateVectorStore`), if it is imported at the module level (e.g., `from indexing.weaviate_store import WeaviateVectorStore` in `ingestion.service`), mocking the class at its definition module (`indexing.weaviate_store.WeaviateVectorStore`) will not retroactively update references in the already-imported modules. We must patch the reference inside the target module where it is used (e.g., `ingestion.service.WeaviateVectorStore`).
+- Evidence:
+  - Refused connection error to Weaviate (localhost:8080) when running the full test suite in `pytest`, because `ingestion.service` was pre-imported by other test files before the patch was applied, binding it to the unmocked class.
+- Confidence: High
+- Last reviewed: 2026-07-12
+- Promote to stronger rule? No
 
-### LH-005: Chunking strategy auto-selection handles most document types
-- **Trigger**: Document ingestion pipelines or poor retrieval quality.
-- **Working heuristic**: Ingestion automatically maps file types to strategies (PDF → page-aware, MD → heading-aware, TXT → fixed-size). Check auto-strategy selection before debugging retrieval.
-- **Evidence**: `backend/chunking/` maps 5 strategies; `backend/ingestion/` executes auto-strategy mapping.
-- **Confidence**: Medium
-- **Last reviewed**: 2026-07-01
-
-### LH-006: Harness config file required for verification scripts
-- **Status**: Active
-- **Trigger**: Running `scripts/harness/gate-runner.sh` or `scripts/harness/phase-gate.sh`.
-- **Working heuristic**: Verification scripts require `core-zero/project/harness-config.yaml` to run. Ensure this file is initialized.
-- **Evidence**: Harness verifications crash with `ConfigError` if the config file is absent.
-- **Recurrence count**: 1
-- **Confidence**: High
-- **Last reviewed**: 2026-07-01
-
-### LH-007: SQLite migration queries on deprecated tables must check for table existence
-- **Trigger**: Schema migrations copying data from deprecated tables.
-- **Working heuristic**: Check `sqlite_master` for table existence before migrating data from dropped tables to avoid crash on fresh builds.
-- **Evidence**: Handled conditional execution in `runner.py` for deprecated tables to avoid crash.
-- **Confidence**: High
-- **Last reviewed**: 2026-07-01
-
-### LH-008: FastAPI / Uvicorn dependency caching requires backend restart
-- **Trigger**: Modifying backend settings used inside `@lru_cache()` dependencies.
-- **Working heuristic**: FastAPI caches factory functions. Explicitly restart the server when testing settings or provider swaps.
-- **Evidence**: Settings changes in `7.0-cross-encoder-reranking` remained cached until manual server restart.
-- **Confidence**: High
-- **Last reviewed**: 2026-07-01
-
-### LH-009: RAG Citation Verification requires Disabling Adaptive Tiering
-- **Status**: Active
-- **Trigger**: Testing citation parsing, rendering, or highlights with small mock files.
-- **Working heuristic**: Ingestion Adaptive Tiering keeps files < 38,400 tokens as 1 chunk. Disable `adaptive_tiering_enabled` to verify multi-chunking.
-- **Evidence**: Re-uploading `q3_earnings.txt` in `9.0-citation-upgrade` yielded 1 chunk until disabled.
-- **Recurrence count**: 1
-- **Confidence**: High
-- **Last reviewed**: 2026-07-01
-
-### LH-010: Collapsed Sidebars Vertical Toggle Labels
-- **Status**: Active
-- **Trigger**: Creating collapsible panels or sidebars in the workspace.
-- **Working heuristic**: Collapsed toggles are narrow (e.g. 48px). Render collapsed labels vertically using CSS `writing-mode: vertical-rl`.
-- **Evidence**: Collapsed panel toggle labels clipped horizontally in `9.0-citation-upgrade` until vertical writing mode was applied.
-- **Recurrence count**: 1
-- **Confidence**: High
-- **Last reviewed**: 2026-07-01
-
-### LH-011: Sync and stream chat paths must share one finalize helper
-- **Status**: Active
-- **Trigger**: Adding post-generation steps (citations, groundedness, provenance, conflict) to chat.
-- **Working heuristic**: Put finalize logic in one function (e.g. `finalize_turn` in `citations.py`) called by both `service.py` and `streaming.py`. Dual copies drift (stream missed `groundedness_score` until 10.2).
-- **Evidence**: `10.2-source-to-answer-provenance` — stream path lacked groundedness; shared `finalize_turn` fixed parity.
-- **Recurrence count**: 2
-- **Confidence**: High
-- **Last reviewed**: 2026-07-10
-- **Promote to stronger rule?** Yes when count >= 3
-
-### LH-012: Debug/X-Ray UI must not depend on dead screens or unset gates
-- **Status**: Active
-- **Trigger**: Adding debug panels or citation tooling in chat UX.
-- **Working heuristic**: Live route is `WorkspaceLayout` → `ChatPanel`, not `screens/Chat.jsx`. Seed `debugTrace` from SSE `citations` and history load; keep header X-Ray always clickable with fallback to last assistant `msg.trace`.
-- **Evidence**: 10.2 — Debug toggle only on Chat.jsx; ChatPanel `debugMode` never set; header disabled when `debugTrace` null.
-- **Recurrence count**: 1
-- **Confidence**: High
-- **Last reviewed**: 2026-07-10
-
-### LH-013: Absolute side drawers need flex column + overflow-y on body
-- **Status**: Active
-- **Trigger**: Side panels with `position: absolute; inset: 0 0 0 auto` (X-Ray, drawers).
-- **Working heuristic**: Panel root: `display:flex; flex-direction:column; height:100%; overflow:hidden`. Header `flex-shrink:0`. Body `flex:1; min-height:0; overflow-y:auto`. Cap raw JSON / long lists with `max-height` + scroll.
-- **Evidence**: 10.2 X-Ray Provenance section overflowed and broke layout until flex/overflow applied.
-- **Recurrence count**: 1
-- **Confidence**: High
-- **Last reviewed**: 2026-07-10

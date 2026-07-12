@@ -1,51 +1,58 @@
-# RAG Pipeline — Boundaries
+# Domain — Boundaries
 
-> **Ownership:** Collaborative — skill-updated + user-maintained.
+> Ownership: Collaborative — skill-updated + user-maintained.
+> Updated by: `/context-memory` post-ship sync when a feature changes domain ownership, an integration contract evolves, or an invariant is added/removed.
+> Read by: `/spec-requirements`, `/spec-plan`, `/spec-implement`, `/harness-verify` to prevent boundary violations and regression.
+
+Defines what the RAG Chat domain owns, does not own, how it integrates with adjacent domains, and the invariants that must never be violated.
 
 ## Owns
 
-- Query processing pipeline orchestration (safety → intelligence → retrieval → generation)
-- Retrieval strategy selection and RRF fusion (CandidateMerger)
-- Prompt injection defense (3-layer safety check)
-- Context assembly and token budget management
-- Grounded generation with citation extraction
-- SSE streaming for real-time output
-- Response persistence to SQLite
+- SSE Event Stream serialization & formatting logic
+- Pre-generation safety checks and grounding gating validation
+- Smart text chunking mechanisms (adaptive, heading-aware, parent-child, semantic)
+- Document ingestion processing (duplicate detection, uniqueness validation, indexing registry)
+- Retrieval service (executing hybrid keyword/vector search targeting Weaviate)
 
 ## Does Not Own
 
-- Document ingestion and chunking — owned by Ingestion domain
-- Vector DB indexing — owned by Ingestion domain
-- Frontend display (chat UI, X-Ray Panel) — owned by Frontend domain
-- Embedding generation — shared utility (owned by Ingestion)
-- Provider abstraction (LLM/embedding API calls) — shared utility
+- SQLite storage engine internals (handled via sqlite3 stdlib)
+- Weaviate vector DB server instances (run in Docker context)
+- OpenAI API inference infrastructure (hosted externally by OpenAI)
+- HTTP/CORS transport routers (FastAPI app configuration)
 
 ## Integration Contracts
 
 | Produces | Consumed By | Contract |
-|----------|-------------|----------|
-| Query results (with citations) | Frontend Chat screen | JSON via SSE + REST POST `/chat/send`, `/chat/history` |
-| Chat history entries | SQLite via repositories | `ChatMessage` model → `chat_repository` |
-| Safety check results | Query pipeline | Boolean + reason fields |
-| Retrieved chunks | X-Ray Panel | `RetrievalResult[]` with scores and content |
+|-|-|-|
+| SSE Event Stream | React Frontend Client | Event: `status`, `token`, `citations`, `error`, `done` |
+| DB connection | Backend Repositories | Thread-safe `@contextmanager get_connection()` |
+| Vector Queries | Weaviate DB | `weaviate.connect_to_local(...)` |
 
 ## Invariants
 
+Rules that must never be violated when working in this domain. The agent must check these before implementing any change that touches this domain.
+
 | ID | Invariant | Rationale |
-|----|-----------|-----------|
-| INV-001 | The 3-layer safety check must run before any retrieval or generation | Without this, prompt injection attacks reach the LLM directly |
-| INV-002 | Default retrieval must be hybrid (BM25 + vector) | Single-strategy retrieval is a degraded mode requiring explicit justification |
-| INV-003 | SSE streams are append-only — never modify a stream mid-delivery | The frontend renders incrementally; mid-stream mutations break display |
+|-|-|-|
+| INV-001 | Streaming responses must use Server-Sent Events (SSE) format | Frontend parser expects exact event-name/data-payload structure |
+| INV-002 | Pre-generation Safety check must occur before querying OpenAI API | Prevents unsafe prompts from ever reaching downstream LLMs |
+| INV-003 | If grounding check fails, refusal must stream token-by-token and end turn | Ensures the LLM is not queried when grounding evidence is insufficient |
+| INV-004 | Ingestion unique constraint checks must halt on non-unique duplicates | Prevents duplicate document indexing in Weaviate / SQLite |
+
+*Add INV-005, INV-006, … as invariants are discovered. Never renumber or remove an ID — mark retired ones `Retired in <feature-slug> on <date>`.*
 
 ## Change Rules
 
-- Changes to the pipeline stage order require explanation in the task spec.
-- New retrieval strategies should be added as parallel options, not replacements.
-- Any change to safety logic must be regression-tested against all 3 layers.
-- Cross-domain calls go through declared integration contracts only.
+- Domain interfaces are stable contracts. Changes require an ADR.
+- Domain events are append-only. New fields may be added; existing fields must not be removed.
+- Cross-domain calls go through declared integration contracts only — never direct imports.
+- Any change to `## Invariants` must be reflected in the `## Change Log` below.
 
 ## Change Log
 
+*Append one row per merged feature that modifies this file. Most recent first.*
+
 | Date | Feature Slug | Change Summary |
-|------|--------------|----------------|
-| 2026-06-28 | starter-init | Initial scaffold from archaeology sweep |
+|-|-|-|
+| 2026-07-11 | starter-init | Initial RAG boundaries definition |

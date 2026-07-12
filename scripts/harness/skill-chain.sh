@@ -45,6 +45,23 @@ for line in m.group(1).split('\n'):
 PYEOF
 }
 
+parse_context_load() {
+  # $1 = path to SKILL.md — print the context_load command if present
+  python3 - "$1" <<'PYEOF'
+import re, sys
+with open(sys.argv[1]) as f:
+    content = f.read()
+m = re.match(r'^---\s*\n(.*?)\n---', content, re.DOTALL)
+if not m:
+    sys.exit(0)
+for line in m.group(1).split('\n'):
+    if line.strip().startswith('context_load:'):
+        val = line.split(':', 1)[1].strip().strip("'\"").strip()
+        print(val)
+        break
+PYEOF
+}
+
 # --list flag: show full chain map
 if [[ "${1:-}" == "--list" ]]; then
   echo "# Skill Chain Map"
@@ -105,7 +122,72 @@ if [[ "$MODE" == "--walk" ]]; then
   done
 fi
 
+# Detect active feature slug to locate handoff and session files (EL-003)
+ACTIVE_STATUS=$(find "$KIT_ROOT/artifacts/features" -name "status.md" -mtime -1 2>/dev/null | head -n1 || true)
+FEATURE_SLUG=""
+if [[ -n "$ACTIVE_STATUS" ]]; then
+  FEATURE_SLUG=$(basename "$(dirname "$ACTIVE_STATUS")")
+fi
+
+if [[ -n "$FEATURE_SLUG" ]]; then
+  HANDOFF_FILE="$KIT_ROOT/artifacts/features/$FEATURE_SLUG/handoff.md"
+  SESSION_FILE="$KIT_ROOT/.corezero/sessions/$FEATURE_SLUG/session.md"
+  if [[ -f "$HANDOFF_FILE" && -f "$SESSION_FILE" ]]; then
+    # Only append if not already appended in the last 5 lines
+    if ! tail -n 5 "$SESSION_FILE" 2>/dev/null | grep -q "Handoff read: ✓"; then
+      echo "" >> "$SESSION_FILE"
+      echo "- Handoff read: ✓ ($(date '+%Y-%m-%d %H:%M:%S'))" >> "$SESSION_FILE"
+    fi
+  fi
+fi
+
+# EL-001: emit context_load command as the first line of output
+context_load_cmd=$(parse_context_load "$SKILL_MD")
+if [[ -n "$context_load_cmd" ]]; then
+  echo "$context_load_cmd"
+fi
+
 next_skills=$(parse_next "$SKILL_MD")
+
+# EM-001: check if any memory file exceeds breach lines and inject context-compact into next_skills
+if [[ "$SKILL_SLUG" == "spec-implement" ]]; then
+  BREACH_DETECTED=$(python3 -c "
+import os, sys, re
+root = '$KIT_ROOT'
+cfg_path = os.path.join(root, 'core-zero/project/harness-config.yaml')
+breach_lines = 200
+if os.path.exists(cfg_path):
+    try:
+        text = open(cfg_path).read()
+        m = re.search(r'memory_breach_lines:\s*(\d+)', text)
+        if m:
+            breach_lines = int(m.group(1))
+    except Exception:
+        pass
+memory_files = [
+    'core-zero/memories/repo/core-policies.md',
+    'core-zero/memories/repo/learned-heuristics.md',
+    'core-zero/memories/repo/project-knowledge-base.md',
+    'core-zero/memories/repo/harness-config.md',
+    'core-zero/memories/repo/adr-log.md',
+]
+breached = False
+for f in memory_files:
+    p = os.path.join(root, f)
+    if os.path.exists(p):
+        lines = len(open(p, errors='replace').readlines())
+        if lines > breach_lines:
+            breached = True
+            break
+if breached:
+    print('yes')
+else:
+    print('no')
+")
+  if [[ "$BREACH_DETECTED" == "yes" ]]; then
+    next_skills="context-compact"
+  fi
+fi
 
 if [[ -z "$next_skills" ]]; then
   echo "(terminal — no next skill)" >&2

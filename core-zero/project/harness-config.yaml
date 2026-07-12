@@ -1,3 +1,11 @@
+# Artifact path conventions (resolved by harness.Phase.check_preconditions):
+#   - bare names (spec.md) → relative to artifacts/features/<slug>/
+#   - features/<slug>/...  → relative to artifacts/ (<slug> / {feature} substituted)
+# circuit_breaker.block_phase defaults to last phase (Verify). Optional:
+#   circuit_breaker:
+#     block_phase: Verify
+#     reset_phase: Plan
+#     max_failures: 2
 phases:
   - name: Spec
     preconditions:
@@ -28,6 +36,10 @@ phases:
       - artifact: features/<slug>/alignment-audit.md
         check: exists
 
+# Per-gate on_fail wins; else gate_defaults.on_fail; else block.
+gate_defaults:
+  on_fail: block
+
 gates:
   - name: lint
     command: npm run lint
@@ -41,18 +53,6 @@ gates:
     command: npm test
     stack: node
     on_fail: block
-  - name: flake8
-    command: flake8 .
-    stack: python
-    on_fail: block
-  - name: mypy
-    command: mypy .
-    stack: python
-    on_fail: block
-  - name: test-python
-    command: pytest
-    stack: python
-    on_fail: block
 
 stack_detection:
   node:
@@ -62,34 +62,24 @@ stack_detection:
       - lint
       - typecheck
       - test-node
-  python:
-    files:
-      - pytest.ini
-      - pyproject.toml
-    gates:
-      - flake8
-      - mypy
-      - test-python
 
 preflight_tools:
   npm:
     command: npm
-  python3:
-    command: python3
-  flake8:
-    command: flake8
-    optional: true
-  mypy:
-    command: mypy
-    optional: true
-  pytest:
-    command: pytest
-    optional: true
 
 thresholds:
   token_warn: 160000
   token_hard: 200000
   timeout_seconds: 300
+  memory_warn_lines: 100
+  memory_breach_lines: 200
+  memory_hard_lines: 3200
 
-plugins:
-  - scripts/harness/plugins/*.py
+# Context engine (optional overrides; defaults match DEFAULT_* in context_engine.py)
+context:
+  tier_boost:
+    Must: 40
+    Should: 20
+    Skip: 0
+  summary_budget: 800
+  partial_budget: 1200

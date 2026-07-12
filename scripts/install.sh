@@ -89,9 +89,11 @@ expand_glob() {
     local matches=( $pattern )
     shopt -u nullglob
     local m
-    for m in "${matches[@]}"; do
-      [[ -f "$m" && "$(basename "$m")" != ".DS_Store" && "$m" != *"/test-output/"* && "$m" != *"/__pycache__/"* ]] && echo "$m"
-    done
+    if [[ ${#matches[@]} -gt 0 ]]; then
+      for m in "${matches[@]}"; do
+        [[ -f "$m" && "$(basename "$m")" != ".DS_Store" && "$m" != *"/test-output/"* && "$m" != *"/__pycache__/"* ]] && echo "$m"
+      done
+    fi
   else
     [[ -f "$pattern" ]] && echo "$pattern"
   fi
@@ -127,6 +129,7 @@ copy_cross_tree() {
 
 backup_file() {
   local rel="$1"
+  # rel is already the destination path from copy_into_target
   local dst="$TARGET_DIR/$rel"
   [[ -f "$dst" ]] || return 0
   if [[ "$DRY_RUN" == "true" ]]; then
@@ -312,12 +315,12 @@ if [[ "$NON_INTERACTIVE" == "false" && "$DRY_RUN" != "true" ]]; then
     3) CODE_INTEL="codebase-memory-mcp" ;;
     *) CODE_INTEL="none" ;;
   esac
-  
+
   read -p "Enable Headroom Context Compression? (y/N): " choice
   if [[ "$choice" =~ ^[Yy]$ ]]; then
     ENABLE_HEADROOM="true"
   fi
-  
+
   read -p "Enable Mermaid CLI (mmdc) SVG Rendering? (y/N): " choice
   if [[ "$choice" =~ ^[Yy]$ ]]; then
     ENABLE_MERMAID="true"
@@ -354,11 +357,11 @@ if [[ "$DRY_RUN" != "true" ]]; then
       log "  To use it, download the binary from: https://github.com/DeusData/codebase-memory-mcp"
     fi
   fi
-  
+
   if [[ "$ENABLE_HEADROOM" == "true" ]]; then
-    check_and_install_dep "headroom" "pip install \"headroom-ai[all]\"" "Headroom"
+    check_and_install_dep "headroom" "pip3 install \"headroom-ai[all]\"" "Headroom"
   fi
-  
+
   if [[ "$ENABLE_MERMAID" == "true" ]]; then
     check_and_install_dep "mmdc" "npm install -g @mermaid-js/mermaid-cli" "Mermaid CLI"
   fi
@@ -431,7 +434,7 @@ configure_code_intel() {
   local provider="$1"
   local file="$TARGET_DIR/core-zero/project/code-intelligence.md"
   [[ -f "$file" ]] || return 0
-  
+
   python3 - "$file" "$provider" <<'PY'
 import sys
 path = sys.argv[1]
@@ -446,7 +449,7 @@ for line in lines:
     if line.startswith('active_provider:'):
         new_lines.append(f"active_provider: {provider}\n")
         continue
-    
+
     # Detect provider block
     if stripped == 'gitnexus:':
         in_provider = 'gitnexus'
@@ -456,7 +459,7 @@ for line in lines:
         # Reset provider if we exit block
         if stripped not in ['gitnexus:', 'codebase-memory-mcp:', 'providers:']:
             in_provider = None
-            
+
     if in_provider == provider and provider != 'none':
         if stripped.startswith('enabled:'):
             indent = line[:line.find('enabled:')]
@@ -471,7 +474,7 @@ for line in lines:
             indent = line[:line.find('enabled:')]
             new_lines.append(f"{indent}enabled: false\n")
             continue
-            
+
     new_lines.append(line)
 
 open(path, 'w').writelines(new_lines)
@@ -515,6 +518,7 @@ PY
 
   # 4. Correct script permissions
   find "$TARGET_DIR/scripts" -type f \( -name "*.sh" -o -name "*.py" \) -exec chmod +x {} +
+  [[ -f "$TARGET_DIR/scripts/corezero" ]] && chmod +x "$TARGET_DIR/scripts/corezero"
 fi
 
 warn_orphans() {
@@ -561,7 +565,6 @@ warn_orphans() {
     "memories/archive"
     "INDEX.md"
     "core-zero/README.md"
-    "skills/context-status/references/dashboard-template.html"
   )
   local orphan
   for orphan in "${orphans[@]}"; do
@@ -589,7 +592,6 @@ if [[ "$DRY_RUN" != "true" ]]; then
   log "Post-install validation"
   validate_path "core-zero/rules/code-design.md" "Code design policy"
   validate_path "skills" "Skills directory"
-  validate_path "skills/context-status/SKILL.md" "Context-status skill"
   validate_path "skills/harness-maintain/SKILL.md" "Harness-maintain skill"
   validate_path "skills/spec-adr/SKILL.md" "Spec-ADR skill"
   validate_path "skills/technical-docs/SKILL.md" "Technical-docs skill"
@@ -603,7 +605,6 @@ if [[ "$DRY_RUN" != "true" ]]; then
   validate_path "AGENTS.md" "Runtime entrypoint"
   validate_path "core-zero/rules/security.md" "Security rules"
   validate_path "core-zero/rules/ponytail.md" "Ponytail rules"
-  validate_path "skills/ponytail/SKILL.md" "Ponytail skill"
   validate_path "scripts/install.sh" "Installer (self-shipped)"
   validate_path "scripts/harness/gate-runner.sh" "Harness Gate Runner"
   validate_path "scripts/harness/telemetry-collector.sh" "Harness Telemetry Collector"
@@ -626,8 +627,8 @@ log "  Cross-tree installed: $cross_tree_count"
 log "  Files seeded:         $seeded_count"
 log "  Files skipped:        $skipped_count (already present)"
 log "  Files backed up:      $backup_count -> $BACKUP_DIR"
-log "  Installed docs: core-zero/ (adopter-facing)"
-log "  Not installed by default: documents/ (maintainer-only)"
+  log "  Installed package: skills/, scripts/, references/, core-zero/, and documents/installation-guide.md"
+  log "  Maintainer docs: repository documents/ are not installed"
 
 if [[ $errors -gt 0 ]]; then
   log ""
@@ -638,10 +639,11 @@ log ""
 log "Next steps:"
 log "  1. Run /starter-init in your AI agent"
 log "  2. Start the first feature with /spec-requirements (or /spec-research for brownfield/unknown behavior)"
-log "  3. Use /context-session only after a feature slug and status.md already exist"
+log "  3. Use scripts/corezero session-start only after a feature slug and status.md already exist"
+log "  3a. Use scripts/corezero context-load --phase <phase> --intent \"<task intent>\" before non-trivial agent work"
 log "  4. Deliver through /spec-plan, /spec-implement"
 log "  5. Close out with /harness-verify"
-log "  6. Governance bundle: /context-status, /harness-maintain, /spec-adr"
+log "  6. Governance bundle: scripts/corezero status, /harness-maintain, /spec-adr"
 log "  7. Docs bundle: /technical-docs, /codebase-documenter"
 log "  8. Specialist visualization: /visualize (Mermaid validation bundled; Mermaid render optional with mmdc)"
 log "  9. Use documents/ only in the source repository when maintaining the kit itself"

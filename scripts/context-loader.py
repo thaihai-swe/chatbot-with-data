@@ -27,22 +27,53 @@ def main():
                         help="Load Always-group files (+ optional --route phase matrix)")
     parser.add_argument("--phase", default="",
                         help="With --session-start: also load Phase×Guidance Matrix for this phase")
+    parser.add_argument("--feature", default="", help="Feature slug for session artifacts")
+    parser.add_argument("--task", default="", help="Active task ID")
+    parser.add_argument("--session", default="", help="Explicit session.md path")
+    parser.add_argument("--resume", action="store_true", help="Load the latest session.md state")
     args = parser.parse_args()
 
     if args.session_start:
         mode = args.mode if args.mode != "full" else "summary"
-        engine = ContextEngine(root="", intent=args.intent, budget=args.budget, mode=mode)
+        engine = ContextEngine(root="", intent=args.intent, budget=args.budget, mode=mode,
+                               feature=args.feature, phase=args.phase or args.route,
+                               task=args.task, session_path=args.session)
+        if args.resume:
+            try:
+                engine.resume()
+            except ValueError as exc:
+                print(f"ERROR: {exc}", file=sys.stderr)
+                sys.exit(1)
         engine.run_session_start(phase=args.phase or args.route or None, mode=mode)
+        engine.write_session()
     elif args.route:
-        engine = ContextEngine(root="", intent=args.intent, budget=args.budget, mode=args.mode)
+        engine = ContextEngine(root="", intent=args.intent, budget=args.budget, mode=args.mode,
+                               feature=args.feature, phase=args.phase or args.route,
+                               task=args.task, session_path=args.session)
+        if args.resume:
+            try:
+                engine.resume()
+            except ValueError as exc:
+                print(f"ERROR: {exc}", file=sys.stderr)
+                sys.exit(1)
         engine.run_route(args.route, args.mode)
+        engine.write_session()
     elif args.filepath:
         if not os.path.exists(args.filepath):
             print(f"Error: File '{args.filepath}' does not exist.", file=sys.stderr)
             sys.exit(1)
-        engine = ContextEngine(root="", intent=args.intent, budget=args.budget, mode=args.mode)
+        engine = ContextEngine(root="", intent=args.intent, budget=args.budget, mode=args.mode,
+                               feature=args.feature, phase=args.phase, task=args.task,
+                               session_path=args.session)
+        if args.resume:
+            try:
+                engine.resume()
+            except ValueError as exc:
+                print(f"ERROR: {exc}", file=sys.stderr)
+                sys.exit(1)
         sections = [args.section] if args.section else None
         engine.process_file(args.filepath, sections=sections)
+        engine.write_session()
     else:
         parser.print_help()
         sys.exit(1)

@@ -10,6 +10,7 @@ TASK_ID=""
 FEATURE_SLUG=""
 ROOT_DIR=""
 DRY_RUN=""
+REPORT_FILE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -17,6 +18,7 @@ while [[ $# -gt 0 ]]; do
     --feature) FEATURE_SLUG="$2"; shift 2 ;;
     --root) ROOT_DIR="$2"; shift 2 ;;
     --dry-run) DRY_RUN="--dry-run"; shift ;;
+    --report) REPORT_FILE="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -36,16 +38,21 @@ fi
 
 PYTHON_ENGINE="$SCRIPT_DIR/../core/harness.py"
 
-if ! OUTPUT=$(python3 "$PYTHON_ENGINE" --config "$RESOLVED_ROOT/core-zero/project/harness-config.yaml" --root "$RESOLVED_ROOT" $DRY_RUN gates 2>&1); then
+REPORT_ARG=""
+if [ -n "$REPORT_FILE" ]; then
+  REPORT_ARG="--report $REPORT_FILE"
+fi
+
+if ! OUTPUT=$(python3 "$PYTHON_ENGINE" --config "$RESOLVED_ROOT/core-zero/project/harness-config.yaml" --root "$RESOLVED_ROOT" $DRY_RUN gates $REPORT_ARG 2>&1); then
   echo "$OUTPUT"
   if [ -n "$FEATURE_SLUG" ]; then
     python3 "$PYTHON_ENGINE" --root "$RESOLVED_ROOT" lifecycle --action record-failure --task "$TASK_ID" --feature "$FEATURE_SLUG" --gate "$TASK_ID" 2>/dev/null || true
   fi
   if [ -x "$TELEMETRY_SCRIPT" ]; then
-    tmpargs=()
-    [[ -n "$TASK_ID" ]] && tmpargs+=(--task "$TASK_ID")
-    [[ -n "$FEATURE_SLUG" ]] && tmpargs+=(--feature "$FEATURE_SLUG")
-    echo "$OUTPUT" | "$TELEMETRY_SCRIPT" "${tmpargs[@]}"
+    "$TELEMETRY_SCRIPT" \
+      --task "${TASK_ID:-system}" \
+      --feature "${FEATURE_SLUG:-global}" \
+      --classification gate-failure "$OUTPUT" >/dev/null 2>&1 || true
   fi
   exit 1
 fi

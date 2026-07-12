@@ -97,7 +97,7 @@ def infer_next_step(phase: str, progress: dict):
         return "/spec-research or /spec-requirements"
     if "init" in phase_key or "start" in phase_key:
         return "/starter-init or /spec-requirements"
-    return "/context-session START"
+    return "scripts/corezero session-start"
 
 def has_blocker(blockers: str):
     normalized = (blockers or "").strip().lower()

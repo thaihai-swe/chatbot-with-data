@@ -55,3 +55,4 @@ docs/generated/*
 memories/repo/harness-telemetry.md
 scripts/harness/gate-runner.local.sh
 .gitnexus
+core-zero/memories/repo/harness-telemetry.md

@@ -336,6 +336,43 @@ class IngestionService:
             logger.error(f"Vector deletion failed for document {document_id}: {exc}")
             raise
 
+    def delete_collection_vectors(self, collection_id: str) -> None:
+        from indexing.weaviate_store import WeaviateVectorStore
+        try:
+            store = WeaviateVectorStore()
+            deleted = store.delete_by_collection(collection_id)
+            logger.info(f"Deleted {deleted} vectors for collection {collection_id}")
+        except Exception as exc:
+            logger.error(f"Vector deletion failed for collection {collection_id}: {exc}")
+            raise
+
+    def delete_document(self, document_id: str) -> bool:
+        success = self.document_repo.delete_document(document_id)
+        if success:
+            self.delete_document_vectors(document_id)
+        return success
+
+    def delete_collection(self, collection_id: str) -> bool:
+        from repositories import CollectionRepository
+        coll_repo = CollectionRepository()
+        
+        # 1. Get orphaned documents
+        orphans = coll_repo.get_orphaned_documents(collection_id)
+        
+        # 2. Hard delete collection in SQLite
+        success = coll_repo.delete_collection(collection_id)
+        if not success:
+            return False
+            
+        # 3. Purge collection vectors
+        self.delete_collection_vectors(collection_id)
+        
+        # 4. Purge orphan documents (SQLite and Weaviate vectors)
+        for doc_id in orphans:
+            self.delete_document(doc_id)
+            
+        return True
+
     def chunk_and_index_document(self, document_id: str, attempt: dict) -> dict:
         """Trigger chunking and indexing for a document.
 

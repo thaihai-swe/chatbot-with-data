@@ -28,18 +28,22 @@ class ConfigError(HarnessError):
 
 
 class GateResult:
-    def __init__(self, name, passed, output, error=None):
+    def __init__(self, name, passed, output, error=None, duration_ms=0):
         self.name = name
         self.passed = passed
         self.output = output
         self.error = error
+        self.duration_ms = duration_ms
 
     def to_dict(self):
+        output_tail = self.output[-2000:] if self.output else ""
         return {
             "name": self.name,
             "passed": self.passed,
             "output": self.output,
+            "output_tail": output_tail,
             "error": self.error,
+            "duration_ms": self.duration_ms,
         }
 
 
@@ -52,8 +56,10 @@ class Gate:
         self.config = config
 
     def run(self, root_dir, dry_run=False):
+        import time
         if dry_run:
-            return GateResult(self.name, True, f"[dry-run] would run: {self.command}")
+            return GateResult(self.name, True, f"[dry-run] would run: {self.command}", duration_ms=0)
+        start_time = time.time()
         try:
             # ponytail: shell=True; split argv when gate commands are simple binaries only
             result = subprocess.run(
@@ -62,11 +68,15 @@ class Gate:
             )
             passed = result.returncode == 0
             output = result.stdout + result.stderr
-            return GateResult(self.name, passed, output, None if passed else output)
+            duration_ms = int((time.time() - start_time) * 1000)
+            return GateResult(self.name, passed, output, None if passed else output, duration_ms)
         except subprocess.TimeoutExpired as e:
-            return GateResult(self.name, False, "", f"TIMEOUT: {e}")
+            duration_ms = int((time.time() - start_time) * 1000)
+            return GateResult(self.name, False, "", f"TIMEOUT: {e}", duration_ms)
         except Exception as e:
-            return GateResult(self.name, False, "", str(e))
+            duration_ms = int((time.time() - start_time) * 1000)
+            return GateResult(self.name, False, "", str(e), duration_ms)
+
 
 
 def resolve_artifact_path(feature_dir, artifact_template, feature_slug=None):
@@ -468,7 +478,7 @@ def _read_version(root):
 
 def cmd_gates(args):
     try:
-        root = resolve_root(args.root)
+        root = Path(resolve_root(args.root) or args.root or Path.cwd())
         config = HarnessConfig(args.config or str(Path(root) / "core-zero/project/harness-config.yaml"))
         if not args.stack:
             args.stack = config.detect_stack(root) or ""
@@ -494,7 +504,7 @@ def cmd_gates(args):
         for gate in gates:
             if args.dry_run:
                 print(f"[dry-run] would run gate: {gate.name} → {gate.command}")
-                results.append({"name": gate.name, "passed": True, "output": "[dry-run]", "error": None})
+                results.append({"name": gate.name, "passed": True, "output": "[dry-run]", "error": None, "duration_ms": 0, "output_tail": "[dry-run]"})
                 continue
             result = gate.run(root)
             results.append(result.to_dict())
@@ -503,6 +513,18 @@ def cmd_gates(args):
                 if not getattr(args, "json", False):
                     print(result.output)
                     print(f"=> Gate failed: {gate.name}", file=sys.stderr)
+                # Write report before exit/warn
+                if getattr(args, "report", None):
+                    import datetime
+                    report_path = Path(args.report)
+                    report_path.parent.mkdir(parents=True, exist_ok=True)
+                    report_data = {
+                        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                        "stack": args.stack,
+                        "results": results,
+                        "all_passed": all_passed,
+                    }
+                    report_path.write_text(json.dumps(report_data, indent=2))
                 if gate.on_fail == "warn":
                     if not getattr(args, "json", False):
                         print(f"  (on_fail=warn, continuing)", file=sys.stderr)
@@ -514,6 +536,18 @@ def cmd_gates(args):
                     print(json.dumps({"results": results, "all_passed": False}))
                 sys.exit(1)
 
+        if getattr(args, "report", None):
+            import datetime
+            report_path = Path(args.report)
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_data = {
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "stack": args.stack,
+                "results": results,
+                "all_passed": all_passed,
+            }
+            report_path.write_text(json.dumps(report_data, indent=2))
+
         if getattr(args, "json", False):
             print(json.dumps({"results": results, "all_passed": all_passed}))
         else:
@@ -524,7 +558,7 @@ def cmd_gates(args):
 
 
 def cmd_phase_gate(args):
-    root = resolve_root(args.root)
+    root = Path(resolve_root(args.root) or args.root or Path.cwd())
     config = HarnessConfig(args.config or str(Path(root) / "core-zero/project/harness-config.yaml"))
     lifecycle = Lifecycle(config.data)
     try:
@@ -589,7 +623,7 @@ def cmd_phase_gate(args):
 
 
 def cmd_lifecycle(args):
-    root = resolve_root(args.root)
+    root = Path(resolve_root(args.root) or args.root or Path.cwd())
     config = HarnessConfig(args.config or str(Path(root) / "core-zero/project/harness-config.yaml"))
     lifecycle = Lifecycle(config.data)
     try:
@@ -660,7 +694,7 @@ def cmd_lifecycle(args):
 
 def cmd_config_validate(args):
     try:
-        root = resolve_root(args.root)
+        root = Path(resolve_root(args.root) or args.root or Path.cwd())
         config = HarnessConfig(args.config or str(Path(root) / "core-zero/project/harness-config.yaml"))
         n_phases = len(config.data.get("phases", []))
         n_gates = len(config.data.get("gates", []))
@@ -753,6 +787,7 @@ def main():
 
     gates_p = sub.add_parser("gates", help="Run mechanical gates")
     gates_p.add_argument("--stack", default="", help="Stack name (node, python, auto)")
+    gates_p.add_argument("--report", default="", help="Path to write structured JSON report")
     gates_p.set_defaults(func=cmd_gates)
 
     pg_p = sub.add_parser("phase-gate", help="Check phase preconditions")

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Canonical CoreZero CLI entrypoint.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+CMD="${1:-help}"
+if [[ "$CMD" == "next" ]]; then
+  shift
+  exec bash "$SCRIPT_DIR/harness/skill-chain.sh" "$@"
+elif [[ "$CMD" == "telemetry" ]]; then
+  shift
+  exec bash "$SCRIPT_DIR/harness/telemetry-insights.sh" "$@"
+else
+  exec python3 "$SCRIPT_DIR/core/cli.py" "$@"
+fi

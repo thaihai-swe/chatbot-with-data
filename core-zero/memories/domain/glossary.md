@@ -1,17 +1,28 @@
 ---
-domain: root
-triggers: [rag, retrieval, generation, rerank, hybrid search, bm25, vector search, query, context assembly, streaming, citation, grounding, ingestion, chunking, embedding, indexing, upload, document, weaviate, frontend, react, ui, screen, component, x-ray]
+domain: example
+triggers: [example, sample, demo, template, walkthrough]
 ---
 
-# Domain Packs — Master Glossary
+# Domain — Glossary
 
-> Root trigger file for all installed domain packs.
-> Each pack directory under `memories/domain/` has its own glossary with pack-specific terms.
+> Ownership: Collaborative — skill-updated + user-maintained.
+> Updated by: `/context-memory` post-ship sync when new terms emerge from a completed feature.
+> Read by: `/spec-requirements`, `/spec-plan`, `/spec-implement` to enforce consistent naming.
 
-## Installed Packs
+This is a worked example of a domain pack glossary. Replace with your domain's
+ubiquitous language. Add this domain to `MASTER_INDEX.md` under
+`## By Domain Packs` with its trigger keywords.
 
-| Pack | Directory | Triggers |
-|------|-----------|----------|
-| RAG Pipeline | `memories/domain/rag/` | rag, retrieval, generation, rerank, hybrid search, bm25, vector search, query, context assembly, streaming, citation, grounding, candidate merger, rrf, safety, prompt injection |
-| Document Ingestion | `memories/domain/ingestion/` | ingestion, chunking, embedding, indexing, upload, extract, duplicate detection, document, weaviate, pdf, migration |
-| Frontend UI | `memories/domain/frontend/` | frontend, react, ui, screen, component, vite, x-ray, chat ui, document library, settings, evaluation, playground |
+## Ubiquitous Language
+
+| Term | Definition | Example Usage |
+|-|-|-|
+| Widget | A reusable UI component with a defined contract | "Every widget exposes an `onMount` callback." |
+| Gadget | A backend service that widgets call | "The gadget returns a paginated response." |
+| Session | An authenticated user interaction with a bounded TTL | "Sessions expire after 30 minutes of inactivity." |
+
+## Notes
+
+- Replace this example pack with your actual domain vocabulary.
+- Keep terms precise — ambiguous terms cause agents to make inconsistent naming choices.
+- Update this file during `/context-memory` Post-Ship Sync when new terms emerge.

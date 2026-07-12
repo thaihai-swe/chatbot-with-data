@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from repositories import CollectionRepository
 from schemas import CollectionCreate, CollectionResponse, CollectionUpdate
+from ingestion.service import IngestionService
 
 
 router = APIRouter(prefix="/collections", tags=["collections"])
@@ -39,7 +40,14 @@ def update_collection(collection_id: str, payload: CollectionUpdate) -> dict:
     return record
 
 
+def get_ingestion_service() -> IngestionService:
+    return IngestionService()
+
+
 @router.delete("/{collection_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_collection(collection_id: str) -> None:
-    if not repository.delete_collection(collection_id):
+def delete_collection(
+    collection_id: str,
+    svc: IngestionService = Depends(get_ingestion_service),
+) -> None:
+    if not svc.delete_collection(collection_id):
         raise HTTPException(status_code=404, detail="Collection not found")

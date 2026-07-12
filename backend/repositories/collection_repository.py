@@ -123,7 +123,25 @@ class CollectionRepository(BaseRepository):
     def delete_collection(self, collection_id: str) -> bool:
         with get_connection() as connection:
             row = connection.execute(
-                "UPDATE collections SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL",
-                (_utc_now(), _utc_now(), collection_id),
+                "DELETE FROM collections WHERE id = ?",
+                (collection_id,),
             )
         return row.rowcount > 0
+
+    def get_orphaned_documents(self, collection_id: str) -> list[str]:
+        with get_connection() as connection:
+            rows = connection.execute(
+                "SELECT document_id FROM document_collections WHERE collection_id = ?",
+                (collection_id,),
+            ).fetchall()
+            doc_ids = [row["document_id"] for row in rows]
+            
+            orphans = []
+            for doc_id in doc_ids:
+                cnt = connection.execute(
+                    "SELECT COUNT(*) as count FROM document_collections WHERE document_id = ? AND collection_id != ?",
+                    (doc_id, collection_id),
+                ).fetchone()["count"]
+                if cnt == 0:
+                    orphans.append(doc_id)
+            return orphans

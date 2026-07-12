@@ -1,32 +1,22 @@
-# RAG Pipeline — Anti-Patterns
+# Domain — Anti-Patterns
 
-> **Ownership:** Collaborative — skill-updated + user-maintained.
-> **Updated by:** `/context-memory` post-ship sync when a failure mode is observed during a completed feature.
+> Ownership: Collaborative — skill-updated + user-maintained.
+> Updated by: `/context-memory` post-ship sync when a failure mode is observed during a completed feature.
+> Read by: `/spec-plan`, `/harness-verify` to prevent known failure modes from recurring.
 
-## Bypassing the Safety Layer
+Known failure modes for this domain.
 
-**Why it fails:** A new query endpoint or direct LLM call that skips `safety.py` exposes the system to prompt injection, data exfiltration, and ungrounded output.
+## Bypassing Pre-generation Safety and Grounding Check
 
-**What to do instead:** Route all user input through `backend/chat/safety.py` before any processing. The safety check is the mandatory entry gate.
+Why it fails: Calling the OpenAI client directly or bypassing the safety/grounding validation steps can result in hallucinated or unsafe responses being delivered to the user, defeating the RAG constraints.
 
-**Citation:** `brownfield-map.md` records this as preserved behavior #1 (CRITICAL risk path).
-
----
-
-## Single-Strategy Retrieval Without Justification
-
-**Why it fails:** Using only BM25 or only vector search misses results the other strategy would find. The hybrid approach is the core differentiator.
-
-**What to do instead:** Default to hybrid search (BM25 + vector) via RRF fusion. Only use single-strategy retrieval when explicitly justified in the task spec (e.g., latency-critical paths where the accuracy tradeoff is understood).
-
-**Citation:** `brownfield-map.md` records this as preserved behavior #2.
+What to do instead: Always route LLM completions through the `StreamingOrchestrator` which systematically executes `safety_service.check_query` and `grounding_service.evaluate_evidence` before starting LLM text generation.
 
 ---
 
-## Mutating Streaming Output
+## Direct Database Manipulation in Route Handlers
 
-**Why it fails:** SSE streams send tokens one at a time. Attempting to edit or reformat the stream mid-flight breaks the frontend's incremental rendering.
+Why it fails: Directly executing raw SQL queries or DB connection management inside API endpoints without relying on established repository patterns leads to resource leakage (connections left unclosed) and duplicated queries.
 
-**What to do instead:** Complete the full generation, then apply post-processing (citation extraction, grounding checks) before persisting. The frontend receives raw streaming tokens and handles display formatting locally.
+What to do instead: Encapsulate database retrieval/commits inside dedicated service or repository modules, and use the `@contextmanager def get_connection()` connection manager for thread-safe access.
 
-**Citation:** `backend/chat/streaming.py` sends raw token events; frontend `XRayPanel` handles display formatting.

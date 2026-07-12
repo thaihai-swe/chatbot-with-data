@@ -27,3 +27,7 @@ These rules apply when work touches secrets, auth, shell execution, external inp
 
 - Security-relevant changes are not complete without fresh verification evidence.
 - If a change alters trust boundaries, update the matching docs and rules in the same change wave.
+
+### Principle
+
+More rules → more freedom. Constraints increase agent autonomy by making incorrect paths fail fast. Agents run freely within checked boundaries. When an agent hits a boundary, the fix is to either widen the boundary (if the action was correct) or keep it (if the action was wrong). See CC-013 for the one-rule-per-mistake loop.

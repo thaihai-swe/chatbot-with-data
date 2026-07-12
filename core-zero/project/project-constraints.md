@@ -9,7 +9,7 @@
 <!-- Measurable limits that must not be exceeded. -->
 
 | Metric | Budget | Measurement | Enforcement |
-|--------|--------|-------------|-------------|
+|-|-|-|-|
 | API response time (p95) | | | |
 | Page load time | | | |
 | Bundle size | | | |
@@ -21,7 +21,7 @@
 <!-- Regulatory or standards compliance that affects implementation. -->
 
 | Standard | Scope | Key Requirements | Verification |
-|----------|-------|-----------------|--------------|
+|-|-|-|-|
 | | | | |
 
 <!-- Examples: GDPR, SOC2, HIPAA, WCAG 2.1 AA, PCI-DSS -->
@@ -54,25 +54,29 @@
 <!-- Technologies and dependencies that are approved for use. -->
 
 | Category | Approved Options |
-|----------|-----------------|
-| Languages | |
-| Frameworks | |
-| Databases | |
-| Infrastructure | |
+|-|-|
+| Languages | Python 3.13, JavaScript (ESM/Node) |
+| Frameworks | FastAPI, React (Vite) |
+| Databases | SQLite, Weaviate |
+| Infrastructure | Docker Compose (local development) |
 
 ### Forbidden
 
 <!-- Technologies explicitly not allowed, with reason. -->
 
 | Technology | Reason |
-|------------|--------|
-| | |
+|-|-|
+| Inline secrets | Violates secret scanning policy. Environment variables must be loaded via dotenv. |
 
 ### Version Requirements
 
 <!-- Minimum versions or pinning requirements. -->
 
--
+- Python >= 3.10
+- Node.js >= 18
+- React ^18.3.1
+- Vite ^7.1.12
+- Weaviate server ^1.27.0
 
 ## Operational Constraints
 

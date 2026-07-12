@@ -17,7 +17,7 @@
 <!-- Who uses this product? List 2-4 personas with their goals and pain points. -->
 
 | Persona | Role | Primary Goal | Key Pain Point |
-|---------|------|--------------|----------------|
+|-|-|-|-|
 | | | | |
 | | | | |
 
@@ -26,7 +26,7 @@
 <!-- How do you measure whether this product is working? -->
 
 | Metric | Current | Target | Measurement Method |
-|--------|---------|--------|-------------------|
+|-|-|-|-|
 | | | | |
 | | | | |
 

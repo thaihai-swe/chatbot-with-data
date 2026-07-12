@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import collections
 import re
 import sys
 from pathlib import Path
@@ -12,6 +13,11 @@ if _PARENT not in sys.path:
 from core._lib.root import resolve_root
 from core._lib.token_counter import estimate_tokens, process_text
 from core._lib.yaml_reader import load as load_yaml
+from core.context_state import (
+    default_session_path,
+    load_session,
+    write_session,
+)
 
 
 class Scorer:
@@ -72,6 +78,7 @@ class BudgetTracker:
         self.hard = hard if hard is not None else 200000
         self.total = 0
         self.loaded = []
+        self.session_cache = {}  # Add session cache dictionary
 
     def check(self, filepath, tokens):
         new_total = self.total + tokens
@@ -84,6 +91,7 @@ class BudgetTracker:
     def add(self, filepath, tokens, score):
         self.loaded.append({"filepath": filepath, "tokens": tokens, "score": score})
         self.total += tokens
+        self.session_cache[filepath] = {"tokens": tokens, "score": score}  # Add to session cache
 
     def evict_to_budget(self):
         if self.total <= self.hard:
@@ -95,6 +103,8 @@ class BudgetTracker:
             self.total -= item["tokens"]
             evicted.append(item["filepath"])
             print(f"EVICTED: {item['filepath']} (score={item['score']}, tokens={item['tokens']})", file=sys.stderr)
+            if item["filepath"] in self.session_cache:
+                del self.session_cache[item["filepath"]]  # Remove from session cache
         return evicted
 
 
@@ -136,12 +146,6 @@ class Compressor:
             return text, original_tokens
         return compressed, compressed_tokens
 
-
-# Defaults; overridden by harness-config.yaml context: section when present.
-# ponytail: keyword scorer only; BM25/embeddings when multi-repo retrieval fails keyword recall
-DEFAULT_TIER_BOOST = {"Must": 40, "Should": 20, "Skip": 0}
-DEFAULT_SUMMARY_BUDGET = 800
-DEFAULT_PARTIAL_BUDGET = 1200
 
 PHASE_COLUMNS = {"spec": 1, "plan": 2, "implement": 3, "verify": 4}
 
@@ -276,10 +280,21 @@ def resolve_route(root, phase):
     """
     root = Path(root)
     master = root / "MASTER_INDEX.md"
-    if not master.exists():
-        return []
-    text = master.read_text(encoding="utf-8")
-    rows = parse_phase_matrix(text)
+    rows = []
+    if master.exists():
+        text = master.read_text(encoding="utf-8")
+        rows = parse_phase_matrix(text)
+    if not rows:
+        matrix = root / "references" / "phase-matrix.md"
+        if matrix.exists():
+            rows = parse_phase_matrix(matrix.read_text(encoding="utf-8"))
+    
+    # Merge adopter extension matrix if present (EC-005)
+    extend_file = root / "references" / "phase-matrix-extend.md"
+    if extend_file.exists():
+        extend_rows = parse_phase_matrix(extend_file.read_text(encoding="utf-8"))
+        rows.extend(extend_rows)
+
     indices = PHASE_TIER_IDX.get(phase.lower())
     if indices is None:
         return []
@@ -305,8 +320,319 @@ def resolve_route(root, phase):
     return results
 
 
+# Add DEFAULT values before PHASE_COLUMNS
+DEFAULT_TIER_BOOST = {"Must": 40, "Should": 20, "Skip": 0}
+DEFAULT_SUMMARY_BUDGET = 800
+DEFAULT_PARTIAL_BUDGET = 1200
+
+
+def _merge_context_entry(entries, path, tier, sections, reason):
+    key = str(Path(path).resolve())
+    existing = entries.get(key)
+    if existing:
+        existing["tier"] = "Must" if "Must" in (existing["tier"], tier) else tier
+        existing["sections"] = list(dict.fromkeys((existing.get("sections") or []) + (sections or []))) or None
+        existing["reason"] = f"{existing['reason']}; {reason}"
+        return
+    entries[key] = {
+        "path": Path(path), "tier": tier, "sections": sections or None, "reason": reason,
+    }
+
+
+class SimpleTFIDF:
+    def __init__(self):
+        self.doc_count = 0
+        self.df = collections.defaultdict(int)
+        self.docs = []
+        self.vocab = set()
+
+    def tokenize(self, text):
+        return re.findall(r"\b[a-z0-9_-]+\b", text.lower())
+
+    def add_document(self, doc_id, text):
+        tokens = self.tokenize(text)
+        tf = collections.defaultdict(int)
+        for t in tokens:
+            tf[t] += 1
+        total = len(tokens) or 1
+        normalized_tf = {t: count / total for t, count in tf.items()}
+        
+        self.docs.append({
+            "id": doc_id,
+            "tf": normalized_tf,
+            "tokens": set(tf.keys())
+        })
+        for t in tf.keys():
+            self.df[t] += 1
+        self.vocab.update(tf.keys())
+        self.doc_count += 1
+
+    def similarity(self, query):
+        query_tokens = self.tokenize(query)
+        if not query_tokens:
+            return []
+        
+        q_tf = collections.defaultdict(int)
+        for t in query_tokens:
+            q_tf[t] += 1
+        q_total = len(query_tokens) or 1
+        q_vec = {}
+        for t, count in q_tf.items():
+            if t in self.vocab:
+                import math
+                idf = math.log((1 + self.doc_count) / (1 + self.df[t])) + 1
+                q_vec[t] = (count / q_total) * idf
+        
+        results = []
+        for doc in self.docs:
+            dot_product = 0
+            doc_norm = 0
+            q_norm = sum(val * val for val in q_vec.values())
+            
+            doc_vec = {}
+            for t in doc["tokens"]:
+                import math
+                idf = math.log((1 + self.doc_count) / (1 + self.df[t])) + 1
+                doc_vec[t] = doc["tf"][t] * idf
+                doc_norm += doc_vec[t] * doc_vec[t]
+                
+            for t, val in q_vec.items():
+                if t in doc_vec:
+                    dot_product += val * doc_vec[t]
+            
+            denom = math.sqrt(q_norm * doc_norm)
+            score = (dot_product / denom) if denom > 0 else 0
+            results.append((doc["id"], score))
+            
+        return sorted(results, key=lambda x: -x[1])
+
+
+def parse_intent_keywords(root):
+    """Parse references/intent-keywords.md and return list of (intent_name, keywords, files)."""
+    root = Path(root)
+    file_path = root / "references" / "intent-keywords.md"
+    if not file_path.exists():
+        return []
+    
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except Exception:
+        return []
+    lines = content.split("\n")
+    
+    intents = []
+    current_intent = None
+    current_keywords = []
+    current_files = []
+    
+    for line in lines:
+        line_strip = line.strip()
+        if line_strip.startswith("## "):
+            if current_intent:
+                intents.append((current_intent, current_keywords, current_files))
+            current_intent = line_strip[3:].strip().lower()
+            if " intent" in current_intent:
+                current_intent = current_intent.replace(" intent", "").strip()
+            current_keywords = []
+            current_files = []
+        elif current_intent is not None:
+            if line_strip.lower().startswith("keywords:"):
+                k_line = line_strip[9:]
+                terms = re.findall(r"`([^`]+)`", k_line)
+                current_keywords.extend([t.lower() for t in terms])
+            else:
+                for m in re.finditer(r"`([^`]+)`", line_strip):
+                    val = m.group(1)
+                    if val.endswith(".md") or "telemetry" in val or "audit" in val:
+                        resolved = _path_for_source(val)
+                        if resolved:
+                            current_files.append(resolved)
+                    
+    if current_intent:
+        intents.append((current_intent, current_keywords, current_files))
+        
+    return intents
+
+
+def build_context_pack(root, phase="", intent="", feature="", budget=0):
+    """Plan a bounded context pack without printing or mutating source files."""
+    root = Path(root)
+    entries = {}
+    always = [
+        ("core-zero/memories/repo/core-policies.md", "Must", ["Purpose", "Normative Rules"], "runtime policy"),
+        ("core-zero/rules/caveman.md", "Must", None, "communication rule"),
+        ("core-zero/rules/headroom.md", "Must", None, "context rule"),
+        ("MASTER_INDEX.md", "Must", ["Purpose", "Phase-Based Loading", "Memory Router Summary"], "routing index"),
+    ]
+    for rel, tier, sections, reason in always:
+        _merge_context_entry(entries, root / rel, tier, sections, reason)
+
+    if phase:
+        for path, tier, sections in resolve_route(root, phase):
+            _merge_context_entry(entries, path, tier, sections, f"{phase} phase route")
+
+    words = set(re.findall(r"[a-z0-9_-]+", (intent or "").lower()))
+    def wants(*values):
+        return bool(words.intersection(values))
+
+    # Dynamic intent matching from references/intent-keywords.md
+    intents = parse_intent_keywords(root)
+    dynamic_match_count = 0
+    for intent_name, keywords, files in intents:
+        matched_kws = words.intersection(set(keywords))
+        dynamic_match_count += len(matched_kws)
+        if matched_kws:
+            for rel in files:
+                _merge_context_entry(entries, root / rel, "Should", None, f"dynamic {intent_name} intent: {', '.join(matched_kws)}")
+
+    # Hardcoded fallbacks/additional checks
+    if wants("implement", "verify", "debug", "failure", "heuristic", "maintain"):
+        _merge_context_entry(entries, root / "core-zero/memories/repo/learned-heuristics.md", "Should", None, "implementation or diagnostic intent")
+    if wants("session-end", "memory-sync", "extract") and feature:
+        _merge_context_entry(entries, root / "artifacts/features" / feature / "session-extracts.md", "Should", None, "explicit memory-sync intent")
+    if feature:
+        _merge_context_entry(entries, root / "artifacts/features" / feature / "status.md", "Must", None, "active feature status")
+
+    # Optional local vector index semantic search over learned-heuristics.md, harness-telemetry.md, project-knowledge-base.md
+    if intent and dynamic_match_count < 3:
+        tfidf = SimpleTFIDF()
+        indexed_files = [
+            "core-zero/memories/repo/learned-heuristics.md",
+            "core-zero/memories/repo/harness-telemetry.md",
+            "core-zero/memories/repo/project-knowledge-base.md"
+        ]
+        has_index = False
+        for rel in indexed_files:
+            p = root / rel
+            if p.exists():
+                try:
+                    text = p.read_text(encoding="utf-8", errors="replace")
+                    tfidf.add_document(rel, text)
+                    has_index = True
+                except Exception:
+                    pass
+        if has_index:
+            sims = tfidf.similarity(intent)
+            for rel, score in sims:
+                if score > 0.15:
+                    _merge_context_entry(entries, root / rel, "Should", None, f"semantic match: {score:.2f}")
+
+    # Domain pack auto-discovery (EM-003)
+    domain_dir = root / "core-zero/memories/domain"
+    if domain_dir.exists():
+        for d in domain_dir.iterdir():
+            if d.is_dir():
+                glossary_file = d / "glossary.md"
+                if glossary_file.exists():
+                    triggers = []
+                    try:
+                        content = glossary_file.read_text(encoding="utf-8")
+                        m = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
+                        if m:
+                            for line in m.group(1).split("\n"):
+                                if line.strip().startswith("triggers:"):
+                                    val = line.split(":", 1)[1].strip()
+                                    if val.startswith("[") and val.endswith("]"):
+                                        triggers = [t.strip().strip("'\"") for t in val[1:-1].split(",") if t.strip()]
+                                    else:
+                                        triggers = [val]
+                                    break
+                    except Exception:
+                        pass
+                    
+                    matched = False
+                    for t in triggers:
+                        if t.lower() in (intent or "").lower():
+                            matched = True
+                            break
+                    if matched:
+                        for sub_f in ["glossary.md", "patterns.md", "anti-patterns.md", "boundaries.md"]:
+                            target_p = d / sub_f
+                            if target_p.exists():
+                                _merge_context_entry(entries, target_p, "Should", None, f"domain pack trigger matched: {d.name}")
+
+    # Budget-aware sorting (EC-002)
+    always_paths = {str(Path(root / rel).resolve()) for rel, _, _, _ in always}
+    scorer = Scorer([intent] if intent else [])
+    items_to_sort = []
+    tier_priority_map = {"Must": 2, "Should": 1}
+
+    for key, item in entries.items():
+        path_str = str(item["path"].resolve())
+        is_always = path_str in always_paths
+        tier = item["tier"]
+        tier_priority = tier_priority_map.get(tier, 0)
+        score = scorer.score(path_str, base_score=DEFAULT_TIER_BOOST.get(tier, 0))
+        
+        is_partial = False
+        if not is_always and intent and item["path"].exists():
+            try:
+                text_lower = item["path"].read_text(encoding="utf-8", errors="replace").lower()
+                intent_words = re.findall(r"[a-z0-9_-]+", intent.lower())
+                matches = 0
+                for w in intent_words:
+                    if re.search(r"\b" + re.escape(w) + r"\b", text_lower):
+                        matches += 1
+                if 1 <= matches <= 2:
+                    is_partial = True
+            except Exception:
+                pass
+
+        tokens = 0
+        if item["path"].exists():
+            try:
+                text = item["path"].read_text(encoding="utf-8", errors="replace")
+                if item["sections"]:
+                    text = "\n\n".join(extract_section(text, sec) or "" for sec in item["sections"])
+                elif is_partial:
+                    lines = text.split("\n")
+                    headers = [line for line in lines if line.startswith("#")]
+                    first_lines = lines[:30]
+                    text = "\n".join(headers[:10]) + "\n\n[... TRUNCATED DUE TO LOW CONFIDENCE INTENT MATCH ...]\n\n" + "\n".join(first_lines)
+                tokens = estimate_tokens(text)
+            except Exception:
+                tokens = 999999
+        else:
+            tokens = 999999
+            
+        items_to_sort.append({
+            "item": item,
+            "is_always": is_always,
+            "tier_priority": tier_priority,
+            "score": score,
+            "tokens": tokens,
+            "is_partial": is_partial
+        })
+
+    # Sort always-group first, then highest tier priority, then highest score, then smallest token count
+    items_to_sort.sort(key=lambda x: (not x["is_always"], -x["tier_priority"], -x["score"], x["tokens"]))
+
+    selected, omitted, total = [], [], 0
+    for x in items_to_sort:
+        item = x["item"]
+        path = item["path"]
+        if not path.exists():
+            omitted.append({"path": str(path.relative_to(root)), "reason": "missing"})
+            continue
+        tokens = x["tokens"]
+        if budget and total + tokens > budget:
+            omitted.append({"path": str(path.relative_to(root)), "reason": "budget exceeded", "tokens": tokens})
+            continue
+        selected.append({
+            "path": str(path.relative_to(root)),
+            "sections": item["sections"],
+            "tier": item["tier"],
+            "reason": item["reason"],
+            "tokens": tokens,
+            "partial": x["is_partial"]
+        })
+        total += tokens
+    return {"selected": selected, "omitted": omitted, "estimated_tokens": total, "budget": budget or None}
+
+
 class ContextEngine:
-    def __init__(self, root, intent="", budget=0, mode="full"):
+    def __init__(self, root, intent="", budget=0, mode="full", feature="", phase="", task="",
+                 session_path=""):
         self.root = resolve_root(root)
         self.intent = intent
         self.budget = budget
@@ -319,6 +645,48 @@ class ContextEngine:
         self.budget_tracker = BudgetTracker()
         self.compressor = Compressor()
         self.tier_map = {}
+        self.feature = feature
+        self.phase = phase
+        self.task = task
+        self.session_path = Path(session_path) if session_path else (
+            default_session_path(self.root, feature) if self.root else None
+        )
+        self.session_state = {}
+        if self.session_path and self.session_path.exists():
+            try:
+                self.session_state = load_session(self.session_path)["metadata"]
+            except ValueError:
+                self.session_state = {}
+        self.context = {
+            "loaded_count": 0,
+            "omitted_count": 0,
+            "total_tokens": 0,
+            "warnings": [],
+        }
+        self.always_paths = set()
+        if self.root:
+            self.always_paths = {
+                str((Path(self.root) / "core-zero/memories/repo/core-policies.md").resolve()),
+                str((Path(self.root) / "core-zero/rules/caveman.md").resolve()),
+                str((Path(self.root) / "core-zero/rules/headroom.md").resolve()),
+                str((Path(self.root) / "MASTER_INDEX.md").resolve())
+            }
+        self.session_metadata = {
+            "feature": feature or None,
+            "phase": phase or None,
+            "task": task or None,
+            "intent": intent,
+            "mode": mode,
+            "budget": budget or None,
+        }
+
+    def _record_omitted(self, filepath, reason):
+        self.context["omitted_count"] += 1
+        self.context["warnings"].append(f"Omitted {filepath}: {reason}")
+
+    def _record_loaded(self, tokens):
+        self.context["loaded_count"] += 1
+        self.context["total_tokens"] += tokens
 
     def set_tier(self, filepath, tier):
         self.tier_map[str(Path(filepath).resolve())] = tier
@@ -337,10 +705,10 @@ class ContextEngine:
         fp = Path(filepath)
         if not fp.exists():
             print(f"ERROR: File not found: {fp}", file=sys.stderr)
+            self._record_omitted(fp, "missing")
             return
         base = self._get_base_score(str(fp))
         score = self.scorer.score(str(fp), base_score=base)
-
         if sections:
             text = fp.read_text(encoding="utf-8")
             parts = []
@@ -355,34 +723,60 @@ class ContextEngine:
             ok, msg = self.budget_tracker.check(str(fp), tok)
             if not ok:
                 print(msg, file=sys.stderr)
+                self._record_omitted(fp, "budget exceeded")
                 return
             self.budget_tracker.add(str(fp), tok, score)
+            self._record_loaded(tok)
             print(output)
             return
 
-        tokens = estimate_tokens(fp.read_text(encoding="utf-8"))
+        is_always = str(fp.resolve()) in self.always_paths
+        is_partial_load = False
+        if not is_always and self.intent:
+            try:
+                text_lower = fp.read_text(encoding="utf-8", errors="replace").lower()
+                intent_words = re.findall(r"[a-z0-9_-]+", self.intent.lower())
+                matches = 0
+                for w in intent_words:
+                    if re.search(r"\b" + re.escape(w) + r"\b", text_lower):
+                        matches += 1
+                if 1 <= matches <= 2:
+                    is_partial_load = True
+            except Exception:
+                pass
+
+        text = fp.read_text(encoding="utf-8", errors="replace")
+        if is_partial_load or self.mode == "partial":
+            lines = text.split("\n")
+            headers = [line for line in lines if line.startswith("#")]
+            first_lines = lines[:30]
+            output = "\n".join(headers[:10]) + "\n\n[... TRUNCATED DUE TO LOW CONFIDENCE INTENT MATCH ...]\n\n" + "\n".join(first_lines)
+            tokens = estimate_tokens(output)
+        elif self.mode == "summary":
+            output, _ = process_text(text, self.summary_budget, mode="summary")
+            tokens = estimate_tokens(output)
+        elif self.mode == "compress":
+            output, _ = self.compressor.compress(str(fp))
+            tokens = estimate_tokens(output)
+        else:
+            output = text
+            tokens = estimate_tokens(text)
+
         ok, msg = self.budget_tracker.check(str(fp), tokens)
         if not ok:
             print(msg, file=sys.stderr)
+            self._record_omitted(fp, "budget exceeded")
             return
         self.budget_tracker.add(str(fp), tokens, score)
+        self._record_loaded(tokens)
         if self.mode == "scored":
             tier_tag = f" [{self.tier_map.get(str(Path(filepath).resolve()), '?')}]" if self.tier_map else ""
             print(f"[score={score}]{tier_tag} {fp}")
             return
-        if self.mode == "summary":
-            text = fp.read_text(encoding="utf-8")
-            result, _ = process_text(text, self.summary_budget, mode="summary")
-            print(result)
-        elif self.mode == "partial":
-            text = fp.read_text(encoding="utf-8")
-            result, _ = process_text(text, self.partial_budget, mode="partial")
-            print(result)
-        elif self.mode == "compress":
-            result, _ = self.compressor.compress(str(fp))
-            print(result)
-        else:
-            print(fp.read_text(encoding="utf-8"), end="")
+
+        print(output, end="")
+        if not output.endswith("\n"):
+            print()
 
     def run(self, files):
         for fp in files:
@@ -392,6 +786,38 @@ class ContextEngine:
             evicted = self.budget_tracker.evict_to_budget()
             if evicted:
                 print(f"Evicted {len(evicted)} files to meet budget", file=sys.stderr)
+
+    def write_session(self, objective="", next_action="", blockers=None, decisions=None,
+                      current_state=None):
+        if not self.session_path:
+            return None
+        previous = self.session_state
+        metadata = dict(previous)
+        metadata.update(self.session_metadata)
+        metadata["objective"] = objective or previous.get("objective", "")
+        metadata["next_action"] = next_action or previous.get("next_action") or "Resume from the latest session"
+        metadata["blockers"] = blockers if blockers is not None else previous.get("blockers", [])
+        metadata["decisions"] = decisions if decisions is not None else previous.get("decisions", [])
+        metadata["repository_state"] = current_state or previous.get("repository_state", {})
+        metadata["loaded_count"] = self.context["loaded_count"]
+        metadata["omitted_count"] = self.context["omitted_count"]
+        metadata["total_tokens"] = self.context["total_tokens"]
+        metadata["warnings"] = list(self.context["warnings"])
+        write_session(self.session_path, metadata, self.context)
+        self.session_state = metadata
+        return self.session_path
+
+    def resume(self):
+        session = load_session(self.session_path)
+        if session:
+            self.session_state = session["metadata"]
+            self.feature = self.feature or self.session_state.get("feature", "")
+            self.phase = self.phase or self.session_state.get("phase", "")
+            self.task = self.task or self.session_state.get("task", "")
+            self.session_metadata["feature"] = self.feature or None
+            self.session_metadata["phase"] = self.phase or None
+            self.session_metadata["task"] = self.task or None
+        return self.session_state or None
 
     def run_route(self, phase, mode="full"):
         """Load files dictated by Phase×Guidance Matrix for the given phase."""
@@ -419,26 +845,51 @@ class ContextEngine:
                 print(f"Evicted {len(evicted)} files to meet budget", file=sys.stderr)
 
     def run_session_start(self, phase=None, mode="summary"):
-        """Load Always-group files + optional phase matrix route.
-
-        Always paths are hardcoded to match MASTER_INDEX.md § Always.
-        Phase route is optional (spec/plan/implement/verify).
-        """
+        """Load the bounded runtime pack and optional phase-specific sections."""
         if not self.root:
             return
-        always = [
+        if self.budget > 0:
+            self.budget_tracker.hard = self.budget
+
+        # EM-001: Automatic memory compaction trigger pre-flight check
+        memory_files = [
             "core-zero/memories/repo/core-policies.md",
-            "core-zero/rules/caveman.md",
-            "core-zero/rules/headroom.md",
-            "MASTER_INDEX.md",
+            "core-zero/memories/repo/learned-heuristics.md",
+            "core-zero/memories/repo/project-knowledge-base.md",
+            "core-zero/memories/repo/harness-config.md",
+            "core-zero/memories/repo/adr-log.md",
         ]
-        for rel in always:
+        breach_lines = 200
+        try:
+            cfg_path = Path(self.root) / "core-zero/project/harness-config.yaml"
+            if cfg_path.exists():
+                cfg_data = load_yaml(str(cfg_path))
+                if cfg_data and "thresholds" in cfg_data:
+                    breach_lines = int(cfg_data["thresholds"].get("memory_breach_lines", 200))
+        except Exception:
+            pass
+
+        for rel in memory_files:
             fp = Path(self.root) / rel
             if fp.exists():
-                self.set_tier(str(fp), "Must")
-                self.process_file(str(fp))
-        if phase:
-            self.run_route(phase, mode=mode)
+                try:
+                    line_count = len(fp.read_text(encoding="utf-8").splitlines())
+                    if line_count > breach_lines:
+                        print(f"WARN: memory file '{rel}' is at {line_count} lines — compaction overdue! Please run: scripts/corezero memory-audit", file=sys.stderr)
+                except Exception:
+                    pass
+
+        pack = build_context_pack(
+            self.root, phase=phase or "", intent=self.intent,
+            feature=self.feature, budget=self.budget,
+        )
+        root = Path(self.root)
+        for item in pack["selected"]:
+            fp = root / item["path"]
+            self.set_tier(str(fp), item["tier"])
+            self.process_file(str(fp), sections=item["sections"])
+        for item in pack["omitted"]:
+            self._record_omitted(root / item["path"], item["reason"])
 
 
 def main():
@@ -454,14 +905,23 @@ def main():
                         help="Load only the named ## H2 section (case-insensitive); for use with --route or file arguments")
     parser.add_argument("--session-start", action="store_true",
                         help="Load Always-group files (+ optional --route phase matrix)")
+    parser.add_argument("--feature", default="", help="Feature slug for session state")
+    parser.add_argument("--task", default="", help="Active task ID")
+    parser.add_argument("--session", default="", help="Explicit session.md path")
+    parser.add_argument("--resume", action="store_true", help="Load the latest session.md state")
     parser.add_argument("files", nargs="*", help="Files to process")
     args = parser.parse_args()
 
-    engine = ContextEngine(args.root, args.intent, args.budget, args.mode)
+    engine = ContextEngine(args.root, args.intent, args.budget, args.mode,
+                           feature=args.feature, phase=args.route, task=args.task,
+                           session_path=args.session)
+    if args.resume:
+        engine.resume()
     if args.session_start:
         mode = args.mode if args.mode != "full" else "summary"
         engine.mode = mode
         engine.run_session_start(phase=args.route or None, mode=mode)
+        engine.write_session()
         return
     if args.route:
         engine.run_route(args.route, args.mode)
@@ -471,6 +931,7 @@ def main():
                 engine.process_file(fp, sections=[args.section])
         else:
             engine.run(args.files)
+    engine.write_session()
 
 
 if __name__ == "__main__":

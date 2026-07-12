@@ -243,6 +243,10 @@ class DocumentRepository(BaseRepository):
 
     def delete_document(self, document_id: str) -> bool:
         with get_connection() as connection:
+            connection.execute(
+                "UPDATE documents SET version_of_document_id = NULL WHERE version_of_document_id = ?",
+                (document_id,),
+            )
             row = connection.execute("DELETE FROM documents WHERE id = ?", (document_id,))
             if row.rowcount:
                 self._create_lifecycle_event(

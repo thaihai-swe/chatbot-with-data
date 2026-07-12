@@ -79,6 +79,33 @@ enough reason to fix it even when the local code "works."
 - MUST NOT add a wrapper "in case" callers later need to extend it.
   Add the wrapper when the second caller arrives.
 
+## Deep modules
+
+A deep module hides a lot of behavior behind a small interface. Depth =
+(behavior hidden) ÷ (interface exposed). Reach for depth when a subsystem is
+touched by many callers that each rebuild the same incidental detail, or when
+a handful of operations capture what callers actually need (e.g. `enqueue` /
+`drain` / `close` over a raw queue). Avoid depth when the module only forwards
+calls to one underlying thing (that's a wrapper, not depth), when its interface
+is a renaming exercise (callers still need the underlying API), or when the code
+is small enough that hiding it costs more in indirection than it saves in
+cognition. Reference: John Ousterhout, *A Philosophy of Software Design*.
+
+## Deletion test
+
+Before adding or keeping an abstraction layer, ask: if I deleted this module,
+would the complexity disappear, or just move?
+
+- Disappears (or shrinks): the abstraction was earning its keep. Keep it.
+- Moves to callers, ~unchanged in total: the module was a renaming exercise.
+  Each caller now does the same work the module did. Delete it.
+- Concentrates in one caller: probably fine — that caller is the only real
+  consumer, and the abstraction was speculative. Collapse it.
+
+The test is a heuristic, not a proof. If you cannot tell whether deletion
+would shrink or just move complexity, that uncertainty is itself a signal —
+usually that the layer is shallow.
+
 ## Specification and behavior are one artifact
 
 - MUST keep schemas, doc comments, and config descriptions in lockstep
